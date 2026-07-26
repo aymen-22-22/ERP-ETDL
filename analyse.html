@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP SaaS — Complete Project Analysis</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --surface: #1a1d2e; --surface2: #232738;
+    --border: #2a2e3f; --primary: #818cf8; --primary-dim: #6366f1;
+    --accent: #34d399; --warn: #fbbf24; --danger: #f87171;
+    --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--font);
+    line-height: 1.6; padding: 2rem;
+  }
+  .container { max-width: 1280px; margin: 0 auto; }
+
+  /* Header */
+  header {
+    text-align: center; padding: 3rem 1rem 2rem;
+    border-bottom: 1px solid var(--border); margin-bottom: 3rem;
+  }
+  header h1 { font-size: 2.5rem; font-weight: 800; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  header .subtitle { color: var(--text2); font-size: 1.1rem; margin-top: 0.5rem; }
+  header .badge-row { margin-top: 1rem; display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; }
+  .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+
+  /* Grid */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+
+  /* Cards */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.5rem; transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--primary-dim); }
+  .card h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+  .card h2 .icon { width: 1.25rem; height: 1.25rem; }
+  .card h3 { font-size: 0.95rem; font-weight: 600; margin: 1rem 0 0.5rem; color: var(--accent); }
+  .card p, .card li { color: var(--text2); font-size: 0.9rem; }
+  .card ul { list-style: none; padding: 0; }
+  .card ul li { padding: 0.25rem 0; padding-left: 1rem; position: relative; }
+  .card ul li::before { content: '>'; position: absolute; left: 0; color: var(--primary); font-weight: 700; }
+  .card hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+  .full { grid-column: 1 / -1; }
+
+  /* Code blocks */
+  code, pre { font-family: var(--mono); font-size: 0.82rem; }
+  pre {
+    background: #0a0c16; border: 1px solid var(--border); border-radius: 8px;
+    padding: 1rem; overflow-x: auto; color: var(--text); line-height: 1.5;
+  }
+  pre .kw { color: var(--primary); }
+  pre .str { color: var(--accent); }
+  pre .cm { color: var(--text3); font-style: italic; }
+  pre .fn { color: var(--warning); }
+  pre .tp { color: #f472b6; }
+
+  /* Tree view */
+  .tree { font-family: var(--mono); font-size: 0.82rem; line-height: 1.7; color: var(--text2); }
+  .tree .dir { color: var(--primary); font-weight: 600; }
+  .tree .file { color: var(--text); }
+  .tree .desc { color: var(--text3); font-size: 0.78rem; }
+  .tree .indent { padding-left: 1.5rem; }
+  .tree .indent2 { padding-left: 3rem; }
+  .tree .indent3 { padding-left: 4.5rem; }
+
+  /* Flow arrows */
+  .flow { display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 1rem; }
+  .flow .step {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.6rem 1rem; text-align: center; font-size: 0.8rem; min-width: 100px;
+  }
+  .flow .step .label { color: var(--text3); font-size: 0.7rem; }
+  .flow .step .val { color: var(--text); font-weight: 600; }
+  .flow .arrow { color: var(--text3); font-size: 1.2rem; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { text-align: left; padding: 0.5rem 0.75rem; color: var(--text3); font-weight: 600; border-bottom: 1px solid var(--border); }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text2); }
+  tr:hover td { background: rgba(99,102,241,0.05); }
+
+  /* Section titles */
+  .section-title {
+    font-size: 1.5rem; font-weight: 700; margin: 2.5rem 0 1.5rem;
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .section-title .divider { flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
+
+  /* Colors */
+  .color-primary { color: var(--primary); }
+  .color-accent { color: var(--accent); }
+  .color-warn { color: var(--warn); }
+  .color-danger { color: var(--danger); }
+  .bg-primary { background: rgba(129,140,248,0.1); border-left: 3px solid var(--primary); padding-left: 1rem; }
+
+  /* Responsive */
+  @media (max-width: 900px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { body { padding: 1rem; } header h1 { font-size: 1.8rem; } }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 1px solid var(--border); }
+  .tab-btn { padding: 0.6rem 1.2rem; font-size: 0.85rem; font-weight: 600; background: transparent; border: none; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; font-family: var(--font); }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Architecture diagram */
+  .arch-grid { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 0.5rem; align-items: center; margin: 1rem 0; }
+  .arch-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem; text-align: center; }
+  .arch-box h4 { font-size: 0.85rem; font-weight: 600; color: var(--primary); }
+  .arch-box p { font-size: 0.75rem; color: var(--text3); }
+  .arch-arrow { color: var(--text3); text-align: center; font-size: 1.2rem; }
+
+  /* Callout */
+  .callout { border-radius: 8px; padding: 1rem; margin: 1rem 0; font-size: 0.9rem; }
+  .callout.info { background: rgba(129,140,248,0.08); border-left: 3px solid var(--primary); }
+  .callout.warn { background: rgba(251,191,36,0.08); border-left: 3px solid var(--warn); }
+  .callout.danger { background: rgba(248,113,113,0.08); border-left: 3px solid var(--danger); }
+  .callout strong { color: var(--text); }
+
+  /* Highlight numbers */
+  .stat { text-align: center; padding: 1rem; }
+  .stat .num { font-size: 2rem; font-weight: 800; }
+  .stat .num.py { color: var(--primary); }
+  .stat .num.ts { color: var(--accent); }
+  .stat .num.yellow { color: var(--warn); }
+  .stat .label { color: var(--text3); font-size: 0.85rem; margin-top: 0.25rem; }
+
+  .db-schema { font-family: var(--mono); font-size: 0.8rem; }
+  .db-schema .table-name { color: var(--accent); font-weight: 700; }
+  .db-schema .col { color: var(--text2); }
+  .db-schema .pk { color: var(--warn); }
+  .db-schema .fk { color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- HEADER -->
+<header>
+  <h1>ERP SaaS &mdash; Project Analysis</h1>
+  <p class="subtitle">Multi-tenant ERP for small and medium businesses &middot; Offline-first PWA &middot; Modular monolith</p>
+  <div class="badge-row">
+    <span class="badge">Python 3.13+</span>
+    <span class="badge">FastAPI</span>
+    <span class="badge">React 19</span>
+    <span class="badge">TypeScript 6</span>
+    <span class="badge">PostgreSQL</span>
+    <span class="badge">PWA</span>
+    <span class="badge">Offline-first</span>
+    <span class="badge">Docker</span>
+  </div>
+</header>
+
+<!-- STATS ROW -->
+<div class="grid-4">
+  <div class="card stat">
+    <div class="num py">57</div>
+    <div class="label">Backend Python Files</div>
+  </div>
+  <div class="card stat">
+    <div class="num ts">48</div>
+    <div class="label">Frontend TS/TSX Files</div>
+  </div>
+  <div class="card stat">
+    <div class="num yellow">16</div>
+    <div class="label">Database Tables</div>
+  </div>
+  <div class="card stat">
+    <div class="num" style="color:var(--danger)">3</div>
+    <div class="label">Layers (DB &rarr; API &rarr; UI)</div>
+  </div>
+</div>
+
+<!-- SECTION 1: HIGH-LEVEL ARCHITECTURE -->
+<h2 class="section-title">High-Level Architecture <span class="divider"></span></h2>
+
+<div class="grid-2">
+  <div class="card">
+    <h2><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg> Backend &mdash; Modular Monolith</h2>
+    <p><strong>FastAPI</strong> application with clear feature modules under <code>app/</code>. Cross-cutting shared code lives in <code>app/shared/</code>. Every module follows the same pattern:</p>
+    <ul>
+      <li><code>models.py</code> &mdash; SQLAlchemy ORM models</li>
+      <li><code>schemas.py</code> &mdash; Pydantic request/response schemas</li>
+      <li><code>repository.py</code> &mdash; Data access layer</li>
+      <li><code>service.py</code> &mdash; Business logic</li>
+      <li><code>router.py</code> &mdash; API route definitions</li>
+    </ul>
+    <hr>
+    <p><strong>Key architectural decisions:</strong></p>
+    <ul>
+      <li>Postgres Row-Level Security for tenant isolation</li>
+      <li>Append-only <code>ChangeLog</code> ledger for all syncable writes</li>
+      <li>Async everywhere (asyncpg + SQLAlchemy async)</li>
+      <li>JWT auth with refresh token rotation</li>
+      <li>Dual entity hierarchy: <code>SyncableMixin</code> vs <code>AuditMixin</code></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg> Frontend &mdash; React PWA</h2>
+    <p><strong>React 19</strong> single-page application with offline-first architecture:</p>
+    <ul>
+      <li>React Router 8 for client-side routing</li>
+      <li>Zustand for auth state (in-memory only)</li>
+      <li>TanStack Query for mutation lifecycle</li>
+      <li>Dexie.js (IndexedDB) for offline local cache</li>
+      <li>Tailwind CSS 4 + Radix UI primitives</li>
+      <li>Vite + vite-plugin-pwa + Workbox</li>
+      <li>Zod + react-hook-form for form validation</li>
+    </ul>
+    <hr>
+    <p><strong>Offline architecture:</strong> Reads from IndexedDB (Dexie), writes enqueue to a local mutation queue, which drains to the server when online. The server is always the source of truth.</p>
+  </div>
+</div>
+
+<!-- ARCHITECTURE FLOW DIAGRAM -->
+<div class="card full">
+  <h2><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Data Flow Architecture</h2>
+  <div style="overflow-x:auto">
+    <pre style="text-align:center; line-height:2.2; font-size:0.85rem; background:transparent; border:none; padding:0;">
+<span style="color:var(--warn)">[Browser/PWA]</span>
+     &#9474;
+     &#9474; fetch() / apiFetch()
+     &#9474;
+<span style="color:var(--primary)">[Vite Dev Server]</span> <span style="color:var(--text3)">or</span> <span style="color:var(--accent)">[Nginx / CDN]</span>
+     &#9474;
+     &#9474; HTTP requests
+     &#9500;&#9472;&#9472;&#9472;&#9472;&#9500;&#9472;&#9472; <span style="color:var(--warn)">POST /api/v1/auth/*</span>  &#8594; <span style="color:var(--primary)">AuthRouter</span>
+     &#9474;            &#9500;&#9472;&#9472; <span style="color:var(--warn)">/api/v1/products/*</span>  &#8594; <span style="color:var(--primary)">ProductsRouter</span>
+     &#9474;            &#9500;&#9472;&#9472; <span style="color:var(--warn)">/api/v1/inventory/*</span> &#8594; <span style="color:var(--primary)">InventoryRouter</span>
+     &#9474;            &#9500;&#9472;&#9472; <span style="color:var(--warn)">/api/v1/categories/*</span> &#8594; <span style="color:var(--primary)">CatalogRouter</span>
+     &#9474;            &#9492;&#9472;&#9472; <span style="color:var(--warn)">/api/v1/sync/*</span>    &#8594; <span style="color:var(--danger)">SyncRouter</span>
+     &#9474;
+<span style="color:var(--primary)">[FastAPI Application]</span>
+     &#9474;
+     &#9500;&#9472;&#9472; <span style="color:var(--accent)">AuthMiddleware</span> (JWT validation)
+     &#9500;&#9472;&#9472; <span style="color:var(--accent)">TenantMiddleware</span> (RLS tenant_id)
+     &#9500;&#9472;&#9472; <span style="color:var(--accent)">RateLimiter</span> (Redis)
+     &#9500;&#9472;&#9472; <span style="color:var(--accent)">Dependency Injection</span> (get_db / get_tenant_db)
+     &#9492;&#9472;&#9472; <span style="color:var(--accent)">Exception Handlers</span>
+     &#9474;
+<span style="color:var(--accent)">[PostgreSQL]</span>
+  &#9500;&#9472;&#9472; <span style="color:var(--text3)">tenants / users / roles / permissions</span>
+  &#9500;&#9472;&#9472; <span style="color:var(--text3)">products / categories / brands / units / tags</span>
+  &#9500;&#9472;&#9472; <span style="color:var(--text3)">inventory_movements / product_stock_snapshots</span>
+  &#9492;&#9472;&#9472; <span style="color:var(--danger)">change_log</span> (append-only sync ledger)
+
+     &#9474;
+<span style="color:var(--warn)">[Redis]</span>
+  &#9500;&#9472;&#9472; <span style="color:var(--text3)">Rate limiting counters</span>
+  &#9492;&#9472;&#9472; <span style="color:var(--text3)">Future: caching / Celery broker</span>
+    </pre>
+  </div>
+</div>
+
+<!-- SECTION 2: FILE DIRECTORY MAPPING -->
+<h2 class="section-title">File Directory Mapping <span class="divider"></span></h2>
+
+<div class="card full">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(event, 'tab-backend')">Backend</button>
+    <button class="tab-btn" onclick="switchTab(event, 'tab-frontend')">Frontend</button>
+    <button class="tab-btn" onclick="switchTab(event, 'tab-root')">Root</button>
+  </div>
+
+  <!-- BACKEND TAB -->
+  <div id="tab-backend" class="tab-content active" style="padding-top:1rem;">
+    <div class="tree">
+<span class="dir">backend/</span>
+<span class="dir indent">app/</span>
+<span class="dir indent2">__init__.py</span>
+<span class="file indent2">main.py</span>            <span class="desc">-- FastAPI app factory, CORS, lifespan, health endpoints</span>
+<span class="file indent2">models.py</span>          <span class="desc">-- Aggregated ORM model imports (populates Base.metadata)</span>
+<span class="file indent2">api_v1.py</span>          <span class="desc">-- Top-level /api/v1 router, aggregates all sub-routers</span>
+
+<span class="dir indent2">shared/</span>             <span class="desc">-- Cross-cutting infrastructure</span>
+<span class="dir indent3">core/</span>
+<span class="file indent3">  config.py</span>       <span class="desc">-- Pydantic Settings (env vars, DB URLs, JWT config)</span>
+<span class="file indent3">  security.py</span>     <span class="desc">-- Password hashing (Argon2), JWT create/decode, refresh tokens</span>
+<span class="file indent3">  tenant.py</span>       <span class="desc">-- get_current_tenant_id dependency (from JWT claim)</span>
+<span class="file indent3">  exceptions.py</span>   <span class="desc">-- AppError hierarchy + FastAPI exception handlers</span>
+<span class="file indent3">  envelope.py</span>     <span class="desc">-- ResponseEnvelope[T] &amp; PaginatedEnvelope[T] wrappers</span>
+<span class="file indent3">  pagination.py</span>   <span class="desc">-- PageParams &amp; PaginationMeta models</span>
+<span class="file indent3">  ids.py</span>          <span class="desc">-- UUIDv7 generator (time-ordered UUIDs)</span>
+<span class="file indent3">  logging.py</span>      <span class="desc">-- structlog configuration (JSON / console)</span>
+<span class="file indent3">  redis.py</span>        <span class="desc">-- Redis async client singleton</span>
+<span class="file indent3">  rate_limit.py</span>   <span class="desc">-- Fixed-window rate limiter (login endpoint)</span>
+<span class="dir indent3">database/</span>
+<span class="file indent3">  session.py</span>      <span class="desc">-- Async engine, session factory, Base, get_db / get_tenant_db</span>
+<span class="file indent3">  mixins.py</span>       <span class="desc">-- TimestampMixin, SoftDeleteMixin, SyncableMixin, AuditMixin</span>
+<span class="file indent3">  repository.py</span>   <span class="desc">-- BaseRepository (generic pagination/list/get)</span>
+
+<span class="dir indent2">auth/</span>                <span class="desc">-- Authentication &amp; authorization module</span>
+<span class="file indent3">  models.py</span>       <span class="desc">-- RefreshToken ORM model</span>
+<span class="file indent3">  schemas.py</span>      <span class="desc">-- Login/Register/Refresh/Logout request &amp; TokenResponse</span>
+<span class="file indent3">  repository.py</span>   <span class="desc">-- AuthRepository (user lookup, token CRUD)</span>
+<span class="file indent3">  service.py</span>      <span class="desc">-- register / login / refresh / logout business logic</span>
+<span class="file indent3">  router.py</span>       <span class="desc">-- POST /auth/register, /login, /refresh, /logout</span>
+<span class="file indent3">  dependencies.py</span> <span class="desc">-- get_current_user, require_permission(code) factory</span>
+
+<span class="dir indent2">products/</span>            <span class="desc">-- Product &amp; catalog management</span>
+<span class="file indent3">  models.py</span>       <span class="desc">-- Product, ProductVariant, Category, Brand, Unit, Tag, etc.</span>
+<span class="file indent3">  schemas.py</span>      <span class="desc">-- ProductCreate/Update/Read, ProductQuery, ProductSort</span>
+<span class="file indent3">  repository.py</span>   <span class="desc">-- ProductRepository (SyncableRepository impl + list_by_tenant)</span>
+<span class="file indent3">  service.py</span>      <span class="desc">-- CRUD ops, foreign-key validation, creates MutationEnvelopes</span>
+<span class="file indent3">  router.py</span>       <span class="desc">-- REST endpoints for products</span>
+<span class="file indent3">  catalog_router.py</span> <span class="desc">-- CRUD for categories, brands, units, tags (generic pattern)</span>
+<span class="file indent3">  catalog_schemas.py</span> <span class="desc">-- Schemas for catalog reference data</span>
+<span class="file indent3">  catalog_service.py</span> <span class="desc">-- Generic CRUD service for reference entities</span>
+
+<span class="dir indent2">inventory/</span>           <span class="desc">-- Stock management</span>
+<span class="file indent3">  models.py</span>       <span class="desc">-- InventoryMovement (append-only), ProductStockSnapshot</span>
+<span class="file indent3">  schemas.py</span>      <span class="desc">-- MovementCreate/Read, StockSnapshotRead</span>
+<span class="file indent3">  repository.py</span>   <span class="desc">-- InventoryRepository (SyncableRepository, snapshot logic)</span>
+<span class="file indent3">  service.py</span>      <span class="desc">-- record_movement, get_stock_snapshot, list_movements</span>
+<span class="file indent3">  router.py</span>       <span class="desc">-- POST/GET /inventory/movements, stock snapshots</span>
+
+<span class="dir indent2">sync/</span>                <span class="desc">-- Offline sync protocol (core differentiator)</span>
+<span class="file indent3">  models.py</span>       <span class="desc">-- ChangeLog model (append-only ledger)</span>
+<span class="file indent3">  schemas.py</span>      <span class="desc">-- MutationEnvelope, SyncPush/Response, ChangeRecord</span>
+<span class="file indent3">  repository.py</span>   <span class="desc">-- SyncableRepository (abstract base with apply_mutation)</span>
+<span class="file indent3">  registry.py</span>     <span class="desc">-- SYNC_REGISTRY mapping entity_type to repository class</span>
+<span class="file indent3">  serialization.py</span> <span class="desc">-- serialize_syncable (row to JSON-safe dict)</span>
+<span class="file indent3">  service.py</span>      <span class="desc">-- apply_mutations (push), build_pull_page (pull)</span>
+<span class="file indent3">  router.py</span>       <span class="desc">-- POST /sync/push, GET /sync/pull</span>
+<span class="file indent3">  dependencies.py</span> <span class="desc">-- Placeholder for future sync-specific deps</span>
+
+<span class="dir indent2">tenants/</span>             <span class="desc">-- Multi-tenant model</span>
+<span class="file indent3">  models.py</span>       <span class="desc">-- Tenant (name, slug)</span>
+
+<span class="dir indent2">users/</span>               <span class="desc">-- User &amp; RBAC models</span>
+<span class="file indent3">  models.py</span>       <span class="desc">-- User, Role, Permission, RolePermission, UserTenantRole</span>
+
+<span class="file indent">alembic/</span>              <span class="desc">-- Database migrations (Alembic)</span>
+<span class="file indent">tests/</span>                <span class="desc">-- Pytest test suite</span>
+<span class="file indent">pyproject.toml</span>       <span class="desc">-- Project metadata, deps, tool config (ruff/black/mypy/pytest)</span>
+<span class="file indent">alembic.ini</span>          <span class="desc">-- Alembic configuration</span>
+<span class="file indent">Dockerfile</span>           <span class="desc">-- Backend Docker image</span>
+<span class="file indent">.env</span>                 <span class="desc">-- Environment variables (local dev)</span>
+    </div>
+  </div>
+
+  <!-- FRONTEND TAB -->
+  <div id="tab-frontend" class="tab-content" style="padding-top:1rem;">
+    <div class="tree">
+<span class="dir">frontend/</span>
+<span class="dir indent">src/</span>
+<span class="file indent2">main.tsx</span>             <span class="desc">-- React root, AppShellProvider, SW registration</span>
+<span class="file indent2">App.tsx</span>              <span class="desc">-- BrowserRouter + AppRoutes</span>
+<span class="file indent2">index.css</span>            <span class="desc">-- Tailwind CSS v4 entry</span>
+
+<span class="dir indent2">app/</span>
+<span class="file indent3">  AppShellProvider.tsx</span> <span class="desc">-- Top-level providers (QueryClient + Toaster)</span>
+
+<span class="dir indent2">routes/</span>
+<span class="file indent3">  AppRoutes.tsx</span>      <span class="desc">-- Route definitions (login, register, dashboard, products)</span>
+<span class="file indent3">  ProtectedRoute.tsx</span> <span class="desc">-- Redirects to /login if no access token</span>
+
+<span class="dir indent2">layouts/</span>
+<span class="file indent3">  AuthLayout.tsx</span>     <span class="desc">-- Centered card layout for auth pages</span>
+<span class="file indent3">  DashboardLayout.tsx</span><span class="desc">-- Sidebar + TopBar + MobileNav + SyncDrain</span>
+<span class="file indent3">  Sidebar.tsx</span>        <span class="desc">-- Navigation sidebar + account dropdown</span>
+<span class="file indent3">  TopBar.tsx</span>         <span class="desc">-- Top bar for mobile view</span>
+<span class="file indent3">  MobileBottomNav.tsx</span><span class="desc">-- Bottom navigation for mobile</span>
+<span class="file indent3">  SyncStatusIndicator.tsx</span> <span class="desc">-- Offline sync status badge</span>
+<span class="file indent3">  navItems.ts</span>        <span class="desc">-- Navigation item definitions</span>
+
+<span class="dir indent2">pages/</span>
+<span class="file indent3">  LoginPage.tsx</span>       <span class="desc">-- Login form (email + password + tenantId)</span>
+<span class="file indent3">  RegisterPage.tsx</span>    <span class="desc">-- Registration form</span>
+<span class="file indent3">  DashboardHomePage.tsx</span><span class="desc">-- Dashboard home (placeholder)</span>
+<span class="file indent3">  ProductsListPage.tsx</span><span class="desc">-- Product table with pagination</span>
+<span class="file indent3">  ProductDetailPage.tsx</span><span class="desc">-- Product view + stock adjustment + movement history</span>
+<span class="file indent3">  ProductFormPage.tsx</span> <span class="desc">-- Create/edit product form (Zod validation)</span>
+<span class="file indent3">  NotFoundPage.tsx</span>    <span class="desc">-- 404 page</span>
+<span class="file indent3">  ServerErrorPage.tsx</span> <span class="desc">-- 500 page</span>
+
+<span class="dir indent2">features/</span>
+<span class="dir indent3">  auth/</span>
+<span class="file indent3">    api.ts</span>          <span class="desc">-- login/register/logout API calls + Zustand updates</span>
+<span class="file indent3">    hooks.ts</span>        <span class="desc">-- TanStack Query mutations for auth</span>
+<span class="dir indent3">  products/</span>
+<span class="file indent3">    api.ts</span>          <span class="desc">-- Shared ProductInput DTO</span>
+<span class="file indent3">    hooks.ts</span>        <span class="desc">-- useProducts, useProduct, useMovements, mutations</span>
+<span class="file indent3">    mutations.ts</span>    <span class="desc">-- submitCreateProduct / submitUpdateProduct / submitDeleteProduct</span>
+<span class="file indent3">    inventoryMutations.ts</span> <span class="desc">-- submitStockAdjustment</span>
+
+<span class="dir indent2">offline/</span>              <span class="desc">-- Offline-first sync engine</span>
+<span class="file indent3">  db.ts</span>             <span class="desc">-- Dexie database schema (IndexedDB tables)</span>
+<span class="file indent3">  types.ts</span>          <span class="desc">-- TypeScript types (QueuedMutation, ChangeRecord, etc.)</span>
+<span class="file indent3">  mutationQueue.ts</span>  <span class="desc">-- enqueueMutation, nextBatch, ack, markConflict</span>
+<span class="file indent3">  syncEngine.ts</span>     <span class="desc">-- pushPending + pullChanges + runSync (guarded cycle)</span>
+<span class="file indent3">  submit.ts</span>         <span class="desc">-- submitMutation (enqueue + drain + report outcome)</span>
+<span class="file indent3">  applyChange.ts</span>    <span class="desc">-- Materialize pulled changes into Dexie tables</span>
+<span class="file indent3">  connectivity.ts</span>   <span class="desc">-- Online/offline event listeners</span>
+<span class="file indent3">  serviceWorkerSync.ts</span><span class="desc">-- Background Sync API registration</span>
+<span class="file indent3">  useOfflineSync.ts</span> <span class="desc">-- Hook exposing pending/conflict count + status</span>
+<span class="file indent3">  useSyncDrain.ts</span>   <span class="desc">-- Hook that drains mutations on mount + reconnect</span>
+
+<span class="dir indent2">store/</span>
+<span class="file indent3">  authStore.ts</span>      <span class="desc">-- Zustand store (tenantId, accessToken, refreshToken, in-memory)</span>
+<span class="file indent3">  toastStore.ts</span>     <span class="desc">-- Toast notification store</span>
+
+<span class="dir indent2">services/</span>
+<span class="dir indent3">  api/</span>
+<span class="file indent3">    client.ts</span>     <span class="desc">-- apiFetch / apiFetchPaginated (JWT, auto-refresh, envelope unwrap)</span>
+
+<span class="dir indent2">components/</span>
+<span class="file indent3">  ui/</span>              <span class="desc">-- Radix UI primitives (avatar, badge, button, card, dialog, etc.)</span>
+<span class="file indent3">  EmptyState.tsx</span>   <span class="desc">-- Empty state display component</span>
+<span class="file indent3">  ErrorBoundary.tsx</span><span class="desc">-- React error boundary</span>
+<span class="file indent3">  PageLoader.tsx</span>   <span class="desc">-- Full-page loading skeleton</span>
+<span class="file indent3">  TableLoader.tsx</span>  <span class="desc">-- Table loading skeleton</span>
+<span class="file indent3">  Toaster.tsx</span>      <span class="desc">-- Toast notification renderer</span>
+
+<span class="dir indent2">pwa/</span>
+<span class="file indent3">  registerServiceWorker.ts</span> <span class="desc">-- SW registration (auto-update, periodic checks)</span>
+
+<span class="dir indent2">hooks/</span>
+<span class="file indent3">  useMediaQuery.ts</span> <span class="desc">-- Responsive breakpoint hook</span>
+
+<span class="dir indent2">lib/</span>
+<span class="file indent3">  toast.ts</span>         <span class="desc">-- Toast helper</span>
+<span class="file indent3">  utils.ts</span>         <span class="desc">-- cn() utility (Tailwind class merge)</span>
+
+<span class="file indent">vite.config.ts</span>        <span class="desc">-- Vite + React + Tailwind + PWA config</span>
+<span class="file indent">tsconfig.json</span>         <span class="desc">-- TypeScript config</span>
+<span class="file indent">package.json</span>          <span class="desc">-- Dependencies &amp; scripts</span>
+<span class="file indent">components.json</span>       <span class="desc">-- shadcn/ui components config</span>
+<span class="file indent">eslint.config.js</span>      <span class="desc">-- ESLint config</span>
+<span class="file indent">Dockerfile</span>            <span class="desc">-- Frontend Docker image</span>
+    </div>
+  </div>
+
+  <!-- ROOT TAB -->
+  <div id="tab-root" class="tab-content" style="padding-top:1rem;">
+    <div class="tree">
+<span class="dir">dtf-decoration/</span>
+<span class="file indent">README.md</span>           <span class="desc">-- Project overview, setup instructions, quality gates</span>
+<span class="file indent">API_CONVENTIONS.md</span>   <span class="desc">-- API response/error contract conventions</span>
+<span class="file indent">docker-compose.yml</span>   <span class="desc">-- Docker Compose (backend + frontend + postgres + redis)</span>
+<span class="file indent">.env.example</span>         <span class="desc">-- Environment variables template</span>
+<span class="file indent">.gitignore</span>           <span class="desc">-- Git ignore rules</span>
+<span class="file indent">package.json</span>          <span class="desc">-- Root package.json (only puppeteer)</span>
+<span class="dir indent">.claude/</span>              <span class="desc">-- Claude AI configuration</span>
+<span class="dir indent">.github/</span>              <span class="desc">-- CI workflows (lint, typecheck, test per side)</span>
+<span class="dir indent">backend/</span>              <span class="desc">-- FastAPI backend (see Backend tab)</span>
+<span class="dir indent">frontend/</span>             <span class="desc">-- React frontend (see Frontend tab)</span>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 3: DATABASE SCHEMA -->
+<h2 class="section-title">Database Schema <span class="divider"></span></h2>
+
+<div class="grid-3">
+  <div class="card">
+    <h3>Identity &amp; Auth</h3>
+    <div class="db-schema">
+      <div class="table-name">tenants</div>
+      <div class="indent"><span class="pk">PK</span> id (UUIDv7) · name · slug (UNIQUE)</div>
+      <br>
+      <div class="table-name">users</div>
+      <div class="indent"><span class="pk">PK</span> id (UUIDv7) · email (UNIQUE) · hashed_password · full_name · is_active</div>
+      <br>
+      <div class="table-name">refresh_tokens</div>
+      <div class="indent"><span class="pk">PK</span> id · <span class="fk">FK</span> user_id · <span class="fk">FK</span> tenant_id · token_hash (UNIQUE) · expires_at</div>
+      <br>
+      <div class="table-name">roles</div>
+      <div class="indent"><span class="pk">PK</span> id · name (UNIQUE) · description</div>
+      <br>
+      <div class="table-name">permissions</div>
+      <div class="indent"><span class="pk">PK</span> id · code (UNIQUE) · description</div>
+      <br>
+      <div class="table-name">role_permissions</div>
+      <div class="indent"><span class="pk">PK</span> (<span class="fk">FK</span> role_id, <span class="fk">FK</span> permission_id)</div>
+      <br>
+      <div class="table-name">user_tenant_roles</div>
+      <div class="indent"><span class="pk">PK</span> (<span class="fk">FK</span> user_id, <span class="fk">FK</span> tenant_id) · <span class="fk">FK</span> role_id</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Products &amp; Catalog</h3>
+    <div class="db-schema">
+      <div class="table-name">products <span style="color:var(--accent)">[SYNCABLE]</span></div>
+      <div class="indent"><span class="pk">PK</span> id (client UUIDv7) · <span class="fk">FK</span> tenant_id · version · name · sku (UQ) · barcode · description · price · cost_price · status · <span class="fk">FK</span> category_id · <span class="fk">FK</span> brand_id · <span class="fk">FK</span> unit_id · created_at · updated_at · deleted_at</div>
+      <br>
+      <div class="table-name">categories</div>
+      <div class="indent"><span class="pk">PK</span> id · <span class="fk">FK</span> tenant_id · <span class="fk">FK</span> parent_id (self-ref) · name · description · sort_order</div>
+      <br>
+      <div class="table-name">brands</div>
+      <div class="indent"><span class="pk">PK</span> id · <span class="fk">FK</span> tenant_id · name (UQ) · description</div>
+      <br>
+      <div class="table-name">units</div>
+      <div class="indent"><span class="pk">PK</span> id · <span class="fk">FK</span> tenant_id · name · abbreviation (UQ)</div>
+      <br>
+      <div class="table-name">tags</div>
+      <div class="indent"><span class="pk">PK</span> id · <span class="fk">FK</span> tenant_id · name (UQ)</div>
+      <br>
+      <div class="table-name">product_variants</div>
+      <div class="indent"><span class="pk">PK</span> id · <span class="fk">FK</span> tenant_id · <span class="fk">FK</span> product_id · sku · barcode · price · cost_price · attributes (JSONB) · is_default · is_active</div>
+      <br>
+      <div class="table-name">product_images</div>
+      <div class="indent"><span class="pk">PK</span> id · <span class="fk">FK</span> product_id · url · sort_order · is_primary</div>
+      <br>
+      <div class="table-name">product_attributes</div>
+      <div class="indent"><span class="pk">PK</span> id · <span class="fk">FK</span> product_id · name (UQ) · value</div>
+      <br>
+      <div class="table-name">product_tags</div>
+      <div class="indent"><span class="pk">PK</span> (<span class="fk">FK</span> product_id, <span class="fk">FK</span> tag_id) · <span class="fk">FK</span> tenant_id</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Inventory &amp; Sync</h3>
+    <div class="db-schema">
+      <div class="table-name">inventory_movements <span style="color:var(--accent)">[SYNCABLE]</span></div>
+      <div class="indent"><span class="pk">PK</span> id (client UUIDv7) · <span class="fk">FK</span> tenant_id · version · <span class="fk">FK</span> product_id · movement_type · quantity_delta · reference_id · note · created_at · updated_at · deleted_at</div>
+      <br>
+      <div class="table-name">product_stock_snapshots</div>
+      <div class="indent"><span class="pk">PK</span> <span class="fk">FK</span> product_id · <span class="fk">FK</span> tenant_id · quantity_on_hand · updated_at</div>
+      <br>
+      <div class="table-name">change_log <span style="color:var(--danger)">[APPEND-ONLY LEDGER]</span></div>
+      <div class="indent"><span class="pk">PK</span> id · <span class="fk">FK</span> tenant_id · client_mutation_id (UNIQUE, nullable) · entity_type · entity_id · operation (create/update/delete) · version · payload (JSONB) · server_seq (IDENTITY, UNIQUE) · created_at</div>
+    </div>
+
+    <br>
+    <h3>Model Inheritance Hierarchy</h3>
+    <div class="db-schema" style="line-height:1.8">
+      <span style="color:var(--primary)">TimestampMixin</span> (created_at, updated_at)<br>
+      &#9492; <span style="color:var(--primary)">SoftDeleteMixin</span> (deleted_at)<br>
+      &nbsp;&nbsp;&#9492; <span style="color:var(--accent)">SyncableMixin</span> (id, tenant_id, version) <span style="color:var(--text3)">-- offline-replicated</span><br>
+      &nbsp;&nbsp;&#9492; <span style="color:var(--warn)">AuditMixin</span> (id, created_by, updated_by) <span style="color:var(--text3)">-- online only</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&#9492; <span style="color:var(--warn)">TenantScopedAuditMixin</span> (tenant_id) <span style="color:var(--text3)">-- catalog entities</span>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 4: OFFLINE SYNC MECHANISM -->
+<h2 class="section-title">Offline Sync Mechanism <span class="divider"></span></h2>
+
+<div class="grid-2">
+  <div class="card">
+    <h2><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg> Push Flow (Client &rarr; Server)</h2>
+    <pre style="font-size:0.75rem; line-height:1.4;">
+1. User submits a form (create/update/delete)
+   &#8595;
+2. <span class="kw">Optimistic write</span> to local Dexie table
+   (UI updates instantly)
+   &#8595;
+3. <span class="kw">enqueueMutation()</span>
+   - Generates clientMutationId (UUIDv7)
+   - Creates QueuedMutation row in IndexedDB
+   - Status: "pending"
+   &#8595;
+4. <span class="kw">submitMutation()</span>
+   - Enqueues mutation
+   - Calls runSync() immediately
+   &#8595;
+5. <span class="kw">pushPending()</span>
+   - Reads next 100 pending mutations
+   - POST /api/v1/sync/push
+   &#8595;
+6. <span class="kw">Server: apply_mutations()</span>
+   For each mutation:
+   - Check client_mutation_id (dedupe)
+   - Look up repo in SYNC_REGISTRY
+   - repo.apply_mutation():
+     - Version check (optimistic concurrency)
+     - _persist() to entity table
+     - Append to ChangeLog (full server snapshot)
+   - SAVEPOINT per mutation
+   &#8595;
+7. Results returned to client:
+   - "applied"  &rarr; remove from queue
+   - "duplicate" &rarr; remove from queue
+   - "conflict" &rarr; mark conflicted, save server record
+    </pre>
+  </div>
+
+  <div class="card">
+    <h2><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg> Pull Flow (Server &rarr; Client)</h2>
+    <pre style="font-size:0.75rem; line-height:1.4;">
+1. <span class="kw">runSync()</span> calls pullChanges() after push
+   &#8595;
+2. Read cursor from db.syncMeta ("sync_cursor")
+   (0 on first run)
+   &#8595;
+3. GET /api/v1/sync/pull?since={cursor}&limit=200
+   &#8595;
+4. <span class="kw">Server: build_pull_page()</span>
+   - SELECT from change_log WHERE tenant_id = ?
+     AND server_seq > since
+   - ORDER BY server_seq
+   - LIMIT 201 (one extra for has_more)
+   &#8595;
+5. For each ChangeRecord:
+   - applyChange():
+     - If deleted_at &ne; null = tombstone &rarr; delete local
+     - Else &rarr; upsert into Dexie table
+   - Advance cursor
+   &#8595;
+6. Repeat if has_more == true
+   &#8595;
+7. <span class="kw">Result:</span> Local IndexedDB now matches server
+   UI re-renders via liveQuery()
+    </pre>
+  </div>
+</div>
+
+<div class="card full">
+  <h2>Sync Architecture Summary</h2>
+  <div style="overflow-x:auto">
+    <table>
+      <tr><th>Component</th><th>Backend File</th><th>Frontend File</th><th>Purpose</th></tr>
+      <tr><td>Sync Registry</td><td><code>sync/registry.py</code></td><td>&mdash;</td><td>Maps entity_type to repository class</td></tr>
+      <tr><td>Abstract Repository</td><td><code>sync/repository.py</code></td><td>&mdash;</td><td>Base class with apply_mutation, version check, ChangeLog append</td></tr>
+      <tr><td>Push Endpoint</td><td><code>sync/router.py</code> POST /push</td><td><code>syncEngine.ts</code> pushPending()</td><td>Batch offline mutations &rarr; server</td></tr>
+      <tr><td>Pull Endpoint</td><td><code>sync/router.py</code> GET /pull</td><td><code>syncEngine.ts</code> pullChanges()</td><td>Cursor-based change log replication</td></tr>
+      <tr><td>Mutation Queue</td><td>&mdash;</td><td><code>mutationQueue.ts</code></td><td>IndexedDB queue for pending writes</td></tr>
+      <tr><td>Submit Flow</td><td>&mdash;</td><td><code>submit.ts</code></td><td>Enqueue + drain + report outcome</td></tr>
+      <tr><td>Change Materialization</td><td>&mdash;</td><td><code>applyChange.ts</code></td><td>Pulled snapshots &rarr; Dexie tables</td></tr>
+      <tr><td>Connectivity</td><td>&mdash;</td><td><code>connectivity.ts</code></td><td>Online/offline event handling</td></tr>
+      <tr><td>Sync Drain Hook</td><td>&mdash;</td><td><code>useSyncDrain.ts</code></td><td>Auto-sync on mount + reconnect</td></tr>
+      <tr><td>Background Sync</td><td>&mdash;</td><td><code>serviceWorkerSync.ts</code></td><td>Browser Background Sync API</td></tr>
+      <tr><td>Sync Status</td><td>&mdash;</td><td><code>useOfflineSync.ts</code></td><td>Pending/conflict count + status hook</td></tr>
+    </table>
+  </div>
+  <div class="callout info" style="margin-top:1rem">
+    <strong>Key design decisions:</strong>
+    <ul>
+      <li><strong>Idempotency keys</strong> (client_mutation_id) prevent double-apply from retried pushes</li>
+      <li><strong>Optimistic concurrency</strong> via version field: push is rejected if base_version doesn't match server</li>
+      <li><strong>Server is source of truth</strong>: conflicted writes are discarded, server record returned for reconciliation</li>
+      <li><strong>SAVEPOINT isolation</strong>: one failing mutation doesn't block the batch</li>
+      <li><strong>Full-server snapshots</strong> in ChangeLog let clients materialize any entity uniformly</li>
+    </ul>
+  </div>
+</div>
+
+<!-- SECTION 5: API ENDPOINTS -->
+<h2 class="section-title">API Endpoints <span class="divider"></span></h2>
+
+<div class="card full">
+  <div style="overflow-x:auto">
+    <table>
+      <tr><th>Method</th><th>Path</th><th>Module</th><th>Description</th><th>Auth</th></tr>
+      <tr><td><code>POST</code></td><td><code>/api/v1/auth/register</code></td><td>Auth</td><td>Register new user</td><td>None</td></tr>
+      <tr><td><code>POST</code></td><td><code>/api/v1/auth/login</code></td><td>Auth</td><td>Login with email + password + tenant_id</td><td>None</td></tr>
+      <tr><td><code>POST</code></td><td><code>/api/v1/auth/refresh</code></td><td>Auth</td><td>Refresh access token</td><td>None</td></tr>
+      <tr><td><code>POST</code></td><td><code>/api/v1/auth/logout</code></td><td>Auth</td><td>Invalidate refresh token</td><td>None</td></tr>
+      <tr><td><code>GET</code></td><td><code>/health</code></td><td>System</td><td>Basic health check</td><td>None</td></tr>
+      <tr><td><code>GET</code></td><td><code>/health/ready</code></td><td>System</td><td>DB connectivity check</td><td>None</td></tr>
+      <tr><td><code>POST</code></td><td><code>/api/v1/products</code></td><td>Products</td><td>Create product</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>GET</code></td><td><code>/api/v1/products</code></td><td>Products</td><td>List products (paginated, search, filter, sort)</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>GET</code></td><td><code>/api/v1/products/{id}</code></td><td>Products</td><td>Get product by ID</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>PATCH</code></td><td><code>/api/v1/products/{id}</code></td><td>Products</td><td>Update product</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>DELETE</code></td><td><code>/api/v1/products/{id}</code></td><td>Products</td><td>Soft-delete product</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>POST</code></td><td><code>/api/v1/inventory/movements</code></td><td>Inventory</td><td>Record stock movement</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>GET</code></td><td><code>/api/v1/inventory/products/{id}/stock</code></td><td>Inventory</td><td>Get current stock snapshot</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>GET</code></td><td><code>/api/v1/inventory/products/{id}/movements</code></td><td>Inventory</td><td>List movements for product</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>POST</code></td><td><code>/api/v1/sync/push</code></td><td>Sync</td><td>Push offline mutations</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>GET</code></td><td><code>/api/v1/sync/pull</code></td><td>Sync</td><td>Pull change log (cursor-based)</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>CRUD</code></td><td><code>/api/v1/categories</code></td><td>Catalog</td><td>Full CRUD for categories</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>CRUD</code></td><td><code>/api/v1/brands</code></td><td>Catalog</td><td>Full CRUD for brands</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>CRUD</code></td><td><code>/api/v1/units</code></td><td>Catalog</td><td>Full CRUD for units of measure</td><td>Bearer + RLS</td></tr>
+      <tr><td><code>CRUD</code></td><td><code>/api/v1/tags</code></td><td>Catalog</td><td>Full CRUD for tags</td><td>Bearer + RLS</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- SECTION 6: DEPENDENCIES & TECH STACK -->
+<h2 class="section-title">Tech Stack &amp; Dependencies <span class="divider"></span></h2>
+
+<div class="grid-2">
+  <div class="card">
+    <h2><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Backend (Python)</h2>
+    <table>
+      <tr><th>Package</th><th>Purpose</th></tr>
+      <tr><td>fastapi[standard]</td><td>Web framework</td></tr>
+      <tr><td>uvicorn[standard]</td><td>ASGI server</td></tr>
+      <tr><td>sqlalchemy[asyncio]</td><td>Async ORM</td></tr>
+      <tr><td>asyncpg</td><td>Postgres async driver</td></tr>
+      <tr><td>alembic</td><td>Database migrations</td></tr>
+      <tr><td>pydantic[settings]</td><td>Validation + env config</td></tr>
+      <tr><td>python-jose[cryptography]</td><td>JWT handling</td></tr>
+      <tr><td>passlib[argon2]</td><td>Password hashing</td></tr>
+      <tr><td>redis</td><td>Async Redis client</td></tr>
+      <tr><td>celery</td><td>Task queue (future use)</td></tr>
+      <tr><td>structlog</td><td>Structured logging</td></tr>
+    </table>
+    <br>
+    <p><strong>Dev tools:</strong> ruff, black, mypy (strict), pytest, httpx</p>
+  </div>
+
+  <div class="card">
+    <h2><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> Frontend (JS/TS)</h2>
+    <table>
+      <tr><th>Package</th><th>Purpose</th></tr>
+      <tr><td>react 19</td><td>UI framework</td></tr>
+      <tr><td>react-router 8</td><td>Client-side routing</td></tr>
+      <tr><td>@tanstack/react-query</td><td>Async state + mutations</td></tr>
+      <tr><td>zustand</td><td>Auth state management</td></tr>
+      <tr><td>dexie + dexie-react-hooks</td><td>IndexedDB wrapper + reactive queries</td></tr>
+      <tr><td>react-hook-form + zod</td><td>Form validation</td></tr>
+      <tr><td>tailwindcss 4</td><td>CSS framework</td></tr>
+      <tr><td>@radix-ui/*</td><td>Accessible UI primitives</td></tr>
+      <tr><td>lucide-react</td><td>Icon library</td></tr>
+      <tr><td>class-variance-authority</td><td>Component variants</td></tr>
+      <tr><td>vite + vite-plugin-pwa</td><td>Build tool + PWA support</td></tr>
+      <tr><td>uuid</td><td>UUIDv7 generation</td></tr>
+    </table>
+    <br>
+    <p><strong>Dev tools:</strong> TypeScript 6, ESLint, Prettier, Lighthouse CI</p>
+  </div>
+</div>
+
+<!-- SECTION 7: RBAC MODEL -->
+<h2 class="section-title">Authorization Model <span class="divider"></span></h2>
+
+<div class="card full">
+  <div style="overflow-x:auto">
+    <pre style="text-align:center; background:transparent; border:none;">
+<span style="color:var(--warn)">User</span>  &#8596;  <span style="color:var(--accent)">UserTenantRole</span>  &#8596;  <span style="color:var(--primary)">Role</span>  &#8596;  <span style="color:var(--primary)">RolePermission</span>  &#8596;  <span style="color:var(--accent)">Permission</span>  &#8594;  <span style="color:var(--danger)">Code</span>
+     &#8593;
+<span style="color:var(--warn)">Tenant</span>
+    </pre>
+  </div>
+  <p style="color:var(--text2); font-size:0.9rem;">
+    A user can belong to multiple tenants (e.g. an accountant serving several businesses).
+    Each membership carries a role which grants a set of permission codes.
+    The <code>require_permission("products:write")</code> dependency factory checks
+    this chain at runtime. Permission codes like <code>products:read</code>,
+    <code>products:write</code>, <code>inventory:read</code>, <code>inventory:write</code>
+    are seeded when their modules land.
+  </p>
+  <div class="callout info">
+    <strong>DB-level tenant isolation:</strong> Postgres RLS policies use
+    <code>current_setting('app.tenant_id')</code> set at the start of each request
+    via <code>get_tenant_db()</code>. Even a bug in repository code can't leak
+    cross-tenant rows.
+  </div>
+</div>
+
+<!-- SECTION 8: DEVELOPMENT SETUP -->
+<h2 class="section-title">Development &amp; CI/CD <span class="divider"></span></h2>
+
+<div class="grid-2">
+  <div class="card">
+    <h2><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10h16"/><path d="M4 14h16"/><rect x="2" y="6" width="20" height="12" rx="2"/></svg> Local Development</h2>
+    <pre style="font-size:0.8rem;">
+<span class="cm"># Docker (recommended)</span>
+cp .env.example .env
+docker compose up --build
+
+<span class="cm"># Backend: http://localhost:8000</span>
+<span class="cm"># Frontend: http://localhost:5173</span>
+<span class="cm"># API docs: http://localhost:8000/docs</span>
+
+<span class="cm"># Native backend</span>
+cd backend
+python -m venv .venv
+pip install -e ".[dev]"
+uvicorn app.main:app --reload
+
+<span class="cm"># Native frontend</span>
+cd frontend
+npm install
+npm run dev
+    </pre>
+  </div>
+
+  <div class="card">
+    <h2><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Quality Gates</h2>
+    <p><strong>Backend:</strong></p>
+    <ul>
+      <li><code>ruff check .</code> &mdash; Linting</li>
+      <li><code>black --check .</code> &mdash; Formatting</li>
+      <li><code>mypy app</code> &mdash; Type checking (strict mode)</li>
+      <li><code>pytest -q</code> &mdash; Test suite</li>
+    </ul>
+    <br>
+    <p><strong>Frontend:</strong></p>
+    <ul>
+      <li><code>npm run lint</code> &mdash; ESLint</li>
+      <li><code>npm run format:check</code> &mdash; Prettier</li>
+      <li><code>npm run typecheck</code> &mdash; TypeScript strict</li>
+      <li><code>npm run build</code> &mdash; Production build</li>
+      <li><code>npm run validate:manifest</code> &mdash; PWA manifest check</li>
+      <li><code>npm run lhci</code> &mdash; Lighthouse CI (informational)</li>
+    </ul>
+    <p style="margin-top:1rem">All gates run in GitHub Actions CI (<code>.github/</code>).</p>
+  </div>
+</div>
+
+<!-- SECTION 9: KEY OBSERVATIONS -->
+<h2 class="section-title">Key Architectural Observations <span class="divider"></span></h2>
+
+<div class="grid-3">
+  <div class="card" style="border-left: 3px solid var(--accent);">
+    <h3>Offline-First DNA</h3>
+    <p>The sync framework is the central architectural decision. Every write path goes through <code>SyncableRepository.apply_mutation()</code> whether it arrives via REST or the offline queue. The <code>ChangeLog</code> is the single source of truth for replication. Client-generated UUIDv7 IDs mean offline creates never need a round-trip.</p>
+  </div>
+
+  <div class="card" style="border-left: 3px solid var(--primary);">
+    <h3>Modular Monolith, Not Microservices</h3>
+    <p>The backend is a single FastAPI process with clear module boundaries. This avoids microservices complexity (network calls, distributed transactions, eventual consistency) while keeping code organized. The sync framework would allow extracting modules later if needed.</p>
+  </div>
+
+  <div class="card" style="border-left: 3px solid var(--warn);">
+    <h3>DB-Level Tenant Isolation</h3>
+    <p>Postgres Row-Level Security is the last line of defense. Even if a bug in repository code forgets to filter by tenant_id, the RLS policy blocks cross-tenant data access. The <code>app.tenant_id</code> session variable is set at the start of each request.</p>
+  </div>
+
+  <div class="card" style="border-left: 3px solid var(--danger);">
+    <h3>Append-Only Inventory</h3>
+    <p>Stock is never a directly editable column. Every change to on-hand quantity is an <code>InventoryMovement</code> row. Corrections use new offsetting movements, not edits to old ones. The <code>ProductStockSnapshot</code> is maintained transactionally alongside each movement.</p>
+  </div>
+
+  <div class="card" style="border-left: 3px solid #f472b6;">
+    <h3>PWA with Auto-Update</h3>
+    <p>The service worker auto-updates with no user prompt (<code>registerType: "autoUpdate"</code> + immediate <code>updateSW(true)</code> on <code>onNeedRefresh</code>). Hourly periodic checks work around browser polling limitations. The app shell is cached via <code>navigateFallback</code>.</p>
+  </div>
+
+  <div class="card" style="border-left: 3px solid var(--accent);">
+    <h3>Security Patterns</h3>
+    <p>Tokens stored in-memory only (not localStorage) to limit XSS theft. Argon2 password hashing. Refresh token rotation on each use. Rate limiting on login via Redis. Structured logging with structlog. Standardized error response envelope.</p>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="text-align:center; padding:3rem 0 1rem; border-top:1px solid var(--border); margin-top:3rem;">
+  <p style="color:var(--text3); font-size:0.85rem;">
+    Generated from <code>dtf-decoration</code> &middot; 105 source files analyzed &middot; 16 database tables &middot; ~20 API endpoints
+  </p>
+</div>
+
+</div>
+
+<script>
+function switchTab(event, tabId) {
+  const container = event.target.closest('.card');
+  container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+</script>
+
+</body>
+</html>

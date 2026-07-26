@@ -1,0 +1,20 @@
+RewriteEngine On
+
+# ── Backend API → Passenger WSGI ────────────────────────────────
+# /api/* requests are handled by the FastAPI app via passenger_wsgi.py.
+RewriteRule ^api/(.*)$ passenger_wsgi.py/$1 [L,QSA]
+
+# ── Frontend static assets ──────────────────────────────────────
+# Serve built JS/CSS/images directly; Passenger never sees them.
+RewriteCond %{REQUEST_URI} \.(css|js|woff2?|ttf|eot|svg|png|jpe?g|gif|ico|webp|map)$ [OR]
+RewriteCond %{REQUEST_URI} ^/assets/
+RewriteRule ^ frontend/dist/%{REQUEST_URI} [L]
+
+# ── Public static files ─────────────────────────────────────────
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# ── SPA fallback ────────────────────────────────────────────────
+# Non-API, non-file requests → index.html for client-side routing.
+RewriteRule ^ frontend/dist/index.html [L]

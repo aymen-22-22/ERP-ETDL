@@ -1,0 +1,181 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---------------------------------------------------------------------------
+   Classic Pro — monochrome
+   White surfaces, black text, neutral grey structure. Every neutral is true
+   greyscale (chroma 0) so nothing tints the page.
+
+   Colour is never used for text. It appears only as a small status dot or a
+   destructive action, which keeps status readable at a glance without the
+   interface looking decorative.
+
+   `--primary` is black: black buttons with white labels, the classic
+   high-contrast convention for professional software.
+--------------------------------------------------------------------------- */
+
+:root {
+  /* Tighter than the shadcn default — squarer corners read more corporate. */
+  --radius: 0.375rem;
+
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.15 0 0);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0 0);
+
+  --primary: oklch(0.15 0 0);
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.15 0 0);
+
+  --muted: oklch(0.97 0 0);
+  /* Mid grey, not black: secondary text still needs a hierarchy step. */
+  --muted-foreground: oklch(0.44 0 0);
+
+  --accent: oklch(0.96 0 0);
+  --accent-foreground: oklch(0.15 0 0);
+
+  /* Semantic colours drive dots, icons and destructive actions — not text. */
+  --destructive: oklch(0.55 0.21 27);
+  --destructive-foreground: oklch(1 0 0);
+  --success: oklch(0.55 0.13 150);
+  --success-foreground: oklch(1 0 0);
+  --warning: oklch(0.68 0.15 65);
+  --warning-foreground: oklch(0.15 0 0);
+  --info: oklch(0.55 0.11 240);
+  --info-foreground: oklch(1 0 0);
+
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.88 0 0);
+  --ring: oklch(0.15 0 0);
+}
+
+.dark {
+  --background: oklch(0.14 0 0);
+  --foreground: oklch(0.98 0 0);
+
+  --card: oklch(0.17 0 0);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.17 0 0);
+  --popover-foreground: oklch(0.98 0 0);
+
+  --primary: oklch(0.98 0 0);
+  --primary-foreground: oklch(0.15 0 0);
+
+  --secondary: oklch(0.24 0 0);
+  --secondary-foreground: oklch(0.98 0 0);
+
+  --muted: oklch(0.24 0 0);
+  --muted-foreground: oklch(0.68 0 0);
+
+  --accent: oklch(0.27 0 0);
+  --accent-foreground: oklch(0.98 0 0);
+
+  --destructive: oklch(0.65 0.19 25);
+  --destructive-foreground: oklch(0.14 0 0);
+  --success: oklch(0.68 0.14 150);
+  --success-foreground: oklch(0.14 0 0);
+  --warning: oklch(0.75 0.14 70);
+  --warning-foreground: oklch(0.14 0 0);
+  --info: oklch(0.66 0.12 240);
+  --info-foreground: oklch(0.14 0 0);
+
+  --border: oklch(1 0 0 / 14%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: oklch(0.98 0 0);
+}
+
+@theme inline {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", sans-serif;
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Don't let a long SKU or UUID force the whole page to scroll sideways. */
+  body {
+    overflow-x: hidden;
+  }
+}
+
+@layer utilities {
+  /* Safe-area helpers. These only resolve to a non-zero value because
+     index.html sets `viewport-fit=cover` — without it every inset is 0. */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom);
+  }
+  /* Mobile tab-bar height (56px) plus the device inset — keeps FABs and
+     sticky action bars clear of the navigation. */
+  .bottom-nav-offset {
+    bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  }
+  .pb-nav {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  }
+  /* Small uppercase label — used for section headers and table-ish captions. */
+  .label-caps {
+    @apply text-xs font-semibold tracking-wider uppercase;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
