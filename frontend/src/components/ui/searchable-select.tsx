@@ -139,7 +139,9 @@ export function SearchableSelect({
               >
                 <span className="truncate">{option.label}</span>
                 {option.description && (
-                  <span className="text-muted-foreground truncate text-xs">{option.description}</span>
+                  <span className="text-muted-foreground truncate text-xs">
+                    {option.description}
+                  </span>
                 )}
               </button>
             ))}

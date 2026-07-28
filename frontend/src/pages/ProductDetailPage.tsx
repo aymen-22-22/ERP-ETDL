@@ -65,9 +65,7 @@ export function ProductDetailPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
-            <Link
-              to={`/transfers/new?product=${productId}&warehouse=${warehouseId ?? ""}`}
-            >
+            <Link to={`/transfers/new?product=${productId}&warehouse=${warehouseId ?? ""}`}>
               <ArrowRightIcon className="mr-1 size-4" />
               Transfer
             </Link>

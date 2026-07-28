@@ -27,7 +27,8 @@ export function TransferDetailPage() {
           <ArrowLeftIcon className="size-4" />
         </Button>
         <h1 className="text-2xl font-semibold">
-          {warehouseName(transfer.source_warehouse_id)} → {warehouseName(transfer.dest_warehouse_id)}
+          {warehouseName(transfer.source_warehouse_id)} →{" "}
+          {warehouseName(transfer.dest_warehouse_id)}
         </h1>
         <Badge className="capitalize">{transfer.status}</Badge>
       </div>

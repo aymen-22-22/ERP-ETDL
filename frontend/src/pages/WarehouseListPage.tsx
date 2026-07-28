@@ -12,13 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   useCreateWarehouseMutation,
   useSetDefaultWarehouseMutation,
@@ -129,9 +123,7 @@ export function WarehouseListPage() {
                             </Badge>
                           )}
                         </div>
-                        {w.code && (
-                          <span className="text-muted-foreground text-xs">{w.code}</span>
-                        )}
+                        {w.code && <span className="text-muted-foreground text-xs">{w.code}</span>}
                       </td>
                       <td className="text-muted-foreground px-4 py-2 capitalize">
                         {w.warehouse_type}

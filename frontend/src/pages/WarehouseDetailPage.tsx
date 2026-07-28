@@ -49,7 +49,7 @@ export function WarehouseDetailPage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tabular-nums">
-              {summaryLoading ? "..." : summary?.total_products ?? 0}
+              {summaryLoading ? "..." : (summary?.total_products ?? 0)}
             </p>
           </CardContent>
         </Card>
@@ -59,7 +59,7 @@ export function WarehouseDetailPage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tabular-nums">
-              {summaryLoading ? "..." : summary?.total_quantity ?? 0}
+              {summaryLoading ? "..." : (summary?.total_quantity ?? 0)}
             </p>
           </CardContent>
         </Card>
@@ -69,7 +69,7 @@ export function WarehouseDetailPage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tabular-nums">
-              {summaryLoading ? "..." : summary?.low_stock_count ?? 0}
+              {summaryLoading ? "..." : (summary?.low_stock_count ?? 0)}
             </p>
           </CardContent>
         </Card>

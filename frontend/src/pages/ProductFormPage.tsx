@@ -41,10 +41,7 @@ const productSchema = z.object({
     .string()
     .optional()
     .or(z.literal(""))
-    .refine(
-      (v) => !v || /^\d+$/.test(v),
-      "Must be a whole number",
-    ),
+    .refine((v) => !v || /^\d+$/.test(v), "Must be a whole number"),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -148,9 +145,7 @@ export function ProductFormPage() {
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="price">Price</Label>
                 <Input id="price" inputMode="decimal" {...register("price")} />
-                {errors.price && (
-                  <p className="text-destructive text-sm">{errors.price.message}</p>
-                )}
+                {errors.price && <p className="text-destructive text-sm">{errors.price.message}</p>}
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="costPrice">Cost Price</Label>
@@ -187,7 +182,9 @@ export function ProductFormPage() {
               <SearchableSelect
                 options={warehouseOptions}
                 value={watchedWarehouseId || null}
-                onChange={(val) => setValue("defaultWarehouseId", val ?? "", { shouldValidate: true })}
+                onChange={(val) =>
+                  setValue("defaultWarehouseId", val ?? "", { shouldValidate: true })
+                }
                 placeholder="Select warehouse..."
                 emptyText="No active warehouses."
               />
@@ -222,9 +219,7 @@ export function ProductFormPage() {
             <div className="flex flex-col gap-1.5">
               <Label>Unit (optional)</Label>
               <Input id="unitId" placeholder="Unit UUID" {...register("unitId")} />
-              {errors.unitId && (
-                <p className="text-destructive text-sm">{errors.unitId.message}</p>
-              )}
+              {errors.unitId && <p className="text-destructive text-sm">{errors.unitId.message}</p>}
             </div>
 
             <div className="flex gap-2">

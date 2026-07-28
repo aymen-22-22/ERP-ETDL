@@ -43,9 +43,7 @@ function Toast({
   variant,
   ...props
 }: React.ComponentProps<typeof ToastPrimitive.Root> & VariantProps<typeof toastVariants>) {
-  return (
-    <ToastPrimitive.Root className={cn(toastVariants({ variant }), className)} {...props} />
-  );
+  return <ToastPrimitive.Root className={cn(toastVariants({ variant }), className)} {...props} />;
 }
 
 function ToastTitle({ className, ...props }: React.ComponentProps<typeof ToastPrimitive.Title>) {
@@ -56,9 +54,7 @@ function ToastDescription({
   className,
   ...props
 }: React.ComponentProps<typeof ToastPrimitive.Description>) {
-  return (
-    <ToastPrimitive.Description className={cn("text-sm opacity-90", className)} {...props} />
-  );
+  return <ToastPrimitive.Description className={cn("text-sm opacity-90", className)} {...props} />;
 }
 
 function ToastClose({ className, ...props }: React.ComponentProps<typeof ToastPrimitive.Close>) {

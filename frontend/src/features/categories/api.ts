@@ -43,10 +43,7 @@ export async function createCategory(input: CategoryInput): Promise<Category> {
   });
 }
 
-export async function updateCategory(
-  id: string,
-  input: Partial<CategoryInput>,
-): Promise<Category> {
+export async function updateCategory(id: string, input: Partial<CategoryInput>): Promise<Category> {
   return apiFetch<Category>(`/api/v1/categories/${id}`, {
     method: "PATCH",
     body: JSON.stringify({

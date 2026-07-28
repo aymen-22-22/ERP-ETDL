@@ -50,15 +50,16 @@ function ListCard({ title, subtitle, meta, trailing, to, actions, className }: L
       )}
     >
       {to ? (
-        <Link to={to} className="block p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-lg">
+        <Link
+          to={to}
+          className="block p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-lg"
+        >
           {body}
         </Link>
       ) : (
         <div className="p-4">{body}</div>
       )}
-      {actions && (
-        <div className="flex items-center gap-2 border-t px-4 py-2">{actions}</div>
-      )}
+      {actions && <div className="flex items-center gap-2 border-t px-4 py-2">{actions}</div>}
     </div>
   );
 }

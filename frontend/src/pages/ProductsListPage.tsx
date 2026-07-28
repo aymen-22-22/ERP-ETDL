@@ -41,7 +41,11 @@ export function ProductsListPage() {
     setPage(1);
   }
 
-  const { items: products, total, pages } = useProducts(page, PAGE_SIZE, {
+  const {
+    items: products,
+    total,
+    pages,
+  } = useProducts(page, PAGE_SIZE, {
     search,
     status,
     sort,
@@ -53,10 +57,10 @@ export function ProductsListPage() {
 
   const categoryOptions: SearchableSelectOption[] = [
     { value: "__all__", label: "All categories" },
-    ...((categories ?? []).map((c) => ({
+    ...(categories ?? []).map((c) => ({
       value: c.id,
       label: c.name,
-    }))),
+    })),
   ];
 
   return (
@@ -85,11 +89,7 @@ export function ProductsListPage() {
           placeholder="All categories"
           className="w-48"
         />
-        <select
-          className={selectClass}
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
+        <select className={selectClass} value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All statuses</option>
           <option value="draft">Draft</option>
           <option value="active">Active</option>

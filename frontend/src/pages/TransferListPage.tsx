@@ -13,13 +13,14 @@ import { useWarehouses } from "@/features/warehouses/hooks";
 const selectClass =
   "border-input bg-background ring-offset-background flex h-10 rounded-md border px-3 py-2 text-sm";
 
-const STATUS_VARIANT: Record<TransferStatus, "default" | "secondary" | "destructive" | "outline"> = {
-  draft: "outline",
-  pending: "secondary",
-  approved: "secondary",
-  completed: "default",
-  cancelled: "destructive",
-};
+const STATUS_VARIANT: Record<TransferStatus, "default" | "secondary" | "destructive" | "outline"> =
+  {
+    draft: "outline",
+    pending: "secondary",
+    approved: "secondary",
+    completed: "default",
+    cancelled: "destructive",
+  };
 
 export function TransferListPage() {
   const navigate = useNavigate();

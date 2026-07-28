@@ -105,9 +105,7 @@ export function TransferFormPage() {
         <>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">
-                Products in Depot ({stockItems.length})
-              </CardTitle>
+              <CardTitle className="text-sm">Products in Depot ({stockItems.length})</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col gap-1">

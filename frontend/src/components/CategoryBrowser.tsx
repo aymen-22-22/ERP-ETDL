@@ -42,10 +42,7 @@ function findNode(id: string, nodes: CategoryTreeNode[]): CategoryTreeNode | nul
   return null;
 }
 
-function getAncestorPath(
-  categoryId: string,
-  tree: CategoryTreeNode[],
-): CategoryTreeNode[] {
+function getAncestorPath(categoryId: string, tree: CategoryTreeNode[]): CategoryTreeNode[] {
   function walk(nodes: CategoryTreeNode[]): CategoryTreeNode[] | null {
     for (const node of nodes) {
       if (node.id === categoryId) return [node];
@@ -74,9 +71,7 @@ export function CategoryBrowser({
   currentCategoryId,
   onSelectCategory,
 }: CategoryBrowserProps) {
-  const ancestors = currentCategoryId
-    ? getAncestorPath(currentCategoryId, tree)
-    : [];
+  const ancestors = currentCategoryId ? getAncestorPath(currentCategoryId, tree) : [];
 
   const currentNode = currentCategoryId ? findNode(currentCategoryId, tree) : null;
   const displayChildren = currentNode ? currentNode.children : tree;
@@ -96,11 +91,7 @@ export function CategoryBrowser({
       {/* Back button + Breadcrumb */}
       {ancestors.length > 0 && (
         <nav className="flex items-center gap-2 text-sm">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onSelectCategory(parentCategoryId)}
-          >
+          <Button variant="ghost" size="sm" onClick={() => onSelectCategory(parentCategoryId)}>
             <ArrowLeftIcon className="mr-1 size-3" />
             Back
           </Button>
@@ -209,9 +200,7 @@ export function CategoryBrowser({
       )}
 
       {isLeaf && visibleProducts.length === 0 && (
-        <p className="text-muted-foreground text-sm">
-          No products with stock in this category.
-        </p>
+        <p className="text-muted-foreground text-sm">No products with stock in this category.</p>
       )}
     </div>
   );

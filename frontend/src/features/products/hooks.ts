@@ -45,7 +45,8 @@ export function useProducts(
     return all
       .filter((p) => !status || p.status === status)
       .filter(
-        (p) => !needle || p.name.toLowerCase().includes(needle) || p.sku.toLowerCase().includes(needle),
+        (p) =>
+          !needle || p.name.toLowerCase().includes(needle) || p.sku.toLowerCase().includes(needle),
       )
       .sort((a, b) => {
         const av = sortValue(a, sort);

@@ -83,7 +83,12 @@ function CategoryNode({
         <span className="truncate">{node.name}</span>
       </div>
       {expanded && hasChildren && (
-        <CategoryTree nodes={node.children} selectedId={selectedId} onSelect={onSelect} depth={depth + 1} /> // eslint-disable-line react-hooks/rules-of-hooks
+        <CategoryTree
+          nodes={node.children}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          depth={depth + 1}
+        /> // eslint-disable-line react-hooks/rules-of-hooks
       )}
     </div>
   );

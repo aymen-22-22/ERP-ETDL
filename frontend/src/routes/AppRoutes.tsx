@@ -49,9 +49,7 @@ const ConflictsPage = lazy(() =>
 const CategoriesPage = lazy(() =>
   import("@/pages/CategoriesPage").then((m) => ({ default: m.CategoriesPage })),
 );
-const SalesPage = lazy(() =>
-  import("@/pages/SalesPage").then((m) => ({ default: m.SalesPage })),
-);
+const SalesPage = lazy(() => import("@/pages/SalesPage").then((m) => ({ default: m.SalesPage })));
 const StyleGuidePage = lazy(() =>
   import("@/pages/StyleGuidePage").then((m) => ({ default: m.StyleGuidePage })),
 );

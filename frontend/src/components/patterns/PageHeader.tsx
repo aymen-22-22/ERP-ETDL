@@ -51,14 +51,14 @@ function PageHeader({
         <div className="min-w-0">
           {/* Long product names must wrap rather than push the page sideways. */}
           <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
-          {description && (
-            <p className="text-muted-foreground mt-0.5 text-sm">{description}</p>
-          )}
+          {description && <p className="text-muted-foreground mt-0.5 text-sm">{description}</p>}
         </div>
       </div>
 
       {actions && (
-        <div className={cn("flex shrink-0 items-center gap-2", !actionsOnMobile && "hidden md:flex")}>
+        <div
+          className={cn("flex shrink-0 items-center gap-2", !actionsOnMobile && "hidden md:flex")}
+        >
           {actions}
         </div>
       )}

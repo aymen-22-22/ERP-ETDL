@@ -22,10 +22,7 @@ const dotTone: Record<Tone, string> = {
 
 function StatusDot({ tone = "neutral", className }: { tone?: Tone; className?: string }) {
   return (
-    <span
-      aria-hidden
-      className={cn("size-1.5 shrink-0 rounded-full", dotTone[tone], className)}
-    />
+    <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", dotTone[tone], className)} />
   );
 }
 

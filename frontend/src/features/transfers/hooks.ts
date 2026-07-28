@@ -33,7 +33,8 @@ function errorMessage(error: unknown): string {
     if (error.code === "insufficient_stock") return "Not enough stock at the source warehouse.";
     if (error.code === "invalid_transfer_status") return "That action isn't valid right now.";
     if (error.code === "warehouse_inactive") return "One of the warehouses is not active.";
-    if (error.code === "transfer_not_transferable") return "That warehouse doesn't allow transfers.";
+    if (error.code === "transfer_not_transferable")
+      return "That warehouse doesn't allow transfers.";
     if (error.code === "permission_denied") return "You don't have permission for that.";
   }
   return "Something went wrong. Please try again.";

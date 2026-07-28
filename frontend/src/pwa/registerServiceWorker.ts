@@ -16,9 +16,7 @@ const PERIODIC_UPDATE_CHECK_MS = 60 * 60 * 1000;
  * The periodic `registration.update()` call is the standard workaround for
  * browsers not checking for a new service worker often enough on their own.
  */
-export function registerServiceWorker(
-  callbacks: ServiceWorkerCallbacks = {},
-): UpdateServiceWorker {
+export function registerServiceWorker(callbacks: ServiceWorkerCallbacks = {}): UpdateServiceWorker {
   const updateSW = registerSW({
     onNeedRefresh() {
       callbacks.onNeedRefresh?.();

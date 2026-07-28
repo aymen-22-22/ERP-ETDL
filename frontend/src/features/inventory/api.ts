@@ -20,13 +20,9 @@ export interface WarehouseSummary {
 }
 
 export async function listWarehouseStock(warehouseId: string): Promise<WarehouseStockItem[]> {
-  return apiFetch<WarehouseStockItem[]>(
-    `/api/v1/inventory/warehouses/${warehouseId}/stock`,
-  );
+  return apiFetch<WarehouseStockItem[]>(`/api/v1/inventory/warehouses/${warehouseId}/stock`);
 }
 
 export async function getWarehouseSummary(warehouseId: string): Promise<WarehouseSummary> {
-  return apiFetch<WarehouseSummary>(
-    `/api/v1/inventory/warehouses/${warehouseId}/summary`,
-  );
+  return apiFetch<WarehouseSummary>(`/api/v1/inventory/warehouses/${warehouseId}/summary`);
 }

@@ -47,7 +47,12 @@ export function CartPanel({
 }: CartPanelProps) {
   if (lines.length === 0) {
     return (
-      <div className={cn("flex flex-col items-center justify-center gap-2 py-12 text-center", className)}>
+      <div
+        className={cn(
+          "flex flex-col items-center justify-center gap-2 py-12 text-center",
+          className,
+        )}
+      >
         <ShoppingCartIcon className="text-muted-foreground size-8" />
         <p className="text-sm font-medium">No items yet</p>
         <p className="text-muted-foreground text-sm">Tap a product to start the sale.</p>

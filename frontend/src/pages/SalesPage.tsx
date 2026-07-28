@@ -79,7 +79,8 @@ export function SalesPage() {
     if (!products) return undefined;
     const needle = search.trim().toLowerCase();
     return products.filter((p) => {
-      if (activeCategoryIds && (!p.categoryId || !activeCategoryIds.has(p.categoryId))) return false;
+      if (activeCategoryIds && (!p.categoryId || !activeCategoryIds.has(p.categoryId)))
+        return false;
       if (!needle) return true;
       return (
         p.name.toLowerCase().includes(needle) ||

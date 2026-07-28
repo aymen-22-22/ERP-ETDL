@@ -126,7 +126,9 @@ export function CategoriesPage() {
                 <div>
                   <h3 className="font-medium">{selectedCategory.name}</h3>
                   {selectedCategory.description && (
-                    <p className="text-muted-foreground mt-1 text-sm">{selectedCategory.description}</p>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      {selectedCategory.description}
+                    </p>
                   )}
                   <p className="text-muted-foreground mt-2 text-xs">
                     Created {new Date(selectedCategory.created_at).toLocaleDateString()}
@@ -226,14 +228,19 @@ export function CategoriesPage() {
           <DialogHeader>
             <DialogTitle>Delete category</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{selectedCategory?.name}"? This action cannot be undone.
+              Are you sure you want to delete "{selectedCategory?.name}"? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+            >
               {deleteMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>

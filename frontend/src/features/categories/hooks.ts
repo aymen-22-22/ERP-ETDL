@@ -4,7 +4,13 @@ import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api/client";
 
 import type { CategoryInput } from "./api";
-import { createCategory, deleteCategory, getCategoryTree, listCategories, updateCategory } from "./api";
+import {
+  createCategory,
+  deleteCategory,
+  getCategoryTree,
+  listCategories,
+  updateCategory,
+} from "./api";
 
 const TREE_KEY = ["categories", "tree"] as const;
 const LIST_KEY = ["categories"] as const;

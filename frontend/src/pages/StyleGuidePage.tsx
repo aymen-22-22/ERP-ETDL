@@ -1,10 +1,4 @@
-import {
-  BoxesIcon,
-  PackageIcon,
-  PlusIcon,
-  TrendingDownIcon,
-  WarehouseIcon,
-} from "lucide-react";
+import { BoxesIcon, PackageIcon, PlusIcon, TrendingDownIcon, WarehouseIcon } from "lucide-react";
 import { useState } from "react";
 
 import { EmptyState } from "@/components/EmptyState";
@@ -67,14 +61,29 @@ interface DemoRow {
 
 const DEMO_ROWS: DemoRow[] = [
   { id: "1", name: "Crystal Ceiling Lustre", sku: "LUS-001", price: "249.00", qty: 12, min: 4 },
-  { id: "2", name: "Extendable Curtain Rod 120–210cm", sku: "ROD-114", price: "34.50", qty: 3, min: 5 },
+  {
+    id: "2",
+    name: "Extendable Curtain Rod 120–210cm",
+    sku: "ROD-114",
+    price: "34.50",
+    qty: 3,
+    min: 5,
+  },
   { id: "3", name: "Brass Wall Sconce", sku: "SCN-042", price: "89.90", qty: 0, min: 2 },
 ];
 
 const columns: DataColumn<DemoRow>[] = [
   { key: "name", header: "Product", cell: (r) => <span className="font-medium">{r.name}</span> },
-  { key: "sku", header: "SKU", cell: (r) => <span className="text-muted-foreground">{r.sku}</span> },
-  { key: "stock", header: "Stock", cell: (r) => <StockBadge quantity={r.qty} minQuantity={r.min} /> },
+  {
+    key: "sku",
+    header: "SKU",
+    cell: (r) => <span className="text-muted-foreground">{r.sku}</span>,
+  },
+  {
+    key: "stock",
+    header: "Stock",
+    cell: (r) => <StockBadge quantity={r.qty} minQuantity={r.min} />,
+  },
   {
     key: "price",
     header: "Price",
@@ -137,7 +146,9 @@ export function StyleGuidePage() {
         <div className="flex flex-col gap-1">
           <p className="text-2xl font-semibold tracking-tight">Page title — 24px semibold</p>
           <p className="text-lg font-medium">Section heading — 18px medium</p>
-          <p className="text-base">Body text — 16px on mobile so iOS never zooms a focused field.</p>
+          <p className="text-base">
+            Body text — 16px on mobile so iOS never zooms a focused field.
+          </p>
           <p className="text-muted-foreground text-sm">Secondary text — 14px muted</p>
           <p className="text-muted-foreground text-xs">Caption — 12px muted</p>
         </div>
@@ -218,7 +229,13 @@ export function StyleGuidePage() {
         <StatGrid>
           <StatCard label="Products" value="128" icon={PackageIcon} />
           <StatCard label="Total stock" value="3,412" icon={BoxesIcon} />
-          <StatCard label="Low stock" value="7" icon={TrendingDownIcon} tone="warning" hint="At or below reorder point" />
+          <StatCard
+            label="Low stock"
+            value="7"
+            icon={TrendingDownIcon}
+            tone="warning"
+            hint="At or below reorder point"
+          />
           <StatCard label="Warehouses" value="4" icon={WarehouseIcon} />
         </StatGrid>
       </Section>
