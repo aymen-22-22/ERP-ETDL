@@ -43,8 +43,8 @@ def _sync_dispose_engine() -> None:  # pragma: no cover
 atexit.register(_sync_dispose_engine)
 
 
-from a2wsgi import ASGIMiddleware  # noqa: E402
+from a2wsgi import ASGIMiddleware  # noqa: E402, I001
 
 from app.main import app  # noqa: E402
 
-application = ASGIMiddleware(app)
+application = ASGIMiddleware(app)  # type: ignore[arg-type]
