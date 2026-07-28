@@ -17,6 +17,10 @@ dependencies = [
     "celery>=5.4",
     "python-multipart>=0.0.20",
     "structlog>=24.4",
+    # ASGI->WSGI bridge. Required only for Passenger/cPanel hosting, which
+    # serves WSGI; see passenger_wsgi.py. Harmless elsewhere (uvicorn serves
+    # the ASGI app directly and never imports this).
+    "a2wsgi>=1.10",
 ]
 
 [project.optional-dependencies]

@@ -12,7 +12,19 @@ from app.shared.core.tenant import get_current_tenant_id
 
 settings = get_settings()
 
-engine = create_async_engine(settings.database_url, pool_pre_ping=True, echo=settings.sql_echo)
+# `pool_pre_ping` matters most against a remote database: it validates a
+# pooled connection before handing it out, so a link dropped by an idle
+# timeout or a network blip surfaces as a transparent reconnect rather than a
+# failed request. Pool size is kept small because Passenger forks several
+# worker processes, each with its own pool (see config.db_pool_size).
+engine = create_async_engine(
+    settings.database_url,
+    pool_pre_ping=True,
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
+    pool_recycle=settings.db_pool_recycle_seconds,
+    echo=settings.sql_echo,
+)
 
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 

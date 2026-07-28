@@ -106,4 +106,6 @@ async def _issue_tokens(repo: AuthRepository, *, user_id: UUID, tenant_id: UUID)
         token_hash=hash_refresh_token(refresh_token),
         expires_at=datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days),
     )
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token, tenant_id=tenant_id)
+    return TokenResponse(
+        access_token=access_token, refresh_token=refresh_token, tenant_id=tenant_id
+    )
