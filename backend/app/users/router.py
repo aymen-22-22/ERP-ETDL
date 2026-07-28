@@ -50,7 +50,5 @@ async def update_member(
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_member(
-    user_id: UUID, session: Session, tenant_id: TenantId, _: CanWrite
-) -> None:
+async def remove_member(user_id: UUID, session: Session, tenant_id: TenantId, _: CanWrite) -> None:
     await service.remove_member(session, tenant_id, user_id)

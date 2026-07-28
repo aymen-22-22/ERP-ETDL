@@ -26,14 +26,12 @@ def upgrade() -> None:
         "inventory_movements",
         sa.Column("warehouse_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("warehouses.id")),
     )
-    op.execute(
-        """
+    op.execute("""
         UPDATE inventory_movements im
         SET warehouse_id = w.id
         FROM warehouses w
         WHERE w.tenant_id = im.tenant_id AND w.is_default
-        """
-    )
+        """)
     op.alter_column("inventory_movements", "warehouse_id", nullable=False)
     op.create_index("ix_inventory_movements_warehouse_id", "inventory_movements", ["warehouse_id"])
 
@@ -63,8 +61,7 @@ def upgrade() -> None:
         sa.Column("max_quantity", sa.Integer, nullable=True),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
     )
-    op.execute(
-        """
+    op.execute("""
         INSERT INTO product_stock_snapshots_new (
             product_id, warehouse_id, tenant_id, quantity_on_hand,
             reserved_quantity, min_quantity, max_quantity, updated_at
@@ -73,8 +70,7 @@ def upgrade() -> None:
                0, NULL, NULL, ps.updated_at
         FROM product_stock_snapshots ps
         JOIN warehouses w ON w.tenant_id = ps.tenant_id AND w.is_default
-        """
-    )
+        """)
     op.drop_table("product_stock_snapshots")
     op.rename_table("product_stock_snapshots_new", "product_stock_snapshots")
     op.create_index(
@@ -110,15 +106,13 @@ def downgrade() -> None:
         sa.Column("quantity_on_hand", sa.Integer, nullable=False, server_default="0"),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
     )
-    op.execute(
-        """
+    op.execute("""
         INSERT INTO product_stock_snapshots_old
             (product_id, tenant_id, quantity_on_hand, updated_at)
         SELECT product_id, tenant_id, SUM(quantity_on_hand), MAX(updated_at)
         FROM product_stock_snapshots
         GROUP BY product_id, tenant_id
-        """
-    )
+        """)
     op.drop_index("ix_product_stock_snapshots_warehouse_id", table_name="product_stock_snapshots")
     op.drop_index("ix_product_stock_snapshots_tenant_id", table_name="product_stock_snapshots")
     op.drop_table("product_stock_snapshots")

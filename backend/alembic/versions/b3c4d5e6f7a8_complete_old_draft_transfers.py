@@ -20,23 +20,19 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute(
-        """
+    op.execute("""
         UPDATE stock_transfers
         SET status = 'completed',
             completed_at = COALESCE(completed_at, now())
         WHERE status IN ('draft', 'pending', 'approved')
-        """
-    )
+        """)
 
 
 def downgrade() -> None:
-    op.execute(
-        """
+    op.execute("""
         UPDATE stock_transfers
         SET status = 'draft',
             completed_at = NULL
         WHERE status = 'completed'
           AND completed_at IS NOT NULL
-        """
-    )
+        """)

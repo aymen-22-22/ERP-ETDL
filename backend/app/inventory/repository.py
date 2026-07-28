@@ -135,11 +135,11 @@ class InventoryRepository(SyncableRepository[InventoryMovement]):
         )
         return list(result.scalars().all())
 
-    async def count_products_with_stock(
-        self, tenant_id: UUID, warehouse_id: UUID
-    ) -> int:
+    async def count_products_with_stock(self, tenant_id: UUID, warehouse_id: UUID) -> int:
         result = await self._session.scalar(
-            select(func.count()).select_from(ProductStockSnapshot).where(
+            select(func.count())
+            .select_from(ProductStockSnapshot)
+            .where(
                 ProductStockSnapshot.tenant_id == tenant_id,
                 ProductStockSnapshot.warehouse_id == warehouse_id,
                 ProductStockSnapshot.quantity_on_hand > 0,
@@ -147,9 +147,7 @@ class InventoryRepository(SyncableRepository[InventoryMovement]):
         )
         return result or 0
 
-    async def sum_quantity_for_warehouse(
-        self, tenant_id: UUID, warehouse_id: UUID
-    ) -> int:
+    async def sum_quantity_for_warehouse(self, tenant_id: UUID, warehouse_id: UUID) -> int:
         result = await self._session.scalar(
             select(func.coalesce(func.sum(ProductStockSnapshot.quantity_on_hand), 0)).where(
                 ProductStockSnapshot.tenant_id == tenant_id,
@@ -158,11 +156,11 @@ class InventoryRepository(SyncableRepository[InventoryMovement]):
         )
         return int(result or 0)
 
-    async def count_low_stock(
-        self, tenant_id: UUID, warehouse_id: UUID
-    ) -> int:
+    async def count_low_stock(self, tenant_id: UUID, warehouse_id: UUID) -> int:
         result = await self._session.scalar(
-            select(func.count()).select_from(ProductStockSnapshot).where(
+            select(func.count())
+            .select_from(ProductStockSnapshot)
+            .where(
                 ProductStockSnapshot.tenant_id == tenant_id,
                 ProductStockSnapshot.warehouse_id == warehouse_id,
                 ProductStockSnapshot.min_quantity.isnot(None),

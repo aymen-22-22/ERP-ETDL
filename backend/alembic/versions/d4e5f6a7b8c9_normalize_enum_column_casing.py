@@ -34,8 +34,7 @@ _COLUMNS = [
 def upgrade() -> None:
     for table, column in _COLUMNS:
         op.execute(
-            f"UPDATE {table} SET {column} = lower({column}) "
-            f"WHERE {column} <> lower({column})"
+            f"UPDATE {table} SET {column} = lower({column}) " f"WHERE {column} <> lower({column})"
         )
 
 

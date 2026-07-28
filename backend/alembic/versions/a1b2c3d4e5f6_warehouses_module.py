@@ -126,8 +126,7 @@ def upgrade() -> None:
     # Backfill: every existing tenant gets a "Main Warehouse" so existing
     # single-location data (products, movements, snapshots) has somewhere to
     # attach in the follow-up migration.
-    op.execute(
-        """
+    op.execute("""
         INSERT INTO warehouses (
             id, tenant_id, created_at, updated_at, name, warehouse_type,
             is_default, is_active, allow_sales, allow_purchases,
@@ -136,8 +135,7 @@ def upgrade() -> None:
         SELECT gen_random_uuid(), id, now(), now(), 'Main Warehouse', 'depot',
                true, true, true, true, true, false
         FROM tenants
-        """
-    )
+        """)
 
 
 def downgrade() -> None:

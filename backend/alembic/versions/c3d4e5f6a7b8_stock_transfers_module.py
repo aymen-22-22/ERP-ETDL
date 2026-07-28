@@ -82,9 +82,7 @@ def upgrade() -> None:
         sa.Column("approved_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("cancelled_at", sa.DateTime(timezone=True), nullable=True),
-        sa.CheckConstraint(
-            "source_warehouse_id != dest_warehouse_id", name="ck_transfer_diff_wh"
-        ),
+        sa.CheckConstraint("source_warehouse_id != dest_warehouse_id", name="ck_transfer_diff_wh"),
     )
     op.create_index("ix_stock_transfers_tenant_id", "stock_transfers", ["tenant_id"])
     op.create_index(
@@ -113,9 +111,7 @@ def upgrade() -> None:
         sa.CheckConstraint("quantity > 0", name="ck_transfer_line_qty_positive"),
     )
     op.create_index("ix_stock_transfer_lines_tenant_id", "stock_transfer_lines", ["tenant_id"])
-    op.create_index(
-        "ix_stock_transfer_lines_transfer_id", "stock_transfer_lines", ["transfer_id"]
-    )
+    op.create_index("ix_stock_transfer_lines_transfer_id", "stock_transfer_lines", ["transfer_id"])
 
     for table in NEW_TABLES:
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")

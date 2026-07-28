@@ -123,9 +123,7 @@ async def delete_ref[M: TenantScopedAuditMixin](
     await get_tenant_cache().invalidate_pattern(tenant_id, _entity_name(model))
 
 
-async def list_category_tree(
-    session: AsyncSession, tenant_id: UUID
-) -> list[dict[str, object]]:
+async def list_category_tree(session: AsyncSession, tenant_id: UUID) -> list[dict[str, object]]:
     """Return all categories as a nested tree structure."""
     from app.products.models import Category
 

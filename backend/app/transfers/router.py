@@ -43,9 +43,7 @@ async def list_transfers(
 ) -> PaginatedEnvelope[TransferRead]:
     params = PageParams(page=page, page_size=page_size)
     transfers, meta = await svc.list_transfers(session, tenant_id, params, status_filter)
-    return PaginatedEnvelope(
-        data=[TransferRead.model_validate(t) for t in transfers], meta=meta
-    )
+    return PaginatedEnvelope(data=[TransferRead.model_validate(t) for t in transfers], meta=meta)
 
 
 @router.get("/{transfer_id}", response_model=ResponseEnvelope[TransferRead])
