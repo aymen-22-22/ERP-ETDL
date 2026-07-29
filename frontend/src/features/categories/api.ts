@@ -23,16 +23,16 @@ export interface CategoryInput {
 }
 
 export async function listCategories(): Promise<Category[]> {
-  const result = await apiFetchPaginated<Category>("/api/v1/categories?page_size=200");
+  const result = await apiFetchPaginated<Category>("/v1/categories?page_size=200");
   return result.data;
 }
 
 export async function getCategoryTree(): Promise<CategoryTreeNode[]> {
-  return apiFetch<CategoryTreeNode[]>("/api/v1/categories/tree");
+  return apiFetch<CategoryTreeNode[]>("/v1/categories/tree");
 }
 
 export async function createCategory(input: CategoryInput): Promise<Category> {
-  return apiFetch<Category>("/api/v1/categories", {
+  return apiFetch<Category>("/v1/categories", {
     method: "POST",
     body: JSON.stringify({
       name: input.name,
@@ -44,7 +44,7 @@ export async function createCategory(input: CategoryInput): Promise<Category> {
 }
 
 export async function updateCategory(id: string, input: Partial<CategoryInput>): Promise<Category> {
-  return apiFetch<Category>(`/api/v1/categories/${id}`, {
+  return apiFetch<Category>(`/v1/categories/${id}`, {
     method: "PATCH",
     body: JSON.stringify({
       ...(input.name !== undefined && { name: input.name }),
@@ -56,5 +56,5 @@ export async function updateCategory(id: string, input: Partial<CategoryInput>):
 }
 
 export async function deleteCategory(id: string): Promise<void> {
-  return apiFetch<void>(`/api/v1/categories/${id}`, { method: "DELETE" });
+  return apiFetch<void>(`/v1/categories/${id}`, { method: "DELETE" });
 }

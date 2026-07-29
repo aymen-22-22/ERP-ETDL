@@ -62,7 +62,7 @@ export async function pushPending(): Promise<PushResult> {
   const batch = await nextBatch(100);
   if (batch.length === 0) return { pushed: 0, conflicts: 0, changes: [] };
 
-  const response = await apiFetch<RawPushResponse>("/api/v1/sync/push", {
+  const response = await apiFetch<RawPushResponse>("/v1/sync/push", {
     method: "POST",
     body: JSON.stringify({ mutations: batch.map(toEnvelope) }),
   }).catch(async (err: unknown) => {
@@ -145,7 +145,7 @@ export async function pullChanges(): Promise<{ pulled: number }> {
   while (hasMore) {
     const cursor = await getCursor();
     const page = await apiFetch<RawPullResponse>(
-      `/api/v1/sync/pull?since=${cursor}&limit=${PULL_PAGE_SIZE}`,
+      `/v1/sync/pull?since=${cursor}&limit=${PULL_PAGE_SIZE}`,
       { method: "GET" },
     );
 
