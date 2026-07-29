@@ -100,10 +100,9 @@ def upgrade() -> None:
     for role, codes in ROLE_GRANTS.items():
         rid = ROLE_IDS[role]
         for code in codes:
-            pid = PERMISSION_IDS[code]
             op.execute(
                 f"INSERT INTO role_permissions (role_id, permission_id) "
-                f"VALUES ('{rid}', '{pid}') "
+                f"SELECT '{rid}'::uuid, id FROM permissions WHERE code = '{code}' "
                 f"ON CONFLICT DO NOTHING"
             )
 
