@@ -25,7 +25,10 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://erp:erp@localhost:5432/erp",
         description="Async SQLAlchemy connection string",
     )
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str = Field(
+        default="",
+        description="Redis connection URL. Empty = Redis features (rate limiting, read cache) are disabled.",
+    )
     # Separate from `debug`: echoing every statement is genuinely expensive and
     # very noisy, so it shouldn't be implied by running in debug mode.
     sql_echo: bool = False

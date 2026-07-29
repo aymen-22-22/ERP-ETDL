@@ -103,7 +103,7 @@ async def apply_mutations(
                     change=_changelog_to_record(changelog),
                 )
             )
-        except ConflictError, NotFoundError, IntegrityError:
+        except (ConflictError, NotFoundError, IntegrityError):
             results.append(await _conflict_result(repo, tenant_id, mutation))
 
     await session.commit()

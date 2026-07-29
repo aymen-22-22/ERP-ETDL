@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.shared.core.exceptions import ConflictError, NotFoundError
@@ -96,10 +96,34 @@ class SyncableCRUDRepository[
         )
         return result.scalar_one_or_none()
 
+    def _model_columns(self) -> set[str]:
+        """Names of the model's actual mapped columns."""
+        mapper = inspect(self.model_class, raiseerr=True)
+        return {attr.key for attr in mapper.mapper.column_attrs}
+
+    def _column_data(self, validated: BaseModel, *, exclude_unset: bool = False) -> dict[str, Any]:
+        """Schema fields reduced to those the model can actually store.
+
+        A create/update schema may legitimately carry fields that are
+        instructions rather than columns — `ProductCreate.initial_stock` asks
+        for an opening stock movement, it isn't a column on `Product`. Passing
+        one into the model constructor raises
+        `TypeError: '<field>' is an invalid keyword argument`.
+
+        This mattered in production and was invisible in testing: `model_dump()`
+        emits *every* field including defaults, so a payload that never
+        mentioned `initial_stock` still sent `initial_stock=None` and crashed
+        every offline product create with a 500.
+        """
+        dumped: dict[str, Any] = validated.model_dump(exclude_unset=exclude_unset)
+        dumped.pop("id", None)
+        columns = self._model_columns()
+        return {key: value for key, value in dumped.items() if key in columns}
+
     async def _persist(self, tenant_id: UUID, mutation: MutationEnvelope) -> EntityT:
         if mutation.operation == ChangeOperation.CREATE:
-            data = self.create_schema.model_validate(mutation.payload).model_dump()
-            data.pop("id", None)
+            validated_create = self.create_schema.model_validate(mutation.payload)
+            data = self._column_data(validated_create)
             entity = self.model_class(id=mutation.entity_id, tenant_id=tenant_id, version=1, **data)  # type: ignore[call-arg]
             self._session.add(entity)
             return entity
@@ -110,8 +134,7 @@ class SyncableCRUDRepository[
 
         if mutation.operation == ChangeOperation.UPDATE:
             validated = self.update_schema.model_validate(mutation.payload)
-            update_data: dict[str, Any] = validated.model_dump(exclude_unset=True)
-            for field, value in update_data.items():
+            for field, value in self._column_data(validated, exclude_unset=True).items():
                 setattr(existing, field, value)
         elif mutation.operation == ChangeOperation.DELETE:
             existing.deleted_at = datetime.now(UTC)

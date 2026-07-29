@@ -21,11 +21,14 @@ _redis: Redis | None = None
 _unavailable_until = 0.0
 
 
-def get_redis() -> Redis:
+def get_redis() -> Redis | None:
     global _redis
+    url = get_settings().redis_url
+    if not url:
+        return None
     if _redis is None:
         _redis = Redis.from_url(
-            get_settings().redis_url,
+            url,
             decode_responses=True,
             socket_connect_timeout=CONNECT_TIMEOUT_SECONDS,
             socket_timeout=OPERATION_TIMEOUT_SECONDS,
@@ -37,6 +40,9 @@ def is_redis_available() -> bool:
     """False while inside the backoff window after a recent failure, so callers
     can skip Redis without paying the connect timeout again.
     """
+    url = get_settings().redis_url
+    if not url:
+        return False
     return time.monotonic() >= _unavailable_until
 
 
