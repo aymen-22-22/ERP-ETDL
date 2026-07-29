@@ -38,7 +38,15 @@ class TenantCache:
         await cache.invalidate_pattern(tenant_id, "products")
     """
 
-    async def _redis(self) -> Redis:
+    async def _redis(self) -> Redis | None:
+        """None when Redis isn't configured — every caller must handle that.
+
+        Typing this as non-optional hid the fact that `get_redis()` returns
+        None with no REDIS_URL set; the code only survived because
+        `is_redis_available()` happened to short-circuit first. Any caller that
+        forgot that guard would have hit `AttributeError: 'NoneType'` and
+        turned a degraded cache into a 500.
+        """
         return get_redis()
 
     def _key(self, tenant_id: UUID, entity: str, *parts: str) -> str:
@@ -46,11 +54,12 @@ class TenantCache:
 
     async def get(self, tenant_id: UUID, entity: str, *key_parts: str) -> Any | None:
         """Fetch a cached value. Returns ``None`` on miss or Redis error."""
-        if not is_redis_available():
+        redis = await self._redis()
+        if redis is None or not is_redis_available():
             return None
         key = self._key(tenant_id, entity, *key_parts)
         try:
-            raw = await (await self._redis()).get(key)
+            raw = await redis.get(key)
         except (RedisError, OSError) as exc:
             note_redis_failure()
             logger.warning("cache_get_error", key=key, error=str(exc))
@@ -71,11 +80,12 @@ class TenantCache:
         value: Any,
     ) -> None:
         """Store a JSON-serialisable value under a tenant-scoped key."""
-        if not is_redis_available():
+        redis = await self._redis()
+        if redis is None or not is_redis_available():
             return
         key = self._key(tenant_id, entity, *key_parts)
         try:
-            await (await self._redis()).setex(key, ttl, json.dumps(value, default=_json_default))
+            await redis.setex(key, ttl, json.dumps(value, default=_json_default))
         except (RedisError, OSError) as exc:
             note_redis_failure()
             logger.warning("cache_set_error", key=key, error=str(exc))
@@ -87,11 +97,11 @@ class TenantCache:
         keyspaces.  Fails open — on Redis error nothing is deleted and a
         warning is logged.
         """
-        if not is_redis_available():
+        redis = await self._redis()
+        if redis is None or not is_redis_available():
             return
         pattern = f"cache:{tenant_id}:{entity}:*"
         try:
-            redis = await self._redis()
             cursor = 0
             while True:
                 cursor, keys = await redis.scan(cursor=cursor, match=pattern, count=100)

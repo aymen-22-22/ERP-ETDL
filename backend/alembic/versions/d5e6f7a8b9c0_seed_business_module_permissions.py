@@ -11,9 +11,6 @@ RolePermission, so no write succeeds without the corresponding grant.
 
 from collections.abc import Sequence
 
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
-
 from alembic import op
 
 revision: str = "d5e6f7a8b9c0"
