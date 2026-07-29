@@ -1,4 +1,4 @@
-import { apiFetch } from "@/services/api/client";
+import { ApiError, apiFetch } from "@/services/api/client";
 
 import { applyChange } from "./applyChange";
 import { db } from "./db";
@@ -45,12 +45,18 @@ interface PushResult {
   changes: RawChange[];
 }
 
+const MAX_RETRIES = 5;
+
 /**
  * Drains pending queued mutations to POST /sync/push and reconciles each
  * result: `applied`/`duplicate` -> remove from the queue and collect the
  * ChangeLog entry; `conflict` -> park the row (status "conflict") and record
  * the server's version for the user to reconcile. Server stays the source of
  * truth — a conflicted local write is never silently kept.
+ *
+ * Mutations that fail MAX_RETRIES times are force-dropped so they cannot
+ * permanently block the queue. This prevents a single bad payload from
+ * starving the pull phase for all other mutations.
  */
 export async function pushPending(): Promise<PushResult> {
   const batch = await nextBatch(100);
@@ -59,6 +65,21 @@ export async function pushPending(): Promise<PushResult> {
   const response = await apiFetch<RawPushResponse>("/api/v1/sync/push", {
     method: "POST",
     body: JSON.stringify({ mutations: batch.map(toEnvelope) }),
+  }).catch(async (err: unknown) => {
+    const status = err instanceof ApiError ? err.status : 0;
+    for (const m of batch) {
+      if (status >= 400 && status < 500) {
+        await ack(m.clientMutationId);
+      } else {
+        const nextCount = (m.retryCount ?? 0) + 1;
+        if (nextCount >= MAX_RETRIES) {
+          await ack(m.clientMutationId);
+        } else {
+          await db.mutationQueue.update(m.clientMutationId, { retryCount: nextCount });
+        }
+      }
+    }
+    throw err;
   });
 
   let pushed = 0;
@@ -152,7 +173,12 @@ export async function pullChanges(): Promise<{ pulled: number }> {
 let inFlight: Promise<SyncEngineResult> | null = null;
 
 async function pushThenPull(): Promise<SyncEngineResult> {
-  const push = await pushPending();
+  let push: PushResult;
+  try {
+    push = await pushPending();
+  } catch {
+    push = { pushed: 0, conflicts: 0, changes: [] };
+  }
 
   let pulled = 0;
 
