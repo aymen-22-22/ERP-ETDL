@@ -75,50 +75,37 @@ ROLE_GRANTS = {
 }
 
 
-def upgrade() -> None:
-    permissions_table = sa.table(
-        "permissions",
-        sa.column("id", postgresql.UUID(as_uuid=True)),
-        sa.column("code", sa.String),
-        sa.column("description", sa.String),
-    )
-    op.bulk_insert(
-        permissions_table,
-        [
-            {"id": PERMISSION_IDS["products:read"], "code": "products:read",
-             "description": "View products, categories, brands, and units."},
-            {"id": PERMISSION_IDS["products:write"], "code": "products:write",
-             "description": "Create, update, and delete products and catalog data."},
-            {"id": PERMISSION_IDS["warehouses:read"], "code": "warehouses:read",
-             "description": "View warehouses and their details."},
-            {"id": PERMISSION_IDS["warehouses:write"], "code": "warehouses:write",
-             "description": "Create, update, and delete warehouses."},
-            {"id": PERMISSION_IDS["inventory:read"], "code": "inventory:read",
-             "description": "View inventory stock and movement history."},
-            {"id": PERMISSION_IDS["inventory:write"], "code": "inventory:write",
-             "description": "Record inventory movements."},
-            {"id": PERMISSION_IDS["transfers:read"], "code": "transfers:read",
-             "description": "View stock transfers."},
-            {"id": PERMISSION_IDS["transfers:write"], "code": "transfers:write",
-             "description": "Create and edit stock transfers."},
-            {"id": PERMISSION_IDS["transfers:approve"], "code": "transfers:approve",
-             "description": "Approve and complete stock transfers."},
-        ],
-    )
+PERMISSION_DESCRIPTIONS = {
+    "products:read": "View products, categories, brands, and units.",
+    "products:write": "Create, update, and delete products and catalog data.",
+    "warehouses:read": "View warehouses and their details.",
+    "warehouses:write": "Create, update, and delete warehouses.",
+    "inventory:read": "View inventory stock and movement history.",
+    "inventory:write": "Record inventory movements.",
+    "transfers:read": "View stock transfers.",
+    "transfers:write": "Create and edit stock transfers.",
+    "transfers:approve": "Approve and complete stock transfers.",
+}
 
-    role_permissions_table = sa.table(
-        "role_permissions",
-        sa.column("role_id", postgresql.UUID(as_uuid=True)),
-        sa.column("permission_id", postgresql.UUID(as_uuid=True)),
-    )
-    op.bulk_insert(
-        role_permissions_table,
-        [
-            {"role_id": ROLE_IDS[role], "permission_id": PERMISSION_IDS[code]}
-            for role, codes in ROLE_GRANTS.items()
-            for code in codes
-        ],
-    )
+
+def upgrade() -> None:
+    for code, pid in PERMISSION_IDS.items():
+        desc = PERMISSION_DESCRIPTIONS[code]
+        op.execute(
+            f"INSERT INTO permissions (id, code, description) "
+            f"VALUES ('{pid}', '{code}', '{desc}') "
+            f"ON CONFLICT (code) DO NOTHING"
+        )
+
+    for role, codes in ROLE_GRANTS.items():
+        rid = ROLE_IDS[role]
+        for code in codes:
+            pid = PERMISSION_IDS[code]
+            op.execute(
+                f"INSERT INTO role_permissions (role_id, permission_id) "
+                f"VALUES ('{rid}', '{pid}') "
+                f"ON CONFLICT DO NOTHING"
+            )
 
 
 def downgrade() -> None:
