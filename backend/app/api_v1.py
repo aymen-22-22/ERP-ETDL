@@ -9,7 +9,7 @@ from app.transfers.router import router as transfers_router
 from app.users.router import router as users_router
 from app.warehouses.router import router as warehouses_router
 
-api_v1_router = APIRouter(prefix="/api/v1")
+api_v1_router = APIRouter(prefix="/v1")
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(products_router)
 api_v1_router.include_router(catalog_router)

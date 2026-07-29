@@ -17,6 +17,10 @@ node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/dev-dist/
+# Build archives created for manual upload to shared hosting — `dist/` above
+# doesn't match a file called dist.zip.
+frontend/dist.zip
+*.zip
 frontend/.lighthouseci/
 
 # Editors / OS

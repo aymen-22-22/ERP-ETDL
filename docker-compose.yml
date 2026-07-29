@@ -30,6 +30,10 @@ services:
   backend:
     build:
       context: ./backend
+      # The Dockerfile is multi-stage; compose is for local development.
+      # Production images build with `--target production` (no --reload, no
+      # dev tooling, non-root) — see deploy/README.md.
+      target: dev
     restart: unless-stopped
     env_file:
       - .env
