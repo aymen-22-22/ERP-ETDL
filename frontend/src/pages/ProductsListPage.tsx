@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useCategories } from "@/features/categories/hooks";
-import type { ProductSort, ProductSortDir } from "@/features/products/hooks";
+import type { ProductSort, ProductSortDir } from "@/features/products/api";
 import { useProducts } from "@/features/products/hooks";
 
 const PAGE_SIZE = 25;
@@ -41,19 +41,17 @@ export function ProductsListPage() {
     setPage(1);
   }
 
-  const {
-    items: products,
-    total,
-    pages,
-  } = useProducts(page, PAGE_SIZE, {
+  const { data, isLoading } = useProducts(page, PAGE_SIZE, {
     search,
     status,
     sort,
     sortDir,
+    ...(categoryId ? { categoryId } : {}),
   });
+  const products = data?.data;
+  const total = data?.meta.total ?? 0;
+  const pages = data?.meta.pages ?? 1;
   const isFiltered = search !== "" || status !== "" || categoryId !== null;
-
-  const isLoading = products === undefined;
 
   const categoryOptions: SearchableSelectOption[] = [
     { value: "__all__", label: "All categories" },
@@ -159,7 +157,7 @@ export function ProductsListPage() {
                     <td className="px-4 py-2 text-right">
                       <Button variant="ghost" size="sm" asChild>
                         <Link
-                          to={`/transfers/new?product=${product.id}&warehouse=${product.defaultWarehouseId ?? ""}`}
+                          to={`/transfers/new?product=${product.id}&warehouse=${product.default_warehouse_id ?? ""}`}
                         >
                           <ArrowRightIcon className="mr-1 size-3" />
                           Transfer

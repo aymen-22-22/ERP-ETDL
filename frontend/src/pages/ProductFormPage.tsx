@@ -51,7 +51,7 @@ export function ProductFormPage() {
   const isEdit = Boolean(productId);
   const navigate = useNavigate();
 
-  const { product, isLoading } = useProduct(productId ?? "");
+  const { data: product, isLoading } = useProduct(productId ?? "");
   const createMutation = useCreateProductMutation();
   const updateMutation = useUpdateProductMutation(productId ?? "");
 
@@ -80,12 +80,12 @@ export function ProductFormPage() {
         barcode: product.barcode ?? undefined,
         description: product.description ?? undefined,
         price: product.price,
-        costPrice: product.costPrice ?? undefined,
+        costPrice: product.cost_price ?? undefined,
         status: (product.status as "draft" | "active" | "archived") ?? "active",
-        categoryId: product.categoryId ?? undefined,
-        brandId: product.brandId ?? undefined,
-        unitId: product.unitId ?? undefined,
-        defaultWarehouseId: product.defaultWarehouseId ?? undefined,
+        categoryId: product.category_id ?? undefined,
+        brandId: product.brand_id ?? undefined,
+        unitId: product.unit_id ?? undefined,
+        defaultWarehouseId: product.default_warehouse_id ?? undefined,
       });
     }
   }, [isEdit, product, reset]);

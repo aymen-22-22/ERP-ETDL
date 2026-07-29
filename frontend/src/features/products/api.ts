@@ -1,6 +1,4 @@
-// Product reads now come from the local Dexie cache (see features/products/
-// hooks.ts), and writes go through the offline mutation queue (see
-// features/products/mutations.ts). This module is just the shared write DTO.
+import { apiFetch, apiFetchPaginated } from "@/services/api/client";
 
 export interface ProductInput {
   name: string;
@@ -15,4 +13,92 @@ export interface ProductInput {
   unitId?: string | undefined;
   defaultWarehouseId?: string | undefined;
   initialStock?: string | undefined;
+}
+
+export interface Product {
+  id: string;
+  tenant_id: string;
+  name: string;
+  sku: string;
+  barcode: string | null;
+  description: string | null;
+  price: string;
+  cost_price: string | null;
+  status: string;
+  category_id: string | null;
+  brand_id: string | null;
+  unit_id: string | null;
+  default_warehouse_id: string | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ProductSort = "name" | "price" | "sku";
+export type ProductSortDir = "asc" | "desc";
+
+export interface ProductListParams {
+  search?: string;
+  status?: string;
+  categoryId?: string | undefined;
+  sort?: ProductSort;
+  sortDir?: ProductSortDir;
+}
+
+function toPayload(input: ProductInput): Record<string, unknown> {
+  return {
+    name: input.name,
+    sku: input.sku,
+    barcode: input.barcode || null,
+    description: input.description || null,
+    price: input.price,
+    cost_price: input.costPrice || null,
+    status: input.status ?? "active",
+    category_id: input.categoryId || null,
+    brand_id: input.brandId || null,
+    unit_id: input.unitId || null,
+    default_warehouse_id: input.defaultWarehouseId || null,
+    initial_stock: input.initialStock ? Number(input.initialStock) : null,
+  };
+}
+
+export async function listProducts(
+  page = 1,
+  pageSize = 25,
+  params: ProductListParams = {},
+): Promise<{ data: Product[]; meta: { page: number; page_size: number; total: number; pages: number } }> {
+  const q = new URLSearchParams();
+  q.set("page", String(page));
+  q.set("page_size", String(pageSize));
+  if (params.search) q.set("search", params.search);
+  if (params.status) q.set("status", params.status);
+  if (params.categoryId) q.set("category_id", params.categoryId);
+  if (params.sort) q.set("sort", params.sort);
+  if (params.sortDir) q.set("sort_dir", params.sortDir);
+  return apiFetchPaginated<Product>(`/v1/products?${q.toString()}`);
+}
+
+export async function getProduct(id: string): Promise<Product> {
+  return apiFetch<Product>(`/v1/products/${id}`);
+}
+
+export async function createProduct(input: ProductInput): Promise<Product> {
+  return apiFetch<Product>("/v1/products", {
+    method: "POST",
+    body: JSON.stringify(toPayload(input)),
+  });
+}
+
+export async function updateProduct(id: string, version: number, input: ProductInput): Promise<Product> {
+  return apiFetch<Product>(`/v1/products/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ...toPayload(input), version }),
+  });
+}
+
+export async function deleteProduct(id: string, version: number): Promise<void> {
+  await apiFetch<void>(`/v1/products/${id}`, {
+    method: "DELETE",
+    body: JSON.stringify({ version }),
+  });
 }

@@ -8,29 +8,27 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NotFoundPage } from "@/pages/NotFoundPage";
+import { useProductStock, useMovements } from "@/features/inventory/hooks";
 import {
   useAdjustStockMutation,
   useDeleteProductMutation,
-  useMovements,
   useProduct,
-  useStock,
 } from "@/features/products/hooks";
 import { useSelectedWarehouseId } from "@/features/warehouses/hooks";
 import { WarehouseSelector } from "@/features/warehouses/WarehouseSelector";
+import { NotFoundPage } from "@/pages/NotFoundPage";
 
 export function ProductDetailPage() {
   const { productId = "" } = useParams();
   const navigate = useNavigate();
 
-  const { product, isLoading } = useProduct(productId);
+  const { data: product, isLoading } = useProduct(productId);
   const defaultWarehouseId = useSelectedWarehouseId();
   const [adjustWarehouseId, setAdjustWarehouseId] = useState<string | null>(null);
   const warehouseId = adjustWarehouseId ?? defaultWarehouseId;
 
-  const totalStock = useStock(productId);
-  const warehouseStock = useStock(productId, warehouseId ?? undefined);
-  const movements = useMovements(productId, warehouseId ?? undefined);
+  const { data: stockSnapshot } = useProductStock(productId, warehouseId ?? "");
+  const { data: movementsPage } = useMovements(productId, warehouseId ?? undefined);
   const adjustMutation = useAdjustStockMutation(productId);
   const deleteMutation = useDeleteProductMutation();
 
@@ -53,6 +51,8 @@ export function ProductDetailPage() {
       },
     );
   };
+
+  const movements = movementsPage?.data;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
@@ -93,9 +93,14 @@ export function ProductDetailPage() {
           <CardTitle>Current stock</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-semibold tabular-nums">{totalStock ?? 0}</p>
+          <p className="text-3xl font-semibold tabular-nums">
+            {stockSnapshot?.available_quantity ?? 0}
+          </p>
           <p className="text-muted-foreground text-sm">
-            {warehouseStock ?? 0} at selected warehouse
+            On hand: {stockSnapshot?.quantity_on_hand ?? 0}
+            {stockSnapshot && stockSnapshot.reserved_quantity > 0
+              ? ` · Reserved: ${stockSnapshot.reserved_quantity}`
+              : ""}
           </p>
         </CardContent>
       </Card>
@@ -151,14 +156,14 @@ export function ProductDetailPage() {
               <tbody>
                 {movements.map((movement) => (
                   <tr key={movement.id} className="border-t">
-                    <td className="px-4 py-2 capitalize">{movement.movementType}</td>
+                    <td className="px-4 py-2 capitalize">{movement.movement_type}</td>
                     <td className="px-4 py-2 text-right tabular-nums">
-                      {movement.quantityDelta > 0 ? "+" : ""}
-                      {movement.quantityDelta}
+                      {movement.quantity_delta > 0 ? "+" : ""}
+                      {movement.quantity_delta}
                     </td>
                     <td className="text-muted-foreground px-4 py-2">{movement.note ?? "—"}</td>
                     <td className="text-muted-foreground px-4 py-2">
-                      {new Date(movement.createdAt).toLocaleString()}
+                      {new Date(movement.created_at).toLocaleString()}
                     </td>
                   </tr>
                 ))}

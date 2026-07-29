@@ -43,9 +43,6 @@ const TransferFormPage = lazy(() =>
 const TransferDetailPage = lazy(() =>
   import("@/pages/TransferDetailPage").then((m) => ({ default: m.TransferDetailPage })),
 );
-const ConflictsPage = lazy(() =>
-  import("@/pages/ConflictsPage").then((m) => ({ default: m.ConflictsPage })),
-);
 const CategoriesPage = lazy(() =>
   import("@/pages/CategoriesPage").then((m) => ({ default: m.CategoriesPage })),
 );
@@ -77,7 +74,6 @@ export function AppRoutes() {
             <Route path="/transfers" element={<TransferListPage />} />
             <Route path="/transfers/new" element={<TransferFormPage />} />
             <Route path="/transfers/:transferId" element={<TransferDetailPage />} />
-            <Route path="/conflicts" element={<ConflictsPage />} />
             <Route path="/style" element={<StyleGuidePage />} />
           </Route>
         </Route>

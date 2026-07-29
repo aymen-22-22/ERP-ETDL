@@ -1,11 +1,11 @@
-import { useLiveQuery } from "dexie-react-hooks";
 import { ChevronDownIcon } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { db } from "@/offline/db";
-import { useAuthStore } from "@/store/authStore";
+import { listProducts } from "@/features/products/api";
+import type { Product } from "@/features/products/api";
 
 interface ProductSearchSelectProps {
   value: string | null;
@@ -22,17 +22,6 @@ interface ProductHit {
   barcode: string | null;
 }
 
-/**
- * Product picker searching name / SKU / barcode.
- *
- * Reads from Dexie rather than the API so it keeps working offline, which is
- * the point of having products cached locally in the first place.
- *
- * Implements the ARIA combobox pattern: the trigger owns
- * `role="combobox"`/`aria-expanded`, the list is a `listbox` of `option`s, and
- * the active option is tracked with `aria-activedescendant` so screen readers
- * announce it while arrowing through.
- */
 export function ProductSearchSelect({
   value,
   onChange,
@@ -40,7 +29,6 @@ export function ProductSearchSelect({
   className,
   disabled = false,
 }: ProductSearchSelectProps) {
-  const tenantId = useAuthStore((s) => s.tenantId);
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -48,14 +36,21 @@ export function ProductSearchSelect({
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
 
-  const allProducts = useLiveQuery(async () => {
-    if (!tenantId) return [] as ProductHit[];
-    const rows = await db.products.where("tenantId").equals(tenantId).toArray();
-    return rows.map((r) => ({ id: r.id, name: r.name, sku: r.sku, barcode: r.barcode }));
-  }, [tenantId]);
+  const { data: productsPage } = useQuery({
+    queryKey: ["products", "search", 1, 200],
+    queryFn: () => listProducts(1, 200),
+  });
+
+  const allProducts: ProductHit[] = useMemo(() => {
+    return (productsPage?.data ?? []).map((p: Product) => ({
+      id: p.id,
+      name: p.name,
+      sku: p.sku,
+      barcode: p.barcode,
+    }));
+  }, [productsPage]);
 
   const filtered = useMemo(() => {
-    if (!allProducts) return [];
     const needle = search.trim().toLowerCase();
     if (!needle) return allProducts.slice(0, 50);
     return allProducts
@@ -68,10 +63,8 @@ export function ProductSearchSelect({
       .slice(0, 50);
   }, [allProducts, search]);
 
-  // Derived from props during render — storing it in state and syncing via an
-  // effect would just be a second copy that can go stale.
   const selectedLabel = useMemo(() => {
-    if (!value || !allProducts) return null;
+    if (!value) return null;
     const found = allProducts.find((p) => p.id === value);
     return found ? `${found.name} (${found.sku})` : null;
   }, [value, allProducts]);

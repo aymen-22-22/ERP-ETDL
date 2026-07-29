@@ -130,10 +130,8 @@ export function SalesPage() {
         clear();
         setCartOpen(false);
         toast({
-          title: result.queued ? "Sale saved offline" : "Sale completed",
-          description: result.queued
-            ? "It will sync when you're back online."
-            : `Stock updated for ${lineCount} product${lineCount === 1 ? "" : "s"}.`,
+          title: "Sale completed",
+          description: `Stock updated for ${lineCount} product${lineCount === 1 ? "" : "s"}.`,
         });
       })
       .catch(() =>

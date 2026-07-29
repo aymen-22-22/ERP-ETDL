@@ -4,7 +4,6 @@ import { Outlet } from "react-router";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PageLoader } from "@/components/PageLoader";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { useSyncDrain } from "@/offline/useSyncDrain";
 
 import { MobileBottomNav } from "./MobileBottomNav";
 import { Sidebar } from "./Sidebar";
@@ -12,7 +11,6 @@ import { TopBar } from "./TopBar";
 
 export function DashboardLayout() {
   const isDesktop = useMediaQuery("(min-width: 768px)");
-  useSyncDrain();
 
   return (
     <div className="flex min-h-svh">
