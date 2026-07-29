@@ -43,32 +43,32 @@ function toPayload(input: WarehouseInput): Record<string, unknown> {
 }
 
 export async function listWarehouses(): Promise<Warehouse[]> {
-  const result = await apiFetchPaginated<Warehouse>("/api/v1/warehouses?page_size=200");
+  const result = await apiFetchPaginated<Warehouse>("/v1/warehouses?page_size=200");
   return result.data;
 }
 
 export async function getWarehouse(id: string): Promise<Warehouse> {
-  return apiFetch<Warehouse>(`/api/v1/warehouses/${id}`);
+  return apiFetch<Warehouse>(`/v1/warehouses/${id}`);
 }
 
 export async function createWarehouse(input: WarehouseInput): Promise<Warehouse> {
-  return apiFetch<Warehouse>("/api/v1/warehouses", {
+  return apiFetch<Warehouse>("/v1/warehouses", {
     method: "POST",
     body: JSON.stringify(toPayload(input)),
   });
 }
 
 export async function updateWarehouse(id: string, input: WarehouseInput): Promise<Warehouse> {
-  return apiFetch<Warehouse>(`/api/v1/warehouses/${id}`, {
+  return apiFetch<Warehouse>(`/v1/warehouses/${id}`, {
     method: "PATCH",
     body: JSON.stringify(toPayload(input)),
   });
 }
 
 export async function deleteWarehouse(id: string): Promise<void> {
-  await apiFetch<void>(`/api/v1/warehouses/${id}`, { method: "DELETE" });
+  await apiFetch<void>(`/v1/warehouses/${id}`, { method: "DELETE" });
 }
 
 export async function setDefaultWarehouse(id: string): Promise<Warehouse> {
-  return apiFetch<Warehouse>(`/api/v1/warehouses/${id}/set-default`, { method: "POST" });
+  return apiFetch<Warehouse>(`/v1/warehouses/${id}/set-default`, { method: "POST" });
 }

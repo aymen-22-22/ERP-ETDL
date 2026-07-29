@@ -21,11 +21,11 @@ async def enforce_rate_limit(key: str, *, limit: int, window_seconds: int = 60) 
     Rate limiting is a protective layer, not a correctness guarantee — losing
     it temporarily degrades protection but doesn't break the endpoint.
     """
-    if not is_redis_available():
+    redis = get_redis()
+    if redis is None or not is_redis_available():
         return
 
     try:
-        redis = get_redis()
         current = await redis.incr(key)
         if current == 1:
             await redis.expire(key, window_seconds)

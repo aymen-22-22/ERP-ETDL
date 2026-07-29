@@ -39,7 +39,7 @@ export interface RegisterResult {
 }
 
 export async function login(input: LoginInput): Promise<void> {
-  const tokens = await apiFetch<TokenResponse>("/api/v1/auth/login", {
+  const tokens = await apiFetch<TokenResponse>("/v1/auth/login", {
     method: "POST",
     body: JSON.stringify({
       email: input.email,
@@ -54,7 +54,7 @@ export async function login(input: LoginInput): Promise<void> {
 }
 
 export async function register(input: RegisterInput): Promise<RegisterResult> {
-  const result = await apiFetch<RegisterResponse>("/api/v1/auth/register", {
+  const result = await apiFetch<RegisterResponse>("/v1/auth/register", {
     method: "POST",
     body: JSON.stringify({
       email: input.email,
@@ -70,7 +70,7 @@ export async function logout(): Promise<void> {
   const { refreshToken, clearSession } = useAuthStore.getState();
   if (refreshToken) {
     // Best-effort server-side invalidation; don't block on network failure.
-    await apiFetch("/api/v1/auth/logout", {
+    await apiFetch("/v1/auth/logout", {
       method: "POST",
       body: JSON.stringify({ refresh_token: refreshToken }),
     }).catch(() => undefined);

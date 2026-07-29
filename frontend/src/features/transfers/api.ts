@@ -44,16 +44,16 @@ function toLinesPayload(lines: TransferLineInput[]): { product_id: string; quant
 
 export async function listTransfers(status?: TransferStatus): Promise<Transfer[]> {
   const query = status ? `?status=${status}&page_size=200` : "?page_size=200";
-  const result = await apiFetchPaginated<Transfer>(`/api/v1/transfers${query}`);
+  const result = await apiFetchPaginated<Transfer>(`/v1/transfers${query}`);
   return result.data;
 }
 
 export async function getTransfer(id: string): Promise<Transfer> {
-  return apiFetch<Transfer>(`/api/v1/transfers/${id}`);
+  return apiFetch<Transfer>(`/v1/transfers/${id}`);
 }
 
 export async function createTransfer(input: TransferCreateInput): Promise<Transfer> {
-  return apiFetch<Transfer>("/api/v1/transfers", {
+  return apiFetch<Transfer>("/v1/transfers", {
     method: "POST",
     body: JSON.stringify({
       source_warehouse_id: input.sourceWarehouseId,
@@ -68,24 +68,24 @@ export async function updateTransferLines(
   id: string,
   lines: TransferLineInput[],
 ): Promise<Transfer> {
-  return apiFetch<Transfer>(`/api/v1/transfers/${id}/lines`, {
+  return apiFetch<Transfer>(`/v1/transfers/${id}/lines`, {
     method: "PATCH",
     body: JSON.stringify({ lines: toLinesPayload(lines) }),
   });
 }
 
 export async function submitTransfer(id: string): Promise<Transfer> {
-  return apiFetch<Transfer>(`/api/v1/transfers/${id}/submit`, { method: "POST" });
+  return apiFetch<Transfer>(`/v1/transfers/${id}/submit`, { method: "POST" });
 }
 
 export async function approveTransfer(id: string): Promise<Transfer> {
-  return apiFetch<Transfer>(`/api/v1/transfers/${id}/approve`, { method: "POST" });
+  return apiFetch<Transfer>(`/v1/transfers/${id}/approve`, { method: "POST" });
 }
 
 export async function completeTransfer(id: string): Promise<Transfer> {
-  return apiFetch<Transfer>(`/api/v1/transfers/${id}/complete`, { method: "POST" });
+  return apiFetch<Transfer>(`/v1/transfers/${id}/complete`, { method: "POST" });
 }
 
 export async function cancelTransfer(id: string): Promise<Transfer> {
-  return apiFetch<Transfer>(`/api/v1/transfers/${id}/cancel`, { method: "POST" });
+  return apiFetch<Transfer>(`/v1/transfers/${id}/cancel`, { method: "POST" });
 }

@@ -11,9 +11,6 @@ RolePermission, so no write succeeds without the corresponding grant.
 
 from collections.abc import Sequence
 
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
-
 from alembic import op
 
 revision: str = "d5e6f7a8b9c0"
@@ -43,22 +40,32 @@ ROLE_IDS = {
 
 ROLE_GRANTS = {
     "owner": [
-        "products:read", "products:write",
-        "warehouses:read", "warehouses:write",
-        "inventory:read", "inventory:write",
-        "transfers:read", "transfers:write", "transfers:approve",
+        "products:read",
+        "products:write",
+        "warehouses:read",
+        "warehouses:write",
+        "inventory:read",
+        "inventory:write",
+        "transfers:read",
+        "transfers:write",
+        "transfers:approve",
     ],
     "admin": [
-        "products:read", "products:write",
-        "warehouses:read", "warehouses:write",
-        "inventory:read", "inventory:write",
-        "transfers:read", "transfers:write",
+        "products:read",
+        "products:write",
+        "warehouses:read",
+        "warehouses:write",
+        "inventory:read",
+        "inventory:write",
+        "transfers:read",
+        "transfers:write",
     ],
     "manager": [
         "products:read",
         "warehouses:read",
         "inventory:read",
-        "transfers:read", "transfers:write",
+        "transfers:read",
+        "transfers:write",
     ],
     "cashier": [
         "products:read",
