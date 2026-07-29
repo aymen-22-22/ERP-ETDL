@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     )
     redis_url: str = Field(
         default="",
-        description="Redis connection URL. Empty = Redis features (rate limiting, read cache) are disabled.",
+        description="Redis URL. Empty = Redis disabled (rate limit, cache bypassed).",
     )
     # Separate from `debug`: echoing every statement is genuinely expensive and
     # very noisy, so it shouldn't be implied by running in debug mode.
