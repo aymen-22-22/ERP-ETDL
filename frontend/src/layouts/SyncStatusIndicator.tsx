@@ -35,9 +35,7 @@ export function SyncStatusIndicator() {
       toast({
         title: pushed || pulled ? "Synced" : "Up to date",
         description:
-          pushed || pulled
-            ? `${pushed} sent · ${pulled} received`
-            : "No changes to sync.",
+          pushed || pulled ? `${pushed} sent · ${pulled} received` : "No changes to sync.",
       });
     });
   };
