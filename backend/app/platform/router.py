@@ -28,9 +28,7 @@ async def create_user(
 
 
 @router.get("/users", response_model=ResponseEnvelope[list[PlatformUserRead]])
-async def list_users(
-    session: Session, _: SuperUser
-) -> ResponseEnvelope[list[PlatformUserRead]]:
+async def list_users(session: Session, _: SuperUser) -> ResponseEnvelope[list[PlatformUserRead]]:
     users = await service.list_users(session)
     return ResponseEnvelope(data=users)
 
