@@ -7,7 +7,10 @@ from app.inventory.models import MovementType
 
 
 class MovementCreate(BaseModel):
-    id: UUID
+    # Optional: the server generates a UUIDv7 when the client omits one (the
+    # REST client always omits it now that offline-queued creates are gone;
+    # see the same fix on ProductCreate).
+    id: UUID | None = None
     product_id: UUID
     warehouse_id: UUID
     movement_type: MovementType

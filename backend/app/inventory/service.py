@@ -21,13 +21,16 @@ async def record_movement(
     await require_active_warehouse(session, tenant_id, data.warehouse_id)
 
     repo = InventoryRepository(session)
+    movement_id = data.id or generate_uuid7()
+    payload = data.model_dump(mode="json")
+    payload["id"] = str(movement_id)
     mutation = MutationEnvelope(
         client_mutation_id=generate_uuid7(),
         entity_type="inventory_movement",
-        entity_id=data.id,
+        entity_id=movement_id,
         operation=ChangeOperation.CREATE,
         base_version=None,
-        payload=data.model_dump(mode="json"),
+        payload=payload,
         client_timestamp=datetime.now(UTC),
     )
     movement, _ = await repo.apply_mutation(tenant_id, mutation)
