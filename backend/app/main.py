@@ -1,7 +1,7 @@
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -36,6 +36,27 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def no_store_cache_headers(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """Every response gets `Cache-Control: no-store`.
+
+        The production host sits behind an nginx layer (cPanel's reverse-proxy
+        cache in front of Passenger) that was observed caching GET API
+        responses by URL alone, ignoring the `Authorization` header entirely —
+        a client could keep getting a pre-transfer stock count minutes after
+        the transfer completed, because the *first* request to a given URL got
+        cached and every later request to that same URL was served from cache
+        regardless of what changed in the database. `no-store` is the one
+        directive every HTTP cache (browser, CDN, or a reverse proxy like this)
+        is required to honor, so it's the only thing that reliably stops that
+        layer from caching authenticated, ever-changing API data.
+        """
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     register_exception_handlers(app)
     app.include_router(api_v1_router)
