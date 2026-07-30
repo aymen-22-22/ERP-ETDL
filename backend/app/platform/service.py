@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.platform.schemas import PlatformUserCreate, PlatformUserRead
+from app.platform.schemas import PlatformTenantRead, PlatformUserCreate, PlatformUserRead
 from app.shared.core.security import hash_password
 from app.tenants.models import Tenant
 from app.users.models import Role, User, UserTenantRole
@@ -41,7 +41,5 @@ async def list_users(session: AsyncSession) -> list[PlatformUserRead]:
 
 
 async def list_tenants(session: AsyncSession) -> list[PlatformTenantRead]:
-    from app.platform.schemas import PlatformTenantRead
-
     result = await session.execute(select(Tenant).order_by(Tenant.created_at.desc()))
     return [PlatformTenantRead.model_validate(t) for t in result.scalars().all()]
