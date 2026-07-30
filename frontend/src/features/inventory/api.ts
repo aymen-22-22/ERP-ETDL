@@ -1,4 +1,4 @@
-import { apiFetch, apiFetchPaginated } from "@/services/api/client";
+import { ApiError, apiFetch, apiFetchPaginated } from "@/services/api/client";
 
 export interface WarehouseStockItem {
   product_id: string;
@@ -47,8 +47,34 @@ export async function getWarehouseSummary(warehouseId: string): Promise<Warehous
   return apiFetch<WarehouseSummary>(`/v1/inventory/warehouses/${warehouseId}/summary`);
 }
 
-export async function getProductStock(productId: string, warehouseId: string): Promise<StockSnapshot> {
-  return apiFetch<StockSnapshot>(`/v1/inventory/products/${productId}/stock?warehouse_id=${warehouseId}`);
+/**
+ * A 404 here means "no stock movement has ever touched this product at this
+ * warehouse" -- a normal, expected state (e.g. a product whose default
+ * warehouse differs from the one being viewed), not an error. Treat it as
+ * zero stock instead of throwing, so callers don't need special-case
+ * handling and TanStack Query doesn't retry a 404 that can never succeed.
+ */
+export async function getProductStock(
+  productId: string,
+  warehouseId: string,
+): Promise<StockSnapshot> {
+  try {
+    return await apiFetch<StockSnapshot>(
+      `/v1/inventory/products/${productId}/stock?warehouse_id=${warehouseId}`,
+    );
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return {
+        product_id: productId,
+        warehouse_id: warehouseId,
+        quantity_on_hand: 0,
+        available_quantity: 0,
+        reserved_quantity: 0,
+        updated_at: new Date(0).toISOString(),
+      };
+    }
+    throw error;
+  }
 }
 
 export async function listProductMovements(

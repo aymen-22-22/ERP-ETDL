@@ -41,6 +41,14 @@ async def set_default_warehouse(
     current_default = await get_default(session, tenant_id)
     if current_default is not None and current_default.id != new_default.id:
         current_default.is_default = False
+        # Flush the demotion in its own statement before promoting the new
+        # default. Without this, SQLAlchemy can batch both single-column
+        # UPDATEs into one executemany call and send them in an order where
+        # the new row is set is_default=True *before* the old row is set
+        # False -- for that instant both rows are True, tripping the
+        # "one default per tenant" partial unique index even though the
+        # final state (after both statements) would have been valid.
+        await session.flush()
     new_default.is_default = True
 
     await session.commit()
