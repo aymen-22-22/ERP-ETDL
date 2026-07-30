@@ -3,12 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, require_superuser
-from app.platform.schemas import PlatformUserCreate, PlatformUserRead, PlatformTenantRead
+from app.auth.dependencies import require_superuser
 from app.platform import service
+from app.platform.schemas import PlatformTenantRead, PlatformUserCreate, PlatformUserRead
 from app.shared.core.envelope import ResponseEnvelope
 from app.shared.database.session import get_db
-from app.users.models import User
 
 router = APIRouter(prefix="/platform", tags=["platform"])
 
@@ -16,7 +15,11 @@ Session = Annotated[AsyncSession, Depends(get_db)]
 SuperUser = Annotated[None, Depends(require_superuser)]
 
 
-@router.post("/users", response_model=ResponseEnvelope[PlatformUserRead], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/users",
+    response_model=ResponseEnvelope[PlatformUserRead],
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_user(
     data: PlatformUserCreate, session: Session, _: SuperUser
 ) -> ResponseEnvelope[PlatformUserRead]:
