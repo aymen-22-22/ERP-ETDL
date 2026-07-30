@@ -47,6 +47,9 @@ const CategoriesPage = lazy(() =>
   import("@/pages/CategoriesPage").then((m) => ({ default: m.CategoriesPage })),
 );
 const SalesPage = lazy(() => import("@/pages/SalesPage").then((m) => ({ default: m.SalesPage })));
+const SettingsPage = lazy(() =>
+  import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+);
 const StyleGuidePage = lazy(() =>
   import("@/pages/StyleGuidePage").then((m) => ({ default: m.StyleGuidePage })),
 );
@@ -74,6 +77,7 @@ export function AppRoutes() {
             <Route path="/transfers" element={<TransferListPage />} />
             <Route path="/transfers/new" element={<TransferFormPage />} />
             <Route path="/transfers/:transferId" element={<TransferDetailPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/style" element={<StyleGuidePage />} />
           </Route>
         </Route>

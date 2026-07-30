@@ -56,7 +56,9 @@ async def register(session: AsyncSession, data: RegisterRequest) -> RegisterResp
 
     await session.commit()
     return RegisterResponse(
-        user=UserPublic.model_validate(user), tenant_id=tenant.id, tenant_slug=tenant.slug
+        user=UserPublic.model_validate(user),
+        tenant_id=tenant.id,
+        tenant_slug=tenant.slug,
     )
 
 
@@ -73,7 +75,9 @@ async def login(session: AsyncSession, data: LoginRequest) -> TokenResponse:
         raise PermissionDeniedError("No business assigned to this account")
     tenant_id = tenants[0]
 
-    tokens = await _issue_tokens(repo, user_id=user.id, tenant_id=tenant_id)
+    tokens = await _issue_tokens(
+        repo, user_id=user.id, tenant_id=tenant_id, is_superuser=user.is_superuser
+    )
     await session.commit()
     return tokens
 
@@ -85,8 +89,13 @@ async def refresh(session: AsyncSession, refresh_token: str) -> TokenResponse:
     if row is None or row.expires_at < datetime.now(UTC):
         raise UnauthorizedError("Invalid or expired refresh token")
 
+    user = await repo.get_user_by_id(row.user_id)
+    is_superuser = user.is_superuser if user else False
+
     await repo.delete_refresh_token(token_hash)
-    tokens = await _issue_tokens(repo, user_id=row.user_id, tenant_id=row.tenant_id)
+    tokens = await _issue_tokens(
+        repo, user_id=row.user_id, tenant_id=row.tenant_id, is_superuser=is_superuser
+    )
     await session.commit()
     return tokens
 
@@ -97,8 +106,10 @@ async def logout(session: AsyncSession, refresh_token: str) -> None:
     await session.commit()
 
 
-async def _issue_tokens(repo: AuthRepository, *, user_id: UUID, tenant_id: UUID) -> TokenResponse:
-    access_token = create_access_token(user_id, tenant_id)
+async def _issue_tokens(
+    repo: AuthRepository, *, user_id: UUID, tenant_id: UUID, is_superuser: bool = False
+) -> TokenResponse:
+    access_token = create_access_token(user_id, tenant_id, is_superuser=is_superuser)
     refresh_token = generate_refresh_token()
     await repo.save_refresh_token(
         user_id=user_id,
@@ -107,5 +118,8 @@ async def _issue_tokens(repo: AuthRepository, *, user_id: UUID, tenant_id: UUID)
         expires_at=datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days),
     )
     return TokenResponse(
-        access_token=access_token, refresh_token=refresh_token, tenant_id=tenant_id
+        access_token=access_token,
+        refresh_token=refresh_token,
+        tenant_id=tenant_id,
+        is_superuser=is_superuser,
     )

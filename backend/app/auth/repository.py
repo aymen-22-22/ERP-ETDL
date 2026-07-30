@@ -26,6 +26,9 @@ class AuthRepository:
         result = await self._session.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
+    async def get_user_by_id(self, user_id: UUID) -> User | None:
+        return await self._session.get(User, user_id)
+
     async def create_user(self, *, email: str, hashed_password: str, full_name: str) -> User:
         user = User(email=email, hashed_password=hashed_password, full_name=full_name)
         self._session.add(user)

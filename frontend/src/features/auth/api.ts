@@ -6,6 +6,7 @@ interface TokenResponse {
   refresh_token: string;
   tenant_id: string;
   token_type: string;
+  is_superuser: boolean;
 }
 
 interface UserPublic {
@@ -50,6 +51,7 @@ export async function login(input: LoginInput): Promise<void> {
     tenantId: tokens.tenant_id,
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,
+    isSuperuser: tokens.is_superuser,
   });
 }
 

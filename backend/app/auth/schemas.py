@@ -28,12 +28,14 @@ class TokenResponse(BaseModel):
     refresh_token: str
     tenant_id: UUID
     token_type: str = "bearer"
+    is_superuser: bool = False
 
 
 class UserPublic(BaseModel):
     id: UUID
     email: str
     full_name: str
+    is_superuser: bool = False
 
     model_config = {"from_attributes": True}
 

@@ -31,6 +31,8 @@ def require_permission(code: str) -> Callable[..., Coroutine[None, None, None]]:
     """Dependency factory: 403s unless the current user's role in the
     current tenant grants `code`. Checks
     UserTenantRole -> Role -> RolePermission -> Permission.
+
+    Super admin users bypass all permission checks.
     """
 
     async def dependency(
@@ -38,6 +40,8 @@ def require_permission(code: str) -> Callable[..., Coroutine[None, None, None]]:
         tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
         session: Annotated[AsyncSession, Depends(get_db)],
     ) -> None:
+        if user.is_superuser:
+            return
         stmt = (
             select(Permission.code)
             .join(RolePermission, RolePermission.permission_id == Permission.id)
@@ -53,3 +57,11 @@ def require_permission(code: str) -> Callable[..., Coroutine[None, None, None]]:
             raise PermissionDeniedError(f"Missing permission: {code}")
 
     return dependency
+
+
+async def require_superuser(
+    user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    """403 unless the current user has the super admin flag."""
+    if not user.is_superuser:
+        raise PermissionDeniedError("Super admin access required")
