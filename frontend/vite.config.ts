@@ -26,21 +26,16 @@ export default defineConfig({
         icons: [{ src: "/favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }],
       },
       workbox: {
+        // No runtimeCaching for /api: there's no offline write queue anymore
+        // (the sync engine was removed), so caching API GETs bought nothing
+        // but a real hazard -- a service worker installed before a deploy
+        // keeps serving stale cached responses from its own cache storage
+        // regardless of server Cache-Control headers, since Workbox's
+        // NetworkFirst still writes every response to cache even when told
+        // not to store it. API calls now always hit the network.
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api/, /^\/sync/],
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith("/api"),
-            method: "GET",
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-cache",
-              networkTimeoutSeconds: 5,
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
       },
     }),
   ],
