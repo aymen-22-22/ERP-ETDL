@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     # than against localhost.
     db_pool_recycle_seconds: int = 900
 
+    # Set by passenger_wsgi.py only. a2wsgi runs each request on a brand-new
+    # event loop, but asyncpg connections are bound to the loop that created
+    # them — checking a pooled connection back out under a *different* loop
+    # doesn't reliably raise, it can silently hand back stale/wrong data. A
+    # persistent cross-request pool is therefore unsafe under Passenger, so
+    # that entrypoint disables pooling entirely (see session.py). Uvicorn runs
+    # one event loop for the process lifetime, where pooling is safe and
+    # substantially faster, so local dev / non-Passenger deploys keep it.
+    db_disable_pooling: bool = False
+
     jwt_secret_key: str = Field(default="change-me-in-env", min_length=1)
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15

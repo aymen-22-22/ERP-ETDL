@@ -39,6 +39,11 @@ if _APP_ROOT not in sys.path:
 # lru_cached, so the first read wins and later changes are ignored.
 os.environ.setdefault("ENVIRONMENT", "production")
 os.environ.setdefault("DEBUG", "false")
+# a2wsgi runs each request on its own event loop; a persistent connection pool
+# can hand a connection back out under a different loop than it was created
+# on, and asyncpg doesn't reliably error on that — it can silently return
+# stale data. See config.db_disable_pooling / session.py for the full story.
+os.environ.setdefault("DB_DISABLE_POOLING", "true")
 
 from app.shared.core.logging import configure_logging  # noqa: E402
 
