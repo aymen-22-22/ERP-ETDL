@@ -1,11 +1,11 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_permission
-from app.products import service
+from app.products import import_service, service
 from app.products.models import ProductStatus
 from app.products.schemas import (
     ProductCreate,
@@ -65,6 +65,32 @@ async def list_products(
     return PaginatedEnvelope(
         data=[ProductRead.model_validate(product) for product in products], meta=meta
     )
+
+
+@router.get("/import/template")
+async def download_import_template(
+    _: Annotated[None, Depends(require_permission("products:read"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=30))],
+) -> FastAPIResponse:
+    content = import_service.generate_template()
+    return FastAPIResponse(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=product_import_template.xlsx"},
+    )
+
+
+@router.post("/import", response_model=ResponseEnvelope[list[ProductRead]])
+async def import_products(
+    file: Annotated[UploadFile, File()],
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=10))],
+) -> ResponseEnvelope[list[ProductRead]]:
+    file_bytes = await file.read()
+    products = await import_service.import_products(session, tenant_id, file_bytes)
+    return ResponseEnvelope(data=[ProductRead.model_validate(p) for p in products])
 
 
 @router.get("/{product_id}", response_model=ResponseEnvelope[ProductRead])

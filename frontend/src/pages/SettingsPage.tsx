@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BuildingIcon, PlusIcon, ShieldIcon, UserIcon } from "lucide-react";
+import { BuildingIcon, LayersIcon, PlusIcon, ShieldIcon, UserIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { TableLoader } from "@/components/TableLoader";
+import { NavLink } from "react-router";
 import {
   createPlatformUser,
   fetchPlatformTenants,
@@ -117,7 +118,13 @@ export function SettingsPage() {
           <CardHeader>
             <CardTitle>Preferences</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-3">
+            <NavLink to="/categories">
+              <Button variant="outline" className="w-full justify-start">
+                <LayersIcon className="mr-2 size-4" />
+                Manage categories
+              </Button>
+            </NavLink>
             <p className="text-muted-foreground text-sm">
               Coming soon: default warehouse, theme, language.
             </p>

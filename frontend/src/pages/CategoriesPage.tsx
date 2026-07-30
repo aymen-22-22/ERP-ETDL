@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FolderPlusIcon, LayersIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { FolderPlusIcon, LayersIcon, PencilIcon, TagIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -37,6 +37,7 @@ export function CategoriesPage() {
   const { data: categories, isLoading: listLoading } = useCategories();
   const { data: tree, isLoading: treeLoading } = useCategoryTree();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [parentId, setParentId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -67,12 +68,16 @@ export function CategoriesPage() {
   });
 
   const onCreateSubmit = handleSubmitCreate((values) => {
-    createMutation.mutate(values, {
-      onSuccess: () => {
-        setCreateOpen(false);
-        resetCreate();
+    createMutation.mutate(
+      { ...values, parentId: parentId ?? undefined },
+      {
+        onSuccess: () => {
+          setCreateOpen(false);
+          setParentId(null);
+          resetCreate();
+        },
       },
-    });
+    );
   });
 
   const onEditSubmit = handleSubmitEdit((values) => {
@@ -101,7 +106,7 @@ export function CategoriesPage() {
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Categories</h1>
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button onClick={() => { setParentId(null); setCreateOpen(true); }}>
           <FolderPlusIcon />
           New category
         </Button>
@@ -136,6 +141,17 @@ export function CategoriesPage() {
                 </div>
                 <div className="flex gap-2">
                   <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setParentId(selectedCategory.id);
+                      setCreateOpen(true);
+                    }}
+                  >
+                    <TagIcon className="mr-1 size-4" />
+                    Subcategory
+                  </Button>
+                  <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => {
@@ -163,11 +179,15 @@ export function CategoriesPage() {
         </div>
       </div>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) setParentId(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create category</DialogTitle>
-            <DialogDescription>Add a new product category.</DialogDescription>
+            <DialogTitle>{parentId ? "Create subcategory" : "Create category"}</DialogTitle>
+            <DialogDescription>
+              {parentId && selectedCategory
+                ? `Under "${selectedCategory.name}".`
+                : "Add a new product category."}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={(e) => void onCreateSubmit(e)} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">

@@ -1,4 +1,6 @@
 import { apiFetch, apiFetchPaginated } from "@/services/api/client";
+import { API_BASE_URL } from "@/services/api/config";
+import { useAuthStore } from "@/store/authStore";
 
 export interface ProductInput {
   name: string;
@@ -101,4 +103,27 @@ export async function deleteProduct(id: string, version: number): Promise<void> 
     method: "DELETE",
     body: JSON.stringify({ version }),
   });
+}
+
+export async function downloadImportTemplate(): Promise<Blob> {
+  const token = useAuthStore.getState().accessToken;
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const resp = await fetch(`${API_BASE_URL}/v1/products/import/template`, { headers });
+  return resp.blob();
+}
+
+export async function importProductsExcel(file: File): Promise<Product[]> {
+  const token = useAuthStore.getState().accessToken;
+  const form = new FormData();
+  form.append("file", file);
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const resp = await fetch(`${API_BASE_URL}/v1/products/import`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+  const body = await resp.json();
+  return body.data as Product[];
 }

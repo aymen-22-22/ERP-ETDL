@@ -1,5 +1,5 @@
-import { ArrowRightIcon, PackageIcon, PlusIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowRightIcon, DownloadIcon, PackageIcon, PlusIcon, UploadIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { EmptyState } from "@/components/EmptyState";
@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useCategories } from "@/features/categories/hooks";
 import type { Product, ProductSort, ProductSortDir } from "@/features/products/api";
+import { downloadImportTemplate, importProductsExcel } from "@/features/products/api";
 import { useProducts } from "@/features/products/hooks";
+import { toast } from "@/lib/toast";
 import { DataView, type DataColumn } from "@/components/patterns/DataView";
 import { ListCard } from "@/components/patterns/ListCard";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -63,6 +65,38 @@ export function ProductsListPage() {
   const total = data?.meta.total ?? 0;
   const pages = data?.meta.pages ?? 1;
   const isFiltered = search !== "" || status !== "" || categoryId !== null;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+
+  const handleExportTemplate = async () => {
+    try {
+      const blob = await downloadImportTemplate();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "product_import_template.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Download failed", variant: "destructive" });
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const created = await importProductsExcel(file);
+      toast({ title: `Imported ${created.length} products` });
+      window.location.reload();
+    } catch {
+      toast({ title: "Import failed", description: "Check your file and try again.", variant: "destructive" });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const categoryOptions: SearchableSelectOption[] = [
     { value: "__all__", label: "All categories" },
@@ -158,14 +192,31 @@ export function ProductsListPage() {
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 sm:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Products</h1>
-        {isDesktop && (
-          <Button asChild>
-            <Link to="/products/new">
-              <PlusIcon />
-              New product
-            </Link>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportTemplate}>
+            <DownloadIcon className="mr-1 size-4" />
+            Template
           </Button>
-        )}
+          <Button variant="outline" size="sm" disabled={importing} onClick={() => fileInputRef.current?.click()}>
+            <UploadIcon className="mr-1 size-4" />
+            {importing ? "Importing..." : "Import"}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          {isDesktop && (
+            <Button asChild>
+              <Link to="/products/new">
+                <PlusIcon />
+                New product
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {filters}
