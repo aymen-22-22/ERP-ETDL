@@ -25,19 +25,16 @@ export interface CreateUserInput {
 }
 
 export async function fetchPlatformUsers(): Promise<PlatformUser[]> {
-  const res = await apiFetch<{ data: PlatformUser[] }>("/v1/platform/users");
-  return res.data;
+  return apiFetch<PlatformUser[]>("/v1/platform/users");
 }
 
 export async function fetchPlatformTenants(): Promise<PlatformTenant[]> {
-  const res = await apiFetch<{ data: PlatformTenant[] }>("/v1/platform/tenants");
-  return res.data;
+  return apiFetch<PlatformTenant[]>("/v1/platform/tenants");
 }
 
 export async function createPlatformUser(input: CreateUserInput): Promise<PlatformUser> {
-  const res = await apiFetch<{ data: PlatformUser }>("/v1/platform/users", {
+  return apiFetch<PlatformUser>("/v1/platform/users", {
     method: "POST",
     body: JSON.stringify(input),
   });
-  return res.data;
 }
