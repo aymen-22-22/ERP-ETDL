@@ -40,7 +40,7 @@ async def list_users(session: AsyncSession) -> list[PlatformUserRead]:
     return [PlatformUserRead.model_validate(u) for u in result.scalars().all()]
 
 
-async def list_tenants(session: AsyncSession) -> list:
+async def list_tenants(session: AsyncSession) -> list[PlatformTenantRead]:
     from app.platform.schemas import PlatformTenantRead
 
     result = await session.execute(select(Tenant).order_by(Tenant.created_at.desc()))
