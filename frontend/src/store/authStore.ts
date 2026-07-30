@@ -41,7 +41,12 @@ interface AuthState {
   refreshToken: string | null;
   isSuperuser: boolean;
   isHydrated: boolean;
-  setSession: (session: { tenantId: string; accessToken: string; refreshToken: string; isSuperuser?: boolean }) => void;
+  setSession: (session: {
+    tenantId: string;
+    accessToken: string;
+    refreshToken: string;
+    isSuperuser?: boolean;
+  }) => void;
   updateTokens: (tokens: { accessToken: string; refreshToken: string }) => void;
   clearSession: () => void;
   hydrateFromCache: () => Promise<void>;
@@ -56,14 +61,22 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setSession: (session) => {
     set({ ...session, isHydrated: true, isSuperuser: session.isSuperuser ?? false });
-    persistSession({ tenantId: session.tenantId, refreshToken: session.refreshToken, isSuperuser: session.isSuperuser ?? false });
+    persistSession({
+      tenantId: session.tenantId,
+      refreshToken: session.refreshToken,
+      isSuperuser: session.isSuperuser ?? false,
+    });
   },
 
   updateTokens: (tokens) => {
     set(tokens);
     const state = useAuthStore.getState();
     if (state.tenantId) {
-      persistSession({ tenantId: state.tenantId, refreshToken: tokens.refreshToken, isSuperuser: state.isSuperuser });
+      persistSession({
+        tenantId: state.tenantId,
+        refreshToken: tokens.refreshToken,
+        isSuperuser: state.isSuperuser,
+      });
     }
   },
 
@@ -79,12 +92,20 @@ export const useAuthStore = create<AuthState>((set) => ({
       return;
     }
 
-    set({ tenantId: cached.tenantId, refreshToken: cached.refreshToken, isSuperuser: cached.isSuperuser ?? false });
+    set({
+      tenantId: cached.tenantId,
+      refreshToken: cached.refreshToken,
+      isSuperuser: cached.isSuperuser ?? false,
+    });
 
     try {
       const tokens = await requestTokenRefresh(cached.refreshToken);
       if (tokens) {
-        set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, isSuperuser: tokens.isSuperuser });
+        set({
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          isSuperuser: tokens.isSuperuser,
+        });
         persistSession({
           tenantId: cached.tenantId,
           refreshToken: tokens.refreshToken,

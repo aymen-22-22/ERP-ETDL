@@ -1,5 +1,5 @@
+import contextlib
 from io import BytesIO
-from pathlib import Path
 from uuid import UUID
 
 from openpyxl import Workbook, load_workbook
@@ -7,8 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.products.models import Category, Product
-from app.products.service import create_product
 from app.products.schemas import ProductCreate
+from app.products.service import create_product
 from app.shared.core.ids import generate_uuid7
 
 TEMPLATE_COLUMNS = [
@@ -25,13 +25,19 @@ TEMPLATE_COLUMNS = [
 def generate_template() -> bytes:
     wb = Workbook()
     ws = wb.active
+    if ws is None:
+        ws = wb.create_sheet()
     ws.title = "Products"
     ws.append([label for _, label in TEMPLATE_COLUMNS])
-    wb.add_worksheet("Instructions").append([
+
+    instructions = wb.create_sheet("Instructions")
+    for line in (
         "Fill in the Products sheet and upload.",
         "Category path: use > to separate levels, e.g. Lustre > Sous Lustre",
         "Leave category blank for root-level products.",
-    ])
+    ):
+        instructions.append([line])
+
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -66,19 +72,15 @@ async def import_products(
         if not name or not sku:
             continue
 
-        price = 0
+        price = 0.0
         if price_raw is not None:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 price = float(str(price_raw).replace(",", "").replace(" ", ""))
-            except (ValueError, TypeError):
-                price = 0
 
         cost_price = None
         if cost_raw is not None:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 cost_price = float(str(cost_raw).replace(",", "").replace(" ", ""))
-            except (ValueError, TypeError):
-                pass
 
         category_id = None
         if category_path:

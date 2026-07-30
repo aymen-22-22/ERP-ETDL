@@ -106,9 +106,11 @@ export const useCartStore = create<CartState>((set, get) => ({
 /** Subtotal and item count. No discount: nothing downstream persists a sale
  *  amount, so a discount here would only be cosmetic and mislead the cashier
  *  about what was actually recorded. */
-export function computeTotals(
-  lines: CartLine[],
-): { subtotalCents: number; totalCents: number; itemCount: number } {
+export function computeTotals(lines: CartLine[]): {
+  subtotalCents: number;
+  totalCents: number;
+  itemCount: number;
+} {
   const subtotalCents = lines.reduce((sum, l) => sum + l.unitPriceCents * l.quantity, 0);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
   return { subtotalCents, totalCents: subtotalCents, itemCount };

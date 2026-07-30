@@ -28,7 +28,11 @@ async function doRefresh(refreshToken: string): Promise<RefreshedTokens | null> 
   if (!response.ok) return null;
 
   const body = (await response.json()) as RefreshEnvelope;
-  return { accessToken: body.data.access_token, refreshToken: body.data.refresh_token, isSuperuser: body.data.is_superuser };
+  return {
+    accessToken: body.data.access_token,
+    refreshToken: body.data.refresh_token,
+    isSuperuser: body.data.is_superuser,
+  };
 }
 
 /** Shared in-flight request, so concurrent callers rotate the token once. */

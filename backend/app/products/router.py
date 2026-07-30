@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_permission
@@ -71,9 +71,9 @@ async def list_products(
 async def download_import_template(
     _: Annotated[None, Depends(require_permission("products:read"))],
     __: Annotated[None, Depends(rate_limit("products", limit=30))],
-) -> FastAPIResponse:
+) -> Response:
     content = import_service.generate_template()
-    return FastAPIResponse(
+    return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=product_import_template.xlsx"},

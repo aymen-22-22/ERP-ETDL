@@ -148,9 +148,7 @@ export function SettingsPage() {
               {usersLoading ? (
                 <TableLoader rows={3} columns={4} />
               ) : users.length === 0 ? (
-                <p className="text-muted-foreground py-4 text-center text-sm">
-                  No users found
-                </p>
+                <p className="text-muted-foreground py-4 text-center text-sm">No users found</p>
               ) : (
                 <div className="overflow-x-auto rounded-md border">
                   <table className="w-full text-sm">
@@ -201,9 +199,7 @@ export function SettingsPage() {
               {tenantsLoading ? (
                 <TableLoader rows={3} columns={3} />
               ) : tenants.length === 0 ? (
-                <p className="text-muted-foreground py-4 text-center text-sm">
-                  No tenants found
-                </p>
+                <p className="text-muted-foreground py-4 text-center text-sm">No tenants found</p>
               ) : (
                 <div className="overflow-x-auto rounded-md border">
                   <table className="w-full text-sm">
@@ -249,9 +245,7 @@ export function SettingsPage() {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" {...register("email")} />
-              {errors.email && (
-                <p className="text-destructive text-sm">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="text-destructive text-sm">{errors.email.message}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="password">Password</Label>

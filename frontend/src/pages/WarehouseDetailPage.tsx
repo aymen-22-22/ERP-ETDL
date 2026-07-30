@@ -38,7 +38,9 @@ export function WarehouseDetailPage() {
 
   const handleDelete = () => {
     deleteMutation.mutate(warehouseId, {
-      onSuccess: () => navigate("/warehouses"),
+      onSuccess: () => {
+        void navigate("/warehouses");
+      },
     });
   };
 

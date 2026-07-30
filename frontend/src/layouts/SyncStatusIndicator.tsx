@@ -24,7 +24,12 @@ export function SyncStatusIndicator() {
       )}
       title={online ? "Online" : "Offline"}
     >
-      <span className={cn("inline-block size-2 rounded-full", online ? "bg-green-500" : "bg-destructive")} />
+      <span
+        className={cn(
+          "inline-block size-2 rounded-full",
+          online ? "bg-green-500" : "bg-destructive",
+        )}
+      />
       <span className="hidden sm:inline">{online ? "Online" : "Offline"}</span>
     </div>
   );

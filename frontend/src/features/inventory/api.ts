@@ -82,10 +82,15 @@ export async function listProductMovements(
   warehouseId?: string,
   page = 1,
   pageSize = 50,
-): Promise<{ data: Movement[]; meta: { page: number; page_size: number; total: number; pages: number } }> {
+): Promise<{
+  data: Movement[];
+  meta: { page: number; page_size: number; total: number; pages: number };
+}> {
   const q = new URLSearchParams();
   q.set("page", String(page));
   q.set("page_size", String(pageSize));
   if (warehouseId) q.set("warehouse_id", warehouseId);
-  return apiFetchPaginated<Movement>(`/v1/inventory/products/${productId}/movements?${q.toString()}`);
+  return apiFetchPaginated<Movement>(
+    `/v1/inventory/products/${productId}/movements?${q.toString()}`,
+  );
 }

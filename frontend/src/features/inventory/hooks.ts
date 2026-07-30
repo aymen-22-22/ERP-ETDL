@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { getProductStock, getWarehouseSummary, listProductMovements, listWarehouseStock } from "./api";
+import {
+  getProductStock,
+  getWarehouseSummary,
+  listProductMovements,
+  listWarehouseStock,
+} from "./api";
 
 const STOCK_KEY = "warehouse-stock" as const;
 const SUMMARY_KEY = "warehouse-summary" as const;

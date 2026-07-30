@@ -106,7 +106,12 @@ export function CategoriesPage() {
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Categories</h1>
-        <Button onClick={() => { setParentId(null); setCreateOpen(true); }}>
+        <Button
+          onClick={() => {
+            setParentId(null);
+            setCreateOpen(true);
+          }}
+        >
           <FolderPlusIcon />
           New category
         </Button>
@@ -179,7 +184,13 @@ export function CategoriesPage() {
         </div>
       </div>
 
-      <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) setParentId(null); }}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(o) => {
+          setCreateOpen(o);
+          if (!o) setParentId(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{parentId ? "Create subcategory" : "Create category"}</DialogTitle>

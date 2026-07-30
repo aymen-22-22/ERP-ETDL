@@ -1,4 +1,4 @@
-import { apiFetch, apiFetchPaginated } from "@/services/api/client";
+import { ApiError, apiFetch, apiFetchPaginated } from "@/services/api/client";
 import { API_BASE_URL } from "@/services/api/config";
 import { useAuthStore } from "@/store/authStore";
 
@@ -68,7 +68,10 @@ export async function listProducts(
   page = 1,
   pageSize = 25,
   params: ProductListParams = {},
-): Promise<{ data: Product[]; meta: { page: number; page_size: number; total: number; pages: number } }> {
+): Promise<{
+  data: Product[];
+  meta: { page: number; page_size: number; total: number; pages: number };
+}> {
   const q = new URLSearchParams();
   q.set("page", String(page));
   q.set("page_size", String(pageSize));
@@ -91,7 +94,11 @@ export async function createProduct(input: ProductInput): Promise<Product> {
   });
 }
 
-export async function updateProduct(id: string, version: number, input: ProductInput): Promise<Product> {
+export async function updateProduct(
+  id: string,
+  version: number,
+  input: ProductInput,
+): Promise<Product> {
   return apiFetch<Product>(`/v1/products/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ ...toPayload(input), version }),
@@ -113,6 +120,11 @@ export async function downloadImportTemplate(): Promise<Blob> {
   return resp.blob();
 }
 
+interface ImportEnvelope {
+  data?: Product[];
+  error?: { code?: string };
+}
+
 export async function importProductsExcel(file: File): Promise<Product[]> {
   const token = useAuthStore.getState().accessToken;
   const form = new FormData();
@@ -124,6 +136,7 @@ export async function importProductsExcel(file: File): Promise<Product[]> {
     headers,
     body: form,
   });
-  const body = await resp.json();
-  return body.data as Product[];
+  const body = (await resp.json()) as ImportEnvelope;
+  if (!resp.ok) throw new ApiError(resp.status, body.error?.code ?? "unknown_error");
+  return body.data ?? [];
 }

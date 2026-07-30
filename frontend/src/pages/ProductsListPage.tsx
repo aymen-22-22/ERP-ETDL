@@ -91,7 +91,11 @@ export function ProductsListPage() {
       toast({ title: `Imported ${created.length} products` });
       window.location.reload();
     } catch {
-      toast({ title: "Import failed", description: "Check your file and try again.", variant: "destructive" });
+      toast({
+        title: "Import failed",
+        description: "Check your file and try again.",
+        variant: "destructive",
+      });
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -111,10 +115,7 @@ export function ProductsListPage() {
       key: "name",
       header: "Name",
       cell: (p) => (
-        <Link
-          to={`/products/${p.id}`}
-          className="text-primary underline-offset-4 hover:underline"
-        >
+        <Link to={`/products/${p.id}`} className="text-primary underline-offset-4 hover:underline">
           {p.name}
         </Link>
       ),
@@ -136,9 +137,7 @@ export function ProductsListPage() {
       header: "",
       cell: (p) => (
         <Button variant="ghost" size="sm" asChild>
-          <Link
-            to={`/transfers/new?product=${p.id}&warehouse=${p.default_warehouse_id ?? ""}`}
-          >
+          <Link to={`/transfers/new?product=${p.id}&warehouse=${p.default_warehouse_id ?? ""}`}>
             <ArrowRightIcon className="mr-1 size-3" />
             Transfer
           </Link>
@@ -193,11 +192,16 @@ export function ProductsListPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Products</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportTemplate}>
+          <Button variant="outline" size="sm" onClick={() => void handleExportTemplate()}>
             <DownloadIcon className="mr-1 size-4" />
             Template
           </Button>
-          <Button variant="outline" size="sm" disabled={importing} onClick={() => fileInputRef.current?.click()}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={importing}
+            onClick={() => fileInputRef.current?.click()}
+          >
             <UploadIcon className="mr-1 size-4" />
             {importing ? "Importing..." : "Import"}
           </Button>
@@ -206,7 +210,7 @@ export function ProductsListPage() {
             type="file"
             accept=".xlsx,.xls"
             className="hidden"
-            onChange={handleImportFile}
+            onChange={(e) => void handleImportFile(e)}
           />
           {isDesktop && (
             <Button asChild>
