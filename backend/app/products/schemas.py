@@ -9,12 +9,12 @@ from app.products.models import ProductStatus
 
 
 class ProductCreate(BaseModel):
-    """`id` is client-generated (UUIDv7) per the architecture's offline-first
-    id policy — even a direct-online create follows the same rule so the
-    entity is identical whether it arrives via REST or the offline queue.
+    """`id` is optional: the server generates a UUIDv7 when the client omits
+    one (the REST client always omits it now that offline-queued creates are
+    gone).
     """
 
-    id: UUID
+    id: UUID | None = None
     name: str = Field(min_length=1, max_length=255)
     sku: str = Field(min_length=1, max_length=100)
     barcode: str | None = Field(default=None, max_length=100)

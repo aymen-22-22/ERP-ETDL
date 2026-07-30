@@ -11,13 +11,9 @@ export interface CartLine {
   quantity: number;
 }
 
-export type DiscountMode = "amount" | "percent";
-
 interface PersistedCart {
   storeId: string | null;
   lines: CartLine[];
-  discountInput: string;
-  discountMode: DiscountMode;
 }
 
 interface CartState extends PersistedCart {
@@ -26,18 +22,16 @@ interface CartState extends PersistedCart {
   addItem: (item: Omit<CartLine, "quantity">) => void;
   setQuantity: (productId: string, quantity: number) => void;
   removeLine: (productId: string) => void;
-  setDiscountInput: (value: string) => void;
-  setDiscountMode: (mode: DiscountMode) => void;
   clear: () => void;
 }
 
 function load(): PersistedCart {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { storeId: null, lines: [], discountInput: "", discountMode: "amount" };
+    if (!raw) return { storeId: null, lines: [] };
     return JSON.parse(raw) as PersistedCart;
   } catch {
-    return { storeId: null, lines: [], discountInput: "", discountMode: "amount" };
+    return { storeId: null, lines: [] };
   }
 }
 
@@ -48,8 +42,6 @@ function persist(state: PersistedCart): void {
       JSON.stringify({
         storeId: state.storeId,
         lines: state.lines,
-        discountInput: state.discountInput,
-        discountMode: state.discountMode,
       }),
     );
   } catch {
@@ -105,38 +97,19 @@ export const useCartStore = create<CartState>((set, get) => ({
     persist({ ...get(), lines });
   },
 
-  setDiscountInput: (discountInput) => {
-    set({ discountInput });
-    persist({ ...get(), discountInput });
-  },
-
-  setDiscountMode: (discountMode) => {
-    set({ discountMode });
-    persist({ ...get(), discountMode });
-  },
-
   clear: () => {
-    set({ lines: [], discountInput: "" });
-    persist({ ...get(), lines: [], discountInput: "" });
+    set({ lines: [] });
+    persist({ ...get(), lines: [] });
   },
 }));
 
-/** Subtotal, discount and total in cents, clamped so a total can't go negative. */
+/** Subtotal and item count. No discount: nothing downstream persists a sale
+ *  amount, so a discount here would only be cosmetic and mislead the cashier
+ *  about what was actually recorded. */
 export function computeTotals(
   lines: CartLine[],
-  discountInput: string,
-  discountMode: DiscountMode,
-): { subtotalCents: number; discountCents: number; totalCents: number; itemCount: number } {
+): { subtotalCents: number; totalCents: number; itemCount: number } {
   const subtotalCents = lines.reduce((sum, l) => sum + l.unitPriceCents * l.quantity, 0);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
-
-  const raw = Number(discountInput);
-  const value = Number.isFinite(raw) && raw > 0 ? raw : 0;
-  const requested =
-    discountMode === "percent"
-      ? Math.round((subtotalCents * Math.min(value, 100)) / 100)
-      : Math.round(value * 100);
-
-  const discountCents = Math.min(requested, subtotalCents);
-  return { subtotalCents, discountCents, totalCents: subtotalCents - discountCents, itemCount };
+  return { subtotalCents, totalCents: subtotalCents, itemCount };
 }

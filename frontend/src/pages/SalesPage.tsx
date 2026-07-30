@@ -28,19 +28,7 @@ import { cn } from "@/lib/utils";
  */
 export function SalesPage() {
   const stores = useSaleWarehouses();
-  const {
-    storeId,
-    lines,
-    discountInput,
-    discountMode,
-    setStore,
-    addItem,
-    setQuantity,
-    removeLine,
-    setDiscountInput,
-    setDiscountMode,
-    clear,
-  } = useCartStore();
+  const { storeId, lines, setStore, addItem, setQuantity, removeLine, clear } = useCartStore();
 
   // Fall back to the first sellable store until one is chosen.
   const activeStoreId = storeId ?? stores[0]?.id ?? null;
@@ -90,7 +78,7 @@ export function SalesPage() {
     });
   }, [products, search, activeCategoryIds]);
 
-  const totals = computeTotals(lines, discountInput, discountMode);
+  const totals = computeTotals(lines);
 
   const add = (productId: string) => {
     const product = products?.find((p) => p.productId === productId);
@@ -161,12 +149,7 @@ export function SalesPage() {
     <CartPanel
       lines={lines}
       subtotalCents={totals.subtotalCents}
-      discountCents={totals.discountCents}
       totalCents={totals.totalCents}
-      discountInput={discountInput}
-      discountMode={discountMode}
-      onDiscountInput={setDiscountInput}
-      onDiscountMode={setDiscountMode}
       onSetQuantity={setQuantity}
       onRemove={removeLine}
       onComplete={complete}

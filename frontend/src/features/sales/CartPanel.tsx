@@ -2,22 +2,16 @@ import { MinusIcon, PlusIcon, ShoppingCartIcon, Trash2Icon } from "lucide-react"
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { Separator } from "@/components/ui/separator";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
-import type { CartLine, DiscountMode } from "./cartStore";
+import type { CartLine } from "./cartStore";
 
 interface CartPanelProps {
   lines: CartLine[];
   subtotalCents: number;
-  discountCents: number;
   totalCents: number;
-  discountInput: string;
-  discountMode: DiscountMode;
-  onDiscountInput: (value: string) => void;
-  onDiscountMode: (mode: DiscountMode) => void;
   onSetQuantity: (productId: string, quantity: number) => void;
   onRemove: (productId: string) => void;
   onComplete: () => void;
@@ -31,12 +25,7 @@ interface CartPanelProps {
 export function CartPanel({
   lines,
   subtotalCents,
-  discountCents,
   totalCents,
-  discountInput,
-  discountMode,
-  onDiscountInput,
-  onDiscountMode,
   onSetQuantity,
   onRemove,
   onComplete,
@@ -131,34 +120,6 @@ export function CartPanel({
           <span className="text-muted-foreground">Subtotal</span>
           <span className="tabular-nums">{formatMoney(subtotalCents)}</span>
         </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground flex-1 text-sm">Discount</span>
-          <NativeSelect
-            aria-label="Discount type"
-            value={discountMode}
-            onChange={(e) => onDiscountMode(e.target.value as DiscountMode)}
-            className="h-9 w-20"
-          >
-            <option value="amount">abs</option>
-            <option value="percent">%</option>
-          </NativeSelect>
-          <Input
-            inputMode="decimal"
-            aria-label="Discount value"
-            placeholder="0"
-            value={discountInput}
-            onChange={(e) => onDiscountInput(e.target.value)}
-            className="h-9 w-24 text-right tabular-nums"
-          />
-        </div>
-
-        {discountCents > 0 && (
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Discount applied</span>
-            <span className="tabular-nums">−{formatMoney(discountCents)}</span>
-          </div>
-        )}
 
         <Separator />
 

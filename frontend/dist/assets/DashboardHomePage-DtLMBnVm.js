@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-DGeXAQPT.js";var t=e();function n(){return(0,t.jsxs)(`div`,{className:`flex flex-col gap-2 p-6`,children:[(0,t.jsx)(`h1`,{className:`text-2xl font-semibold`,children:`Dashboard`}),(0,t.jsx)(`p`,{className:`text-muted-foreground text-sm`,children:`Signed in. Business modules land in later milestones.`})]})}export{n as DashboardHomePage};

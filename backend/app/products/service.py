@@ -109,12 +109,15 @@ async def create_product(session: AsyncSession, tenant_id: UUID, data: ProductCr
         default_warehouse_id=data.default_warehouse_id,
     )
     repo = ProductRepository(session)
+    product_id = data.id or generate_uuid7()
+    payload = data.model_dump(mode="json")
+    payload["id"] = str(product_id)
     mutation = _envelope(
         entity_type="product",
-        entity_id=data.id,
+        entity_id=product_id,
         operation=ChangeOperation.CREATE,
         base_version=None,
-        payload=data.model_dump(mode="json"),
+        payload=payload,
     )
     product, _ = await repo.apply_mutation(tenant_id, mutation)
 
