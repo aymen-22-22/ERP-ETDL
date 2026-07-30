@@ -2,7 +2,7 @@
 
 Multi-tenant ERP for small and medium businesses. Mobile-first PWA frontend, modular-monolith FastAPI backend, PostgreSQL with row-level tenant isolation.
 
-Architecture and milestone roadmap: see the plan this repo was scaffolded from. Current status: **Milestone 0 — repo & tooling foundation** complete. No business logic yet — auth, tenancy, and inventory land in Milestones 1–4.
+Architecture and milestone roadmap: see the plan this repo was scaffolded from. Current status: core business modules are implemented and in active iteration — auth, multi-tenancy (row-level isolation), users, products, warehouses, inventory, stock transfers, and a super-admin platform API are all live, alongside offline sync support in the PWA frontend.
 
 ## Repository layout
 
@@ -72,4 +72,4 @@ npm run lhci                # after build — Lighthouse CI, informational only,
 
 ## Notes
 
-- Multi-tenancy, auth, and RBAC are not implemented yet (Milestones 1–2).
+- Multi-tenancy and auth are implemented; RBAC/permission granularity beyond the `is_superuser` flag is still evolving.
