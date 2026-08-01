@@ -77,6 +77,8 @@ def _product_to_dict(product: Product) -> dict[str, object]:
         "price": str(product.price),
         "cost_price": str(product.cost_price) if product.cost_price is not None else None,
         "status": product.status.value if product.status else "active",
+        "product_type": product.product_type.value if product.product_type else "simple",
+        "attributes": product.attributes or {},
         "category_id": str(product.category_id) if product.category_id else None,
         "brand_id": str(product.brand_id) if product.brand_id else None,
         "unit_id": str(product.unit_id) if product.unit_id else None,

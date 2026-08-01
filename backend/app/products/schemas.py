@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.products.models import ProductStatus
+from app.products.models import ProductStatus, ProductType
 
 
 class ProductCreate(BaseModel):
@@ -22,6 +22,8 @@ class ProductCreate(BaseModel):
     price: Decimal = Field(gt=0)
     cost_price: Decimal | None = Field(default=None, ge=0)
     status: ProductStatus = ProductStatus.ACTIVE
+    product_type: ProductType = ProductType.SIMPLE
+    attributes: dict[str, str] = Field(default_factory=dict)
     category_id: UUID | None = None
     brand_id: UUID | None = None
     unit_id: UUID | None = None
@@ -53,6 +55,8 @@ class ProductRead(BaseModel):
     price: Decimal
     cost_price: Decimal | None
     status: ProductStatus
+    product_type: ProductType
+    attributes: dict[str, str]
     category_id: UUID | None
     brand_id: UUID | None
     unit_id: UUID | None

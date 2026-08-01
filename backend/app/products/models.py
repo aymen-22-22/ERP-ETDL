@@ -27,6 +27,31 @@ class ProductStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class ProductType(StrEnum):
+    """How a product behaves for stock and pricing.
+
+    ``SIMPLE``  — one SKU, one price, its own per-warehouse stock. The default,
+                  and what every product created before this column existed is.
+
+    ``VARIANT`` — one generated combination of a category's attribute axes
+                  (e.g. "Tube 28 2m Torsadi Argent"). It is a full product row
+                  with its own SKU, price and stock; ``Product.attributes``
+                  holds the axis values it was generated from. Deliberately not
+                  a separate entity: a variant *is* what the business sells and
+                  counts, so making it a product means inventory, transfers and
+                  the POS need no variant-awareness at all.
+
+    ``KIT``     — assembled from components and sold as a single line, but holds
+                  **no stock of its own**. Selling one deducts its bill of
+                  materials from the selling warehouse instead (see the
+                  ``product_bom_lines`` table).
+    """
+
+    SIMPLE = "simple"
+    VARIANT = "variant"
+    KIT = "kit"
+
+
 class Category(TenantScopedAuditMixin, Base):
     """Hierarchical product category. `parent_id` is a self-reference; a NULL
     parent is a top-level category. Depth is not constrained at the DB level.
@@ -100,6 +125,22 @@ class Product(SyncableMixin, Base):
         ),
         default=ProductStatus.ACTIVE,
     )
+    product_type: Mapped[ProductType] = mapped_column(
+        Enum(
+            ProductType,
+            native_enum=False,
+            length=20,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+        ),
+        default=ProductType.SIMPLE,
+        index=True,
+    )
+    # Axis values a VARIANT was generated from, e.g.
+    # {"diameter": "28", "length": "2m", "model": "Torsadi", "color": "Argent"}.
+    # Empty for SIMPLE and KIT products. Kept as JSONB rather than columns
+    # because the axes differ per category (tubes have a length, bouchons
+    # don't) and are configured per tenant, not fixed in the schema.
+    attributes: Mapped[dict[str, str]] = mapped_column(JSONB, default=dict)
 
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("categories.id"), index=True, default=None
