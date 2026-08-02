@@ -15,13 +15,20 @@ know which tenants should get this particular catalog.
 
 import asyncio
 import sys
+from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession
+# Python puts the *script's* directory on sys.path, not the working directory,
+# so `python scripts/seed_store_catalog.py` from backend/ would fail to import
+# `app`. Adding the backend root explicitly makes the script work however it is
+# invoked — as a path, as `python -m scripts.seed_store_catalog`, or from any cwd.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.products.models import Category, CategoryVariantScheme
-from app.shared.database.session import async_session_factory
+from sqlalchemy import select, text  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
+
+from app.products.models import Category, CategoryVariantScheme  # noqa: E402
+from app.shared.database.session import async_session_factory  # noqa: E402
 
 # (name, [children]). Order here becomes sort_order, so the tree renders in
 # the same order the business thinks about it.

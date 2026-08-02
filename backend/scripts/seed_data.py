@@ -6,13 +6,25 @@ Usage:
 
 import asyncio
 import sys
+from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import text
+# See seed_store_catalog.py: without this, invoking the script by path fails to
+# import `app`, because Python adds scripts/ to sys.path rather than the cwd.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.products.models import Brand, Category, Product, ProductStatus, Tag, Unit
-from app.shared.database.session import async_session_factory
-from app.warehouses.models import Warehouse
+from sqlalchemy import text  # noqa: E402
+
+from app.products.models import (  # noqa: E402
+    Brand,
+    Category,
+    Product,
+    ProductStatus,
+    Tag,
+    Unit,
+)
+from app.shared.database.session import async_session_factory  # noqa: E402
+from app.warehouses.models import Warehouse  # noqa: E402
 
 DTF_CATEGORIES = [
     {"name": "Films", "description": "DTF transfer films — rolls and sheets", "sort_order": 1},
