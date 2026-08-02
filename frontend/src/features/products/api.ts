@@ -4,7 +4,8 @@ import { useAuthStore } from "@/store/authStore";
 
 export interface ProductInput {
   name: string;
-  sku: string;
+  /** Optional: the server derives one from the category when omitted. */
+  sku?: string | undefined;
   barcode?: string | undefined;
   description?: string | undefined;
   price: string;
@@ -60,12 +61,33 @@ export interface ProductListParams {
   categoryId?: string | undefined;
   sort?: ProductSort;
   sortDir?: ProductSortDir;
+  /**
+   * Defaults to true server-side. The product list page passes false so a
+   * dozen generated tubes don't bury everything else; the POS and the recipe
+   * editor need them and leave it alone.
+   */
+  includeVariants?: boolean | undefined;
+}
+
+export interface VariantGroup {
+  category_id: string;
+  category_name: string;
+  variant_count: number;
+  min_price: string;
+  max_price: string;
+}
+
+export async function listVariantGroups(): Promise<VariantGroup[]> {
+  return apiFetch<VariantGroup[]>("/v1/products/variant-groups");
 }
 
 function toPayload(input: ProductInput): Record<string, unknown> {
   return {
     name: input.name,
-    sku: input.sku,
+    // Blank means "generate one" on create and "leave it alone" on update.
+    // Sent as undefined rather than "" so it is omitted from the JSON — the
+    // server rejects an empty SKU, it does not treat it as absent.
+    sku: input.sku?.trim() || undefined,
     barcode: input.barcode || null,
     description: input.description || null,
     price: input.price,
@@ -92,6 +114,7 @@ export async function listProducts(
   q.set("page_size", String(pageSize));
   if (params.search) q.set("search", params.search);
   if (params.status) q.set("status", params.status);
+  if (params.includeVariants === false) q.set("include_variants", "false");
   if (params.categoryId) q.set("category_id", params.categoryId);
   if (params.sort) q.set("sort", params.sort);
   if (params.sortDir) q.set("sort_dir", params.sortDir);

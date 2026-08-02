@@ -62,6 +62,7 @@ async def list_products(
     brand_id: UUID | None = Query(default=None),
     product_status: ProductStatus | None = Query(default=None, alias="status"),
     sort: ProductSort = Query(default=ProductSort.NAME),
+    include_variants: bool = Query(default=True),
 ) -> PaginatedEnvelope[ProductRead]:
     params = PageParams(page=page, page_size=page_size)
     query = ProductQuery(
@@ -70,6 +71,7 @@ async def list_products(
         brand_id=brand_id,
         status=product_status,
         sort=sort,
+        include_variants=include_variants,
     )
     products, meta = await service.list_products(session, tenant_id, params, query)
     return PaginatedEnvelope(
@@ -101,6 +103,17 @@ async def import_products(
     file_bytes = await file.read()
     products = await import_service.import_products(session, tenant_id, file_bytes)
     return ResponseEnvelope(data=[ProductRead.model_validate(p) for p in products])
+
+
+@router.get("/variant-groups", response_model=ResponseEnvelope[list[dict[str, object]]])
+async def list_variant_groups(
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+) -> ResponseEnvelope[list[dict[str, object]]]:
+    """Variant families with their counts, so the product list can show one
+    row per family instead of a dozen individually-tracked tubes."""
+    return ResponseEnvelope(data=await service.list_variant_groups(session, tenant_id))
 
 
 @router.post("/bulk-delete", response_model=ResponseEnvelope[BulkDeleteResult])

@@ -17,7 +17,7 @@ import { useCreateProductMutation } from "@/features/products/hooks";
 
 const kitSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  sku: z.string().min(1, "SKU is required"),
+  sku: z.string().optional(),
   price: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, "Enter a valid price")
@@ -85,7 +85,10 @@ export function KitFormPage() {
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="sku">SKU</Label>
-            <Input id="sku" placeholder="TF-4600" {...register("sku")} />
+            <Input id="sku" placeholder="Generated automatically" {...register("sku")} />
+            <p className="text-muted-foreground text-xs">
+              Leave blank and one is generated from the category (Triangle Fix &rarr; TF-001).
+            </p>
             {errors.sku && <p className="text-destructive text-sm">{errors.sku.message}</p>}
           </div>
 

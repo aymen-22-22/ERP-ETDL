@@ -21,7 +21,8 @@ import { useWarehouses } from "@/features/warehouses/hooks";
 
 const productSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  sku: z.string().min(1, "SKU is required"),
+  // Optional: the server derives one from the category when left blank.
+  sku: z.string().optional(),
   barcode: z.string().optional(),
   description: z.string().optional(),
   price: z
@@ -167,7 +168,10 @@ export function ProductFormPage() {
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="sku">SKU</Label>
-              <Input id="sku" {...register("sku")} />
+              <Input id="sku" placeholder="Generated automatically" {...register("sku")} />
+              <p className="text-muted-foreground text-xs">
+                Leave blank and one is generated from the category (Porte Chaussure &rarr; PC-001).
+              </p>
               {errors.sku && <p className="text-destructive text-sm">{errors.sku.message}</p>}
             </div>
 

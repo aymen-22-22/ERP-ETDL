@@ -32,7 +32,10 @@ class ProductCreate(BaseModel):
 
     id: UUID | None = None
     name: str = Field(min_length=1, max_length=255)
-    sku: str = Field(min_length=1, max_length=100)
+    # Optional: the server derives one from the category when omitted
+    # (Porte Chaussure -> PC-001). Hand-typed SKUs are how duplicates and
+    # typos get in, and the operator has no way to know the next free number.
+    sku: str | None = Field(default=None, min_length=1, max_length=100)
     barcode: str | None = Field(default=None, max_length=100)
     description: str | None = None
     price: Decimal = Field(gt=0)
@@ -113,3 +116,8 @@ class ProductQuery(BaseModel):
     brand_id: UUID | None = None
     status: ProductStatus | None = None
     sort: ProductSort = ProductSort.NAME
+    # Generated variants are individually tracked products, so they belong in
+    # the list by default — the POS prices from it and the recipe editor picks
+    # components from it. The product *list page* opts out so a dozen tubes
+    # don't bury everything else; it shows variant families instead.
+    include_variants: bool = True

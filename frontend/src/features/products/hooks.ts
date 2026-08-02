@@ -11,6 +11,7 @@ import {
   duplicateProduct,
   getProduct,
   listProducts,
+  listVariantGroups,
   updateProduct,
 } from "./api";
 import { submitStockAdjustment } from "./inventoryMutations";
@@ -21,6 +22,13 @@ export function useProducts(page = 1, pageSize = 25, params: ProductListParams =
   return useQuery({
     queryKey: [...QUERY_KEY, page, pageSize, params],
     queryFn: () => listProducts(page, pageSize, params),
+  });
+}
+
+export function useVariantGroups() {
+  return useQuery({
+    queryKey: ["variant-groups"],
+    queryFn: listVariantGroups,
   });
 }
 

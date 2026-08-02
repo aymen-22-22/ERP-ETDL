@@ -2,6 +2,7 @@ import {
   ArrowRightIcon,
   CopyIcon,
   DownloadIcon,
+  LayersIcon,
   ListTreeIcon,
   PackageIcon,
   PlusIcon,
@@ -25,6 +26,7 @@ import {
   useBulkDeleteProductsMutation,
   useDuplicateProductMutation,
   useProducts,
+  useVariantGroups,
 } from "@/features/products/hooks";
 import { BomEditorSheet } from "@/features/bom/BomEditorSheet";
 import {
@@ -78,13 +80,19 @@ export function ProductsListPage() {
     setPage(1);
   }
 
+  // Generated variants are hidden from the main list and surfaced as families
+  // below — a dozen tubes would otherwise bury everything else. Filtering to a
+  // specific category shows them, which is what clicking a family does.
+  const showingOneCategory = categoryId !== null;
   const { data, isLoading } = useProducts(page, PAGE_SIZE, {
     search,
     status,
     sort,
     sortDir,
+    includeVariants: showingOneCategory,
     ...(categoryId ? { categoryId } : {}),
   });
+  const { data: variantGroups } = useVariantGroups();
   const products = data?.data;
   const total = data?.meta.total ?? 0;
   const pages = data?.meta.pages ?? 1;
@@ -287,6 +295,40 @@ export function ProductsListPage() {
       </div>
 
       {filters}
+
+      {!showingOneCategory && variantGroups && variantGroups.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="label-caps text-muted-foreground">Variant families</h2>
+          <ul className="flex list-none flex-col gap-2">
+            {variantGroups.map((group) => (
+              <li key={group.category_id}>
+                <button
+                  type="button"
+                  onClick={() => setCategoryId(group.category_id)}
+                  className="hover:bg-accent focus-visible:ring-ring/50 flex min-h-11 w-full items-center gap-3 rounded-md border px-3 py-2 text-left outline-none focus-visible:ring-2"
+                >
+                  <LayersIcon className="text-muted-foreground size-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {group.category_name}
+                  </span>
+                  <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                    {group.min_price === group.max_price
+                      ? group.min_price
+                      : `${group.min_price}–${group.max_price}`}
+                  </span>
+                  <Badge variant="secondary" className="shrink-0">
+                    {group.variant_count}
+                  </Badge>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="text-muted-foreground text-xs">
+            Generated variants are grouped here instead of filling the list. Open a family to see
+            and edit its variants.
+          </p>
+        </div>
+      )}
 
       {selected.size > 0 && (
         <StickyActionBar className="md:justify-between md:rounded-md md:border md:bg-muted/40 md:p-3">

@@ -1,7 +1,9 @@
+import re
+import unicodedata
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -11,6 +13,7 @@ from app.products.models import (
     Product,
     ProductBomLine,
     ProductStatus,
+    ProductType,
     Unit,
 )
 from app.products.repository import ProductRepository
@@ -106,6 +109,9 @@ def _list_cache_key(params: PageParams, query: ProductQuery) -> str:
     parts.append(str(query.brand_id) if query.brand_id else "")
     parts.append(query.status.value if query.status else "")
     parts.append(query.sort.value)
+    # Part of the key: the same page/filters with and without variants are two
+    # different result sets, and omitting this would serve one for the other.
+    parts.append("v1" if query.include_variants else "v0")
     return ":".join(parts)
 
 
@@ -122,6 +128,8 @@ async def create_product(session: AsyncSession, tenant_id: UUID, data: ProductCr
     product_id = data.id or generate_uuid7()
     payload = data.model_dump(mode="json")
     payload["id"] = str(product_id)
+    if not payload.get("sku"):
+        payload["sku"] = await generate_sku(session, tenant_id, data.name, data.category_id)
     mutation = _envelope(
         entity_type="product",
         entity_id=product_id,
@@ -205,6 +213,84 @@ async def update_product(
     await session.commit()
     await get_tenant_cache().invalidate_pattern(tenant_id, "products")
     return product
+
+
+async def list_variant_groups(session: AsyncSession, tenant_id: UUID) -> list[dict[str, object]]:
+    """One row per category that holds generated variants, with its count.
+
+    Computed in the database rather than by grouping a page of results
+    client-side: the list is paginated, so a family could straddle two pages
+    and be counted twice or reported short.
+    """
+    result = await session.execute(
+        select(
+            Product.category_id,
+            Category.name,
+            func.count(Product.id),
+            func.min(Product.price),
+            func.max(Product.price),
+        )
+        .join(Category, Category.id == Product.category_id)
+        .where(
+            Product.tenant_id == tenant_id,
+            Product.deleted_at.is_(None),
+            Product.product_type == ProductType.VARIANT,
+        )
+        .group_by(Product.category_id, Category.name)
+        .order_by(Category.name)
+    )
+    return [
+        {
+            "category_id": str(category_id),
+            "category_name": category_name,
+            "variant_count": count,
+            "min_price": str(min_price),
+            "max_price": str(max_price),
+        }
+        for category_id, category_name, count, min_price, max_price in result.all()
+    ]
+
+
+def _sku_prefix_from(name: str) -> str:
+    """Initials of a name, for a SKU prefix. "Porte Chaussure" -> "PC"."""
+    words = re.findall(r"[A-Za-zÀ-ÿ]+", name)
+    initials = "".join(word[0] for word in words).upper()
+    # Strip accents so the SKU stays ASCII — "Décoration" -> "D", not "DÉ".
+    ascii_initials = unicodedata.normalize("NFKD", initials).encode("ascii", "ignore").decode()
+    return (ascii_initials or "PRD")[:4]
+
+
+async def generate_sku(
+    session: AsyncSession, tenant_id: UUID, name: str, category_id: UUID | None
+) -> str:
+    """Next free `PREFIX-001` for this tenant.
+
+    The prefix comes from the category ("Porte Chaussure" -> PC-001,
+    "Triangle Fix" -> TF-001) and falls back to the product's own name, then to
+    PRD. Generated variants don't come through here — they get their SKU from
+    their category's scheme instead (TUB-28-2M-TOR-ARG).
+    """
+    source = name
+    if category_id is not None:
+        category = await session.get(Category, category_id)
+        if category is not None and category.tenant_id == tenant_id:
+            source = category.name
+
+    prefix = _sku_prefix_from(source)
+
+    # Highest number already used under this prefix, so a deleted product's
+    # number is not handed out again — reusing a SKU would make historic
+    # movements ambiguous.
+    result = await session.execute(
+        select(Product.sku).where(Product.tenant_id == tenant_id, Product.sku.like(f"{prefix}-%"))
+    )
+    highest = 0
+    for sku in result.scalars().all():
+        suffix = sku.rsplit("-", 1)[-1]
+        if suffix.isdigit():
+            highest = max(highest, int(suffix))
+
+    return f"{prefix}-{highest + 1:03d}"
 
 
 async def _record_opening_stock(
