@@ -200,6 +200,8 @@ async def _seed_scheme(
     created: list[str],
     skipped: list[str],
 ) -> None:
+    color_key = "color" if "color" in attribute_keys else None
+
     existing = await session.execute(
         select(CategoryVariantScheme).where(
             CategoryVariantScheme.tenant_id == tenant_id,
@@ -207,8 +209,19 @@ async def _seed_scheme(
             CategoryVariantScheme.deleted_at.is_(None),
         )
     )
-    if existing.scalar_one_or_none() is not None:
-        skipped.append(f"scheme {base_name} ({sku_prefix})")
+    scheme = existing.scalar_one_or_none()
+    if scheme is not None:
+        # A tenant that ran this script before color_key existed has the
+        # scheme already but with color_key=NULL. Backfilling it is safe:
+        # there is no UI yet that could have set it to something else on
+        # purpose, so any existing value here is the old absence of the
+        # column, not a deliberate choice being overwritten.
+        if scheme.color_key is None and color_key is not None:
+            scheme.color_key = color_key
+            await session.flush()
+            created.append(f"scheme {base_name} ({sku_prefix}) — backfilled color_key")
+        else:
+            skipped.append(f"scheme {base_name} ({sku_prefix})")
         return
 
     session.add(
@@ -219,6 +232,12 @@ async def _seed_scheme(
             sku_prefix=sku_prefix,
             attribute_keys=attribute_keys,
             allowed_values=allowed_values,
+            # Every scheme here has a "color" axis, and in every one of them
+            # colour is what the business wants nested under a structural
+            # product ("Tube 28 Torsadi 2m") rather than baked into the name.
+            # Derived rather than added to every VARIANT_SCHEMES tuple, so a
+            # scheme added later gets this automatically if it also has one.
+            color_key=color_key,
         )
     )
     await session.flush()

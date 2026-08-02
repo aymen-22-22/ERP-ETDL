@@ -107,6 +107,15 @@ class CategoryVariantScheme(TenantScopedAuditMixin, Base):
     attribute_keys: Mapped[list[str]] = mapped_column(JSONB, default=list)
     # Suggested values per key, e.g. {"color": ["Argent", "Dorre"]}.
     allowed_values: Mapped[dict[str, list[str]]] = mapped_column(JSONB, default=dict)
+    # Which key, if any, is excluded from the generated NAME but kept in the
+    # SKU and attributes. "Tube 28 Torsadi 2m" is one product with an Argent
+    # row and a Dorre row underneath it, not two differently-named products —
+    # the business wants the list to read that way, one row per structural
+    # combination with colour as a nested stock line, not eleven flat rows
+    # that only differ by colour. Each colour is still its own Product row
+    # (that is what gives it its own per-warehouse stock); only the display
+    # name and the generation flow collapse them together.
+    color_key: Mapped[str | None] = mapped_column(String(50), default=None)
 
 
 class BomUnit(StrEnum):

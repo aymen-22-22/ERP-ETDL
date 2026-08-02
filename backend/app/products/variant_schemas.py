@@ -14,6 +14,10 @@ class VariantSchemeRead(BaseModel):
     sku_prefix: str
     attribute_keys: list[str]
     allowed_values: dict[str, list[str]]
+    # The axis excluded from the name and grouped as a sub-row in the UI
+    # ("Tube 28 Torsadi 2m" with an Argent line and a Dorre line under it).
+    # None means every axis is structural and each combination is its own row.
+    color_key: str | None = None
 
     model_config = {"from_attributes": True}
 

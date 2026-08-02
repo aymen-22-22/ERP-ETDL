@@ -22,9 +22,11 @@ import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/s
 import { useCategories } from "@/features/categories/hooks";
 import type { Product, ProductSort, ProductSortDir } from "@/features/products/api";
 import { downloadImportTemplate, importProductsExcel } from "@/features/products/api";
+import { GroupedVariantsView } from "@/features/products/GroupedVariantsView";
 import {
   useBulkDeleteProductsMutation,
   useDuplicateProductMutation,
+  useGroupedVariants,
   useProducts,
   useVariantGroups,
 } from "@/features/products/hooks";
@@ -93,6 +95,12 @@ export function ProductsListPage() {
     ...(categoryId ? { categoryId } : {}),
   });
   const { data: variantGroups } = useVariantGroups();
+  // Filtering to a category that turns out to hold variants switches the whole
+  // list to the nested colour view instead of the flat table — a category is
+  // either "structural products with colours" or "ordinary products" in this
+  // catalogue, never a mix, so there is no case where both need to render.
+  const { data: groupedVariants } = useGroupedVariants(showingOneCategory ? categoryId : null);
+  const showGrouped = showingOneCategory && !!groupedVariants && groupedVariants.length > 0;
   const products = data?.data;
   const total = data?.meta.total ?? 0;
   const pages = data?.meta.pages ?? 1;
@@ -376,49 +384,53 @@ export function ProductsListPage() {
         </StickyActionBar>
       )}
 
-      <DataView
-        rows={isLoading ? undefined : (products ?? [])}
-        columns={columns}
-        keyExtractor={(p) => p.id}
-        selectedIds={selected}
-        onToggleRow={toggleRow}
-        onToggleAll={toggleAll}
-        renderCard={(p) => (
-          <ListCard
-            title={p.name}
-            subtitle={p.sku}
-            meta={<Badge variant={statusVariant[p.status] ?? "outline"}>{p.status}</Badge>}
-            trailing={p.price}
-            to={`/products/${p.id}`}
-            actions={
-              <Button variant="ghost" size="sm" asChild>
-                <Link
-                  to={`/transfers/new?product=${p.id}&warehouse=${p.default_warehouse_id ?? ""}`}
-                >
-                  <ArrowRightIcon className="mr-1 size-3" />
-                  Transfer
-                </Link>
-              </Button>
-            }
-          />
-        )}
-        empty={
-          total === 0 && !isFiltered ? (
-            <EmptyState
-              icon={PackageIcon}
-              title="No products yet"
-              description="Add your first product to start tracking inventory."
-              action={{ label: "New product", onClick: () => void navigate("/products/new") }}
+      {showGrouped ? (
+        <GroupedVariantsView groups={groupedVariants} />
+      ) : (
+        <DataView
+          rows={isLoading ? undefined : (products ?? [])}
+          columns={columns}
+          keyExtractor={(p) => p.id}
+          selectedIds={selected}
+          onToggleRow={toggleRow}
+          onToggleAll={toggleAll}
+          renderCard={(p) => (
+            <ListCard
+              title={p.name}
+              subtitle={p.sku}
+              meta={<Badge variant={statusVariant[p.status] ?? "outline"}>{p.status}</Badge>}
+              trailing={p.price}
+              to={`/products/${p.id}`}
+              actions={
+                <Button variant="ghost" size="sm" asChild>
+                  <Link
+                    to={`/transfers/new?product=${p.id}&warehouse=${p.default_warehouse_id ?? ""}`}
+                  >
+                    <ArrowRightIcon className="mr-1 size-3" />
+                    Transfer
+                  </Link>
+                </Button>
+              }
             />
-          ) : (
-            <p className="text-muted-foreground py-8 text-center text-sm">
-              No products match your search or filters.
-            </p>
-          )
-        }
-      />
+          )}
+          empty={
+            total === 0 && !isFiltered ? (
+              <EmptyState
+                icon={PackageIcon}
+                title="No products yet"
+                description="Add your first product to start tracking inventory."
+                action={{ label: "New product", onClick: () => void navigate("/products/new") }}
+              />
+            ) : (
+              <p className="text-muted-foreground py-8 text-center text-sm">
+                No products match your search or filters.
+              </p>
+            )
+          }
+        />
+      )}
 
-      {products !== undefined && products.length > 0 && (
+      {!showGrouped && products !== undefined && products.length > 0 && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
             Page {page} of {pages} · {total} total

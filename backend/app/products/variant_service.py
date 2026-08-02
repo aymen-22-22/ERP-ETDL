@@ -36,17 +36,27 @@ from app.warehouses.service import require_active_warehouse
 _ALPHA_ABBREV_LEN = 3
 
 
-def build_name(base_name: str, attribute_keys: list[str], attributes: dict[str, str]) -> str:
+def build_name(
+    base_name: str,
+    attribute_keys: list[str],
+    attributes: dict[str, str],
+    color_key: str | None = None,
+) -> str:
     """Base name followed by the axis values, in the scheme's key order.
 
     Keys the caller didn't supply are skipped rather than rendered blank, so a
     partially-specified variant still gets a sensible name.
+
+    `color_key` is skipped here too: "Tube 28 Torsadi 2m" is the name for
+    every colour of that structural product, not just one of them. It still
+    goes into the SKU (`build_sku` doesn't take this parameter) — the name can
+    repeat across the colour rows, but the SKU has to keep disambiguating them.
     """
     parts = [base_name.strip()]
     parts.extend(
         str(attributes[key]).strip()
         for key in attribute_keys
-        if str(attributes.get(key, "")).strip()
+        if key != color_key and str(attributes.get(key, "")).strip()
     )
     return " ".join(parts)
 
@@ -118,6 +128,78 @@ async def existing_skus(session: AsyncSession, tenant_id: UUID, skus: list[str])
     return set(result.scalars().all())
 
 
+async def list_grouped_variants(
+    session: AsyncSession, tenant_id: UUID, category_id: UUID
+) -> list[dict[str, object]]:
+    """Variant products in one category, grouped by their structural name.
+
+    "Tube 28 Torsadi 2m" is one entry with an Argent row and a Dorre row
+    nested inside it, each with its own stock — this is what makes the
+    business's "11 flat products" complaint into "4 clean products, colours
+    inside each". Every colour is still its own `Product` row underneath
+    (that is what gives it independent stock); only the presentation groups
+    them back together by the name they now share.
+    """
+    from app.inventory.models import ProductStockSnapshot
+    from app.warehouses.models import Warehouse
+
+    products_result = await session.execute(
+        select(Product)
+        .where(
+            Product.tenant_id == tenant_id,
+            Product.category_id == category_id,
+            Product.product_type == ProductType.VARIANT,
+            Product.deleted_at.is_(None),
+        )
+        .order_by(Product.name)
+    )
+    products = list(products_result.scalars().all())
+    if not products:
+        return []
+
+    snapshots_result = await session.execute(
+        select(ProductStockSnapshot, Warehouse.name)
+        .join(Warehouse, Warehouse.id == ProductStockSnapshot.warehouse_id)
+        .where(
+            ProductStockSnapshot.tenant_id == tenant_id,
+            ProductStockSnapshot.product_id.in_([p.id for p in products]),
+        )
+    )
+    stock_by_product: dict[UUID, list[dict[str, str | int]]] = {}
+    quantities_by_product: dict[UUID, list[int]] = {}
+    for snapshot, warehouse_name in snapshots_result.all():
+        stock_by_product.setdefault(snapshot.product_id, []).append(
+            {
+                "warehouse_id": str(snapshot.warehouse_id),
+                "warehouse_name": warehouse_name,
+                "quantity": snapshot.quantity_on_hand,
+            }
+        )
+        quantities_by_product.setdefault(snapshot.product_id, []).append(snapshot.quantity_on_hand)
+
+    groups: dict[str, list[dict[str, object]]] = {}
+    group_totals: dict[str, int] = {}
+    for product in products:
+        total = sum(quantities_by_product.get(product.id, []))
+        groups.setdefault(product.name, []).append(
+            {
+                "product_id": str(product.id),
+                "sku": product.sku,
+                "attributes": product.attributes or {},
+                "price": str(product.price),
+                "cost_price": str(product.cost_price) if product.cost_price is not None else None,
+                "stock": stock_by_product.get(product.id, []),
+                "total_quantity": total,
+            }
+        )
+        group_totals[product.name] = group_totals.get(product.name, 0) + total
+
+    return [
+        {"name": name, "colors": colors, "total_quantity": group_totals[name]}
+        for name, colors in groups.items()
+    ]
+
+
 async def generate_variants(
     session: AsyncSession,
     tenant_id: UUID,
@@ -138,7 +220,9 @@ async def generate_variants(
     """
     candidates: list[tuple[str, str, VariantGenerateItem]] = []
     for item in items:
-        name = build_name(scheme.base_name, scheme.attribute_keys, item.attributes)
+        name = build_name(
+            scheme.base_name, scheme.attribute_keys, item.attributes, scheme.color_key
+        )
         sku = build_sku(scheme.sku_prefix, scheme.attribute_keys, item.attributes)
         candidates.append((name, sku, item))
 

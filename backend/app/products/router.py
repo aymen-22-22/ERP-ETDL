@@ -122,6 +122,23 @@ async def list_sellable_kits(
     )
 
 
+@router.get(
+    "/variant-groups/{category_id}", response_model=ResponseEnvelope[list[dict[str, object]]]
+)
+async def list_grouped_variants(
+    category_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+) -> ResponseEnvelope[list[dict[str, object]]]:
+    """One category's variants grouped by structural name, colours nested
+    with their own stock — "Tube 28 Torsadi 2m" with an Argent row and a
+    Dorre row underneath, not two separately-named products."""
+    return ResponseEnvelope(
+        data=await variant_service.list_grouped_variants(session, tenant_id, category_id)
+    )
+
+
 @router.get("/variant-groups", response_model=ResponseEnvelope[list[dict[str, object]]])
 async def list_variant_groups(
     session: Annotated[AsyncSession, Depends(get_tenant_db)],
@@ -189,7 +206,9 @@ async def preview_variants(
 
     items = [
         (
-            variant_service.build_name(scheme.base_name, scheme.attribute_keys, combo),
+            variant_service.build_name(
+                scheme.base_name, scheme.attribute_keys, combo, scheme.color_key
+            ),
             variant_service.build_sku(scheme.sku_prefix, scheme.attribute_keys, combo),
             combo,
         )

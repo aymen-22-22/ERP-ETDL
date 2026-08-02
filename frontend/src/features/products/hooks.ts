@@ -10,6 +10,7 @@ import {
   deleteProduct,
   duplicateProduct,
   getProduct,
+  listGroupedVariants,
   listProducts,
   listVariantGroups,
   updateProduct,
@@ -29,6 +30,14 @@ export function useVariantGroups() {
   return useQuery({
     queryKey: ["variant-groups"],
     queryFn: listVariantGroups,
+  });
+}
+
+export function useGroupedVariants(categoryId: string | null) {
+  return useQuery({
+    queryKey: ["grouped-variants", categoryId],
+    queryFn: () => listGroupedVariants(categoryId!),
+    enabled: !!categoryId,
   });
 }
 

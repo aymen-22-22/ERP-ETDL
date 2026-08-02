@@ -81,6 +81,33 @@ export async function listVariantGroups(): Promise<VariantGroup[]> {
   return apiFetch<VariantGroup[]>("/v1/products/variant-groups");
 }
 
+export interface GroupedVariantStock {
+  warehouse_id: string;
+  warehouse_name: string;
+  quantity: number;
+}
+
+export interface GroupedVariantColor {
+  product_id: string;
+  sku: string;
+  attributes: Record<string, string>;
+  price: string;
+  cost_price: string | null;
+  stock: GroupedVariantStock[];
+  total_quantity: number;
+}
+
+export interface GroupedVariant {
+  name: string;
+  colors: GroupedVariantColor[];
+  total_quantity: number;
+}
+
+/** One category's variants grouped by structural name, colours nested. */
+export async function listGroupedVariants(categoryId: string): Promise<GroupedVariant[]> {
+  return apiFetch<GroupedVariant[]>(`/v1/products/variant-groups/${categoryId}`);
+}
+
 function toPayload(input: ProductInput): Record<string, unknown> {
   return {
     name: input.name,

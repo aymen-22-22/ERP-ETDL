@@ -89,7 +89,20 @@ export function VariantGeneratorPage() {
   };
 
   const newItems = (preview ?? []).filter((item) => !item.already_exists);
-  const pricedCount = newItems.filter((item) => (prices[item.sku] ?? "").trim() !== "").length;
+
+  // Grouped by name: colour no longer appears in it, so every colour of one
+  // structural product ("Tube 28 Torsadi 2m") lands in the same group. Price
+  // and cost are entered once per group and applied to every colour in it —
+  // the business prices a tube the same regardless of colour; only the stock
+  // count differs, and that stays per colour.
+  const groups = new Map<string, typeof newItems>();
+  for (const item of newItems) {
+    const list = groups.get(item.name) ?? [];
+    list.push(item);
+    groups.set(item.name, list);
+  }
+
+  const pricedCount = newItems.filter((item) => (prices[item.name] ?? "").trim() !== "").length;
 
   const generate = () => {
     if (!categoryId) return;
@@ -97,13 +110,13 @@ export function VariantGeneratorPage() {
       {
         categoryId,
         items: newItems
-          .filter((item) => (prices[item.sku] ?? "").trim() !== "")
+          .filter((item) => (prices[item.name] ?? "").trim() !== "")
           .map((item) => {
-            const cost = (costs[item.sku] ?? "").trim();
+            const cost = (costs[item.name] ?? "").trim();
             const perWarehouse = stocks[item.sku] ?? {};
             return {
               attributes: item.attributes,
-              price: prices[item.sku]!.trim(),
+              price: prices[item.name]!.trim(),
               ...(cost !== "" ? { cost_price: cost } : {}),
               opening_stock: Object.entries(perWarehouse).flatMap(([wid, raw]) => {
                 const quantity = parseInt(raw, 10);
@@ -254,65 +267,94 @@ export function VariantGeneratorPage() {
               </p>
             ) : (
               <>
-                <ul className="flex list-none flex-col gap-2">
-                  {preview.map((item) => (
-                    <li key={item.sku} className="flex flex-col gap-2 rounded-md border p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{item.name}</p>
-                          <p className="text-muted-foreground truncate text-xs">{item.sku}</p>
-                        </div>
-                        {item.already_exists && <Badge variant="outline">Already exists</Badge>}
+                <ul className="flex list-none flex-col gap-3">
+                  {[...groups.entries()].map(([name, items]) => (
+                    <li key={name} className="flex flex-col gap-3 rounded-md border p-3">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="font-medium">{name}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {items.length} colour{items.length === 1 ? "" : "s"}
+                        </span>
                       </div>
 
-                      {!item.already_exists && (
-                        <>
-                          <div className="flex flex-wrap gap-2">
-                            <Input
-                              inputMode="decimal"
-                              placeholder="Purchase"
-                              aria-label={`Purchase price for ${item.name}`}
-                              className="h-9 w-28 text-right tabular-nums"
-                              value={costs[item.sku] ?? ""}
-                              onChange={(e) =>
-                                setCosts((current) => ({ ...current, [item.sku]: e.target.value }))
-                              }
-                            />
-                            <Input
-                              inputMode="decimal"
-                              placeholder="Selling"
-                              aria-label={`Selling price for ${item.name}`}
-                              className="h-9 w-28 text-right tabular-nums"
-                              value={prices[item.sku] ?? ""}
-                              onChange={(e) =>
-                                setPrices((current) => ({
-                                  ...current,
-                                  [item.sku]: e.target.value,
-                                }))
-                              }
-                            />
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-muted-foreground text-xs">Opening stock</span>
-                            {(warehouses ?? [])
-                              .filter((w) => w.is_active)
-                              .map((w) => (
-                                <Input
-                                  key={w.id}
-                                  inputMode="numeric"
-                                  placeholder={w.name}
-                                  aria-label={`Opening stock of ${item.name} in ${w.name}`}
-                                  className="h-9 w-24 text-right tabular-nums"
-                                  value={stocks[item.sku]?.[w.id] ?? ""}
-                                  onChange={(e) => setStock(item.sku, w.id, e.target.value)}
-                                />
-                              ))}
-                          </div>
-                        </>
-                      )}
+                      <div className="flex flex-wrap gap-2">
+                        <Input
+                          inputMode="decimal"
+                          placeholder="Purchase"
+                          aria-label={`Purchase price for ${name}`}
+                          className="h-9 w-28 text-right tabular-nums"
+                          value={costs[name] ?? ""}
+                          onChange={(e) =>
+                            setCosts((current) => ({ ...current, [name]: e.target.value }))
+                          }
+                        />
+                        <Input
+                          inputMode="decimal"
+                          placeholder="Selling"
+                          aria-label={`Selling price for ${name}`}
+                          className="h-9 w-28 text-right tabular-nums"
+                          value={prices[name] ?? ""}
+                          onChange={(e) =>
+                            setPrices((current) => ({ ...current, [name]: e.target.value }))
+                          }
+                        />
+                        <span className="text-muted-foreground self-center text-xs">
+                          same price for every colour below
+                        </span>
+                      </div>
+
+                      <ul className="flex list-none flex-col gap-2">
+                        {items.map((item) => {
+                          // Whatever attribute differs between this colour and
+                          // its siblings in the group ("Argent" vs "Dorre").
+                          const keys = Object.keys(item.attributes);
+                          const varying = keys.filter(
+                            (key) => new Set(items.map((i) => i.attributes[key] ?? "")).size > 1,
+                          );
+                          const colorLabel =
+                            varying.map((key) => item.attributes[key]).join(" ") || item.sku;
+
+                          return (
+                            <li
+                              key={item.sku}
+                              className="flex flex-wrap items-center gap-2 border-t pt-2 first:border-t-0 first:pt-0"
+                            >
+                              <span className="min-w-20 text-sm font-medium">{colorLabel}</span>
+                              <span className="text-muted-foreground truncate text-xs">
+                                {item.sku}
+                              </span>
+                              {(warehouses ?? [])
+                                .filter((w) => w.is_active)
+                                .map((w) => (
+                                  <Input
+                                    key={w.id}
+                                    inputMode="numeric"
+                                    placeholder={w.name}
+                                    aria-label={`Opening stock of ${item.name} ${colorLabel} in ${w.name}`}
+                                    className="h-9 w-20 text-right tabular-nums"
+                                    value={stocks[item.sku]?.[w.id] ?? ""}
+                                    onChange={(e) => setStock(item.sku, w.id, e.target.value)}
+                                  />
+                                ))}
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </li>
                   ))}
                 </ul>
+
+                {preview.some((item) => item.already_exists) && (
+                  <div className="flex flex-wrap gap-2">
+                    {preview
+                      .filter((item) => item.already_exists)
+                      .map((item) => (
+                        <Badge key={item.sku} variant="outline">
+                          {item.name} — already exists
+                        </Badge>
+                      ))}
+                  </div>
+                )}
 
                 <p className="text-muted-foreground text-sm">
                   {newItems.length} new · {preview.length - newItems.length} already exist ·{" "}

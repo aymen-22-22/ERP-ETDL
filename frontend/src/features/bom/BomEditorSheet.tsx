@@ -20,6 +20,31 @@ interface DraftLine {
   unit: BomUnit;
 }
 
+interface PickableProduct {
+  id: string;
+  name: string;
+  sku: string;
+  attributes: Record<string, string>;
+}
+
+/**
+ * The label for one product inside a same-name group — whatever attribute
+ * values actually differ between the group's members, joined ("Argent", or
+ * "Dorre 19mm" if two axes vary). Falls back to the SKU if nothing does,
+ * which should not happen but must still be pickable if it somehow does.
+ *
+ * There's no `color_key` here to lean on: this list mixes every category's
+ * variants, and asking for every scheme just to label a dropdown is a lot of
+ * requests for a cosmetic string when the group's own attributes already
+ * contain the answer.
+ */
+function colorLabel(product: PickableProduct, group: PickableProduct[]): string {
+  const keys = Object.keys(product.attributes);
+  const varying = keys.filter((key) => new Set(group.map((p) => p.attributes[key] ?? "")).size > 1);
+  const label = varying.map((key) => product.attributes[key]).join(" ");
+  return label || product.sku;
+}
+
 interface BomEditorSheetProps {
   kitProductId: string;
   kitName: string;
@@ -43,7 +68,11 @@ export function BomEditorSheet({ kitProductId, kitName, open, onOpenChange }: Bo
   // another kit, so those are filtered out before they can be chosen.
   const { data: catalogue } = useProducts(1, 200);
   const [lines, setLines] = useState<DraftLine[]>([]);
-  const [picked, setPicked] = useState<string | null>(null);
+  // Two-step pick: first the structural product ("Tube 28 Torsadi 2m"), then
+  // which colour — variants of the same structural product now share a name,
+  // so a flat list would show indistinguishable duplicate entries.
+  const [pickedGroup, setPickedGroup] = useState<string | null>(null);
+  const [pickedColor, setPickedColor] = useState<string | null>(null);
 
   // Load the saved recipe into the draft once it arrives, and drop it when the
   // sheet closes so a previous kit's recipe can't leak into the next one.
@@ -68,26 +97,62 @@ export function BomEditorSheet({ kitProductId, kitName, open, onOpenChange }: Bo
   }
 
   const chosen = new Set(lines.map((line) => line.component_product_id));
-  const options: SearchableSelectOption[] = (catalogue?.data ?? [])
-    .filter(
-      (product) =>
-        product.id !== kitProductId && product.product_type !== "kit" && !chosen.has(product.id),
-    )
-    .map((product) => ({
-      value: product.id,
-      label: product.name,
-      description: product.sku,
-    }));
+  const selectable = (catalogue?.data ?? []).filter(
+    (product) => product.id !== kitProductId && product.product_type !== "kit",
+  );
 
-  const addLine = (productId: string | null) => {
-    if (!productId) return;
-    const product = catalogue?.data.find((p) => p.id === productId);
-    if (!product) return;
+  // Group by name so colours of one structural product collapse to a single
+  // entry in the first picker, matching how they now appear everywhere else.
+  const byName = new Map<string, PickableProduct[]>();
+  for (const product of selectable) {
+    const list = byName.get(product.name) ?? [];
+    list.push({
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      attributes: product.attributes,
+    });
+    byName.set(product.name, list);
+  }
+
+  const groupOptions: SearchableSelectOption[] = [...byName.entries()].map(([name, group]) => ({
+    value: name,
+    label: name,
+    description: group.length > 1 ? `${group.length} colours` : group[0]!.sku,
+  }));
+
+  const activeGroup = pickedGroup ? (byName.get(pickedGroup) ?? []) : [];
+  // A group of one has nothing to disambiguate — add it straight away instead
+  // of showing a colour picker with a single, forced choice.
+  const needsColorPick = activeGroup.length > 1;
+
+  const addLine = (product: PickableProduct) => {
+    if (chosen.has(product.id)) return;
     setLines((current) => [
       ...current,
       { component_product_id: product.id, name: product.name, quantity: 1, unit: "piece" },
     ]);
-    setPicked(null);
+    setPickedGroup(null);
+    setPickedColor(null);
+  };
+
+  const pickGroup = (name: string | null) => {
+    setPickedColor(null);
+    if (!name) {
+      setPickedGroup(null);
+      return;
+    }
+    const group = byName.get(name) ?? [];
+    if (group.length === 1) {
+      addLine(group[0]!);
+      return;
+    }
+    setPickedGroup(name);
+  };
+
+  const pickColor = (productId: string | null) => {
+    const product = activeGroup.find((p) => p.id === productId);
+    if (product) addLine(product);
   };
 
   const updateLine = (productId: string, patch: Partial<DraftLine>) =>
@@ -128,11 +193,32 @@ export function BomEditorSheet({ kitProductId, kitName, open, onOpenChange }: Bo
               <div className="flex flex-col gap-1.5">
                 <span className="label-caps text-muted-foreground">Add component</span>
                 <SearchableSelect
-                  options={options}
-                  value={picked}
-                  onChange={addLine}
+                  options={groupOptions}
+                  value={pickedGroup}
+                  onChange={pickGroup}
                   placeholder="Search a product…"
                 />
+                {needsColorPick && (
+                  <NativeSelect
+                    aria-label={`Colour of ${pickedGroup}`}
+                    value={pickedColor ?? ""}
+                    onChange={(e) => {
+                      setPickedColor(e.target.value);
+                      pickColor(e.target.value);
+                    }}
+                  >
+                    <option value="" disabled>
+                      Choose a colour…
+                    </option>
+                    {activeGroup
+                      .filter((product) => !chosen.has(product.id))
+                      .map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {colorLabel(product, activeGroup)}
+                        </option>
+                      ))}
+                  </NativeSelect>
+                )}
               </div>
 
               {lines.length === 0 ? (

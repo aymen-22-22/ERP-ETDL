@@ -86,3 +86,31 @@ def test_expand_combinations_drops_axes_with_no_selection() -> None:
 
 def test_expand_combinations_with_nothing_selected_generates_nothing() -> None:
     assert expand_combinations(TUBE_KEYS, {}) == []
+
+
+def test_color_key_is_dropped_from_the_name_but_kept_in_the_sku() -> None:
+    # "Tube 28 Torsadi 2m" is one structural product; Argent and Dorre are
+    # colour rows underneath it, not two differently-named products.
+    argent = {"diameter": "28", "length": "2m", "model": "Torsadi", "color": "Argent"}
+    dorre = {"diameter": "28", "length": "2m", "model": "Torsadi", "color": "Dorre"}
+
+    name_argent = build_name("Tube", TUBE_KEYS, argent, color_key="color")
+    name_dorre = build_name("Tube", TUBE_KEYS, dorre, color_key="color")
+
+    assert name_argent == name_dorre == "Tube 28 2m Torsadi"
+
+    # The SKU must still tell them apart, or the second colour would collide
+    # with the first and get silently skipped as "already exists".
+    sku_argent = build_sku("TUB", TUBE_KEYS, argent)
+    sku_dorre = build_sku("TUB", TUBE_KEYS, dorre)
+    assert sku_argent == "TUB-28-2M-TOR-ARG"
+    assert sku_dorre == "TUB-28-2M-TOR-DOR"
+    assert sku_argent != sku_dorre
+
+
+def test_without_a_color_key_every_axis_still_lands_in_the_name() -> None:
+    # Backward compatible: a scheme that never sets color_key (the default)
+    # behaves exactly as it did before this existed.
+    attrs = {"diameter": "28", "length": "2m", "model": "Torsadi", "color": "Argent"}
+    assert build_name("Tube", TUBE_KEYS, attrs) == "Tube 28 2m Torsadi Argent"
+    assert build_name("Tube", TUBE_KEYS, attrs, color_key=None) == "Tube 28 2m Torsadi Argent"
