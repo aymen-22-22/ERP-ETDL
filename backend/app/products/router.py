@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, statu
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_permission
-from app.products import import_service, service
+from app.products import import_service, service, variant_service
 from app.products.models import ProductStatus
 from app.products.schemas import (
     ProductCreate,
@@ -13,6 +13,13 @@ from app.products.schemas import (
     ProductRead,
     ProductSort,
     ProductUpdate,
+)
+from app.products.variant_schemas import (
+    VariantGenerateRequest,
+    VariantGenerateResult,
+    VariantPreviewItem,
+    VariantPreviewRequest,
+    VariantSchemeRead,
 )
 from app.shared.core.envelope import PaginatedEnvelope, ResponseEnvelope
 from app.shared.core.pagination import PageParams
@@ -91,6 +98,85 @@ async def import_products(
     file_bytes = await file.read()
     products = await import_service.import_products(session, tenant_id, file_bytes)
     return ResponseEnvelope(data=[ProductRead.model_validate(p) for p in products])
+
+
+# --- variant generation -----------------------------------------------------
+# Registered before "/{product_id}" so the literal paths win the match.
+
+
+@router.get(
+    "/variants/scheme/{category_id}",
+    response_model=ResponseEnvelope[VariantSchemeRead],
+)
+async def get_variant_scheme(
+    category_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+) -> ResponseEnvelope[VariantSchemeRead]:
+    scheme = await variant_service.get_scheme(session, tenant_id, category_id)
+    return ResponseEnvelope(data=VariantSchemeRead.model_validate(scheme))
+
+
+@router.post(
+    "/variants/preview",
+    response_model=ResponseEnvelope[list[VariantPreviewItem]],
+)
+async def preview_variants(
+    data: VariantPreviewRequest,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+) -> ResponseEnvelope[list[VariantPreviewItem]]:
+    """Show exactly what would be created, before creating anything.
+
+    Ticking two diameters and two colours is four new products; seeing the
+    generated names and which ones already exist beats finding out afterwards.
+    """
+    scheme = await variant_service.get_scheme(session, tenant_id, data.category_id)
+    combos = variant_service.expand_combinations(scheme.attribute_keys, data.selected_values)
+
+    items = [
+        (
+            variant_service.build_name(scheme.base_name, scheme.attribute_keys, combo),
+            variant_service.build_sku(scheme.sku_prefix, scheme.attribute_keys, combo),
+            combo,
+        )
+        for combo in combos
+    ]
+    taken = await variant_service.existing_skus(session, tenant_id, [sku for _, sku, _ in items])
+
+    return ResponseEnvelope(
+        data=[
+            VariantPreviewItem(name=name, sku=sku, attributes=combo, already_exists=sku in taken)
+            for name, sku, combo in items
+        ]
+    )
+
+
+@router.post(
+    "/variants/generate",
+    response_model=ResponseEnvelope[VariantGenerateResult],
+    status_code=status.HTTP_201_CREATED,
+)
+async def generate_variants(
+    data: VariantGenerateRequest,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=10))],
+) -> ResponseEnvelope[VariantGenerateResult]:
+    scheme = await variant_service.get_scheme(session, tenant_id, data.category_id)
+    created, skipped = await variant_service.generate_variants(
+        session,
+        tenant_id,
+        scheme,
+        [(item.attributes, item.price, item.cost_price) for item in data.items],
+        data.default_warehouse_id,
+    )
+    return ResponseEnvelope(
+        data=VariantGenerateResult(created_count=len(created), skipped_skus=skipped)
+    )
 
 
 @router.get("/{product_id}", response_model=ResponseEnvelope[ProductRead])

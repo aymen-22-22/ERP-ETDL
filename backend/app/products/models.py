@@ -70,6 +70,45 @@ class Category(TenantScopedAuditMixin, Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class CategoryVariantScheme(TenantScopedAuditMixin, Base):
+    """Rules for auto-generating VARIANT products inside one category.
+
+    The business names parts by a strict formula so staff never type a name by
+    hand, and the formula differs per category:
+
+        Tubes    [Base] [Diameter] [Length] [Model] [Color]
+        Motifs   [Base] [Diameter] [Color]  [Model]
+        Supports [Base] [Model]    [Color]  [Size]
+        Bouchons [Base] [Color]    [Size]
+
+    All four are the same rule — *base name, then the axis values in a fixed
+    order* — so rather than four hard-coded formulas this stores the order as
+    `attribute_keys` and joins on it. Adding a fifth family is then data, not
+    code.
+
+    `allowed_values` seeds the pickers in the UI ({"color": ["Argent",
+    "Dorre"]}); it is a convenience, not a constraint, so staff can add a
+    colour without a migration.
+    """
+
+    __tablename__ = "category_variant_schemes"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "category_id", name="uq_variant_schemes_tenant_category"),
+    )
+
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False, index=True
+    )
+    # Leading word(s) of every generated name, e.g. "Tube", "Motif Cristal".
+    base_name: Mapped[str] = mapped_column(String(150), nullable=False)
+    # Leading segment of every generated SKU, e.g. "TUB" -> TUB-28-2M-TOR-ARG.
+    sku_prefix: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Ordered axis keys, e.g. ["diameter", "length", "model", "color"].
+    attribute_keys: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    # Suggested values per key, e.g. {"color": ["Argent", "Dorre"]}.
+    allowed_values: Mapped[dict[str, list[str]]] = mapped_column(JSONB, default=dict)
+
+
 class Brand(TenantScopedAuditMixin, Base):
     __tablename__ = "brands"
     __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_brands_tenant_name"),)
