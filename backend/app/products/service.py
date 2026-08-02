@@ -14,7 +14,7 @@ from app.products.models import (
     Unit,
 )
 from app.products.repository import ProductRepository
-from app.products.schemas import ProductCreate, ProductQuery, ProductUpdate
+from app.products.schemas import OpeningStock, ProductCreate, ProductQuery, ProductUpdate
 from app.shared.core.cache import get_tenant_cache
 from app.shared.core.exceptions import AppError, NotFoundError
 from app.shared.core.ids import generate_uuid7
@@ -131,23 +131,7 @@ async def create_product(session: AsyncSession, tenant_id: UUID, data: ProductCr
     )
     product, _ = await repo.apply_mutation(tenant_id, mutation)
 
-    if data.initial_stock and data.initial_stock > 0 and data.default_warehouse_id:
-        from app.inventory.models import MovementType
-        from app.inventory.schemas import MovementCreate
-        from app.inventory.service import record_movement
-
-        await record_movement(
-            session,
-            tenant_id,
-            MovementCreate(
-                id=generate_uuid7(),
-                product_id=product.id,
-                warehouse_id=data.default_warehouse_id,
-                movement_type=MovementType.ADJUSTMENT,
-                quantity_delta=data.initial_stock,
-                note="Initial stock",
-            ),
-        )
+    await _record_opening_stock(session, tenant_id, product.id, data)
 
     await session.commit()
     await get_tenant_cache().invalidate_pattern(tenant_id, "products")
@@ -221,6 +205,62 @@ async def update_product(
     await session.commit()
     await get_tenant_cache().invalidate_pattern(tenant_id, "products")
     return product
+
+
+async def _record_opening_stock(
+    session: AsyncSession, tenant_id: UUID, product_id: UUID, data: ProductCreate
+) -> None:
+    """Count a new product into each warehouse it starts life in.
+
+    Writes one adjustment movement per warehouse with stock, so the opening
+    count appears in the ledger like any other movement rather than materialising
+    out of nowhere. The alert threshold is written even when the quantity is
+    zero — "warn me below 3" is meaningful for something not yet delivered.
+    """
+    from app.inventory.models import MovementType
+    from app.inventory.repository import InventoryRepository
+    from app.inventory.schemas import MovementCreate
+    from app.warehouses.service import require_active_warehouse
+
+    entries = list(data.opening_stock)
+    if not entries and data.initial_stock and data.default_warehouse_id:
+        entries = [
+            OpeningStock(warehouse_id=data.default_warehouse_id, quantity=data.initial_stock)
+        ]
+
+    inventory_repo = InventoryRepository(session)
+    for entry in entries:
+        await require_active_warehouse(session, tenant_id, entry.warehouse_id)
+
+        if entry.quantity > 0:
+            payload = MovementCreate(
+                id=generate_uuid7(),
+                product_id=product_id,
+                warehouse_id=entry.warehouse_id,
+                movement_type=MovementType.ADJUSTMENT,
+                quantity_delta=entry.quantity,
+                note="Initial stock",
+            )
+            # The repository directly, not `record_movement`, because that
+            # commits per call: counting into two warehouses would then be two
+            # commits before the product's own, and a failure on the second
+            # would leave the first stranded. One transaction covers the lot.
+            await inventory_repo.apply_mutation(
+                tenant_id,
+                MutationEnvelope(
+                    client_mutation_id=generate_uuid7(),
+                    entity_type="inventory_movement",
+                    entity_id=payload.id or generate_uuid7(),
+                    operation=ChangeOperation.CREATE,
+                    base_version=None,
+                    payload=payload.model_dump(mode="json"),
+                    client_timestamp=datetime.now(UTC),
+                ),
+            )
+        if entry.min_quantity is not None:
+            await inventory_repo.set_min_quantity(
+                tenant_id, product_id, entry.warehouse_id, entry.min_quantity
+            )
 
 
 async def _components_in_use(

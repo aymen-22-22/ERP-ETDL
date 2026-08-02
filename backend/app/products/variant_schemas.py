@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.products.schemas import OpeningStock
+
 
 class VariantSchemeRead(BaseModel):
     """The naming rule for one category, and the values to offer as pickers."""
@@ -35,16 +37,18 @@ class VariantGenerateItem(BaseModel):
     attributes: dict[str, str]
     price: Decimal = Field(gt=0)
     cost_price: Decimal | None = Field(default=None, ge=0)
+    # Opening stock per warehouse, same shape as ProductCreate.opening_stock.
+    opening_stock: list[OpeningStock] = Field(default_factory=list)
 
 
 class VariantGenerateRequest(BaseModel):
     """Prices come per item because they genuinely differ per variant — a 4m
     tube is not priced like a 2m one — so the client sends back the previewed
-    grid with a price filled in on each row.
+    grid with a price and an opening count filled in on each row.
 
-    Opening stock is deliberately not settable here: generating a catalogue and
-    counting stock in are separate jobs, and the existing stock-adjustment and
-    transfer flows already handle the second one.
+    Counting stock in here rather than afterwards is deliberate: a 16-row tube
+    grid would otherwise mean 32 separate trips through the stock-adjustment
+    screen (two warehouses each), which is exactly how counts drift.
     """
 
     category_id: UUID

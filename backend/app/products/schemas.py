@@ -8,6 +8,22 @@ from pydantic import BaseModel, Field
 from app.products.models import ProductStatus, ProductType
 
 
+class OpeningStock(BaseModel):
+    """Stock counted into one warehouse when the product is first created.
+
+    A list of these replaces the single `initial_stock` + `default_warehouse_id`
+    pair, because the shop counts a new product into the depot *and* the store
+    in one go, and forcing two separate trips through the stock-adjustment
+    screen is how counts drift.
+    """
+
+    warehouse_id: UUID
+    quantity: int = Field(default=0, ge=0)
+    # Low-stock alert threshold for this product in this warehouse. Optional:
+    # not every product warrants an alert.
+    min_quantity: int | None = Field(default=None, ge=0)
+
+
 class ProductCreate(BaseModel):
     """`id` is optional: the server generates a UUIDv7 when the client omits
     one (the REST client always omits it now that offline-queued creates are
@@ -28,7 +44,11 @@ class ProductCreate(BaseModel):
     brand_id: UUID | None = None
     unit_id: UUID | None = None
     default_warehouse_id: UUID | None = None
+    # Legacy single-warehouse opening stock, kept because the Excel import
+    # still uses it. `opening_stock` supersedes it; when both are sent the
+    # list wins.
     initial_stock: int | None = Field(default=None, ge=0)
+    opening_stock: list[OpeningStock] = Field(default_factory=list)
 
 
 class ProductUpdate(BaseModel):

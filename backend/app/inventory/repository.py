@@ -85,6 +85,32 @@ class InventoryRepository(SyncableRepository[InventoryMovement]):
                 )
             snapshot.quantity_on_hand = new_quantity
 
+    async def set_min_quantity(
+        self, tenant_id: UUID, product_id: UUID, warehouse_id: UUID, min_quantity: int | None
+    ) -> None:
+        """Set the low-stock alert threshold for one product in one warehouse.
+
+        Separate from `_apply_snapshot` because it is not a stock movement: the
+        threshold is a setting, not a quantity change, and must be settable on
+        a product that has no stock yet. Until now the column existed and was
+        read by the low-stock count and the stock badges, but nothing could
+        ever write it — so it was always NULL and every "low stock" indicator
+        was permanently dead.
+        """
+        snapshot = await self._session.get(ProductStockSnapshot, (product_id, warehouse_id))
+        if snapshot is None:
+            self._session.add(
+                ProductStockSnapshot(
+                    product_id=product_id,
+                    warehouse_id=warehouse_id,
+                    tenant_id=tenant_id,
+                    quantity_on_hand=0,
+                    min_quantity=min_quantity,
+                )
+            )
+            return
+        snapshot.min_quantity = min_quantity
+
     async def get_snapshot(
         self, tenant_id: UUID, product_id: UUID, warehouse_id: UUID
     ) -> ProductStockSnapshot | None:

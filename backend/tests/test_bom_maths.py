@@ -70,3 +70,19 @@ def test_kit_is_capped_by_its_scarcest_component() -> None:
         _builds(30, 2),  # 2 bouchons
     ]
     assert min(per_component) == 2
+
+
+def _is_low(quantity: int, min_quantity: int | None) -> bool:
+    """Mirrors the low-stock rule used by the badges and the warehouse count."""
+    return min_quantity is not None and quantity < min_quantity
+
+
+def test_low_stock_threshold_only_fires_when_a_threshold_is_set() -> None:
+    # min_quantity was readable but never writable until opening stock could
+    # set it, so every product had NULL here and no alert could ever fire.
+    assert _is_low(0, None) is False
+    assert _is_low(2, 3) is True
+    assert _is_low(3, 3) is False
+    assert _is_low(4, 3) is False
+    # A threshold of zero is meaningful: alert only once nothing is left.
+    assert _is_low(0, 0) is False

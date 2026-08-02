@@ -189,11 +189,7 @@ async def generate_variants(
 ) -> ResponseEnvelope[VariantGenerateResult]:
     scheme = await variant_service.get_scheme(session, tenant_id, data.category_id)
     created, skipped = await variant_service.generate_variants(
-        session,
-        tenant_id,
-        scheme,
-        [(item.attributes, item.price, item.cost_price) for item in data.items],
-        data.default_warehouse_id,
+        session, tenant_id, scheme, data.items, data.default_warehouse_id
     )
     return ResponseEnvelope(
         data=VariantGenerateResult(created_count=len(created), skipped_skus=skipped)
