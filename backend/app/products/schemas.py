@@ -45,6 +45,14 @@ class ProductUpdate(BaseModel):
     default_warehouse_id: UUID | None = None
 
 
+class BulkDeleteRequest(BaseModel):
+    product_ids: list[UUID] = Field(min_length=1, max_length=200)
+
+
+class BulkDeleteResult(BaseModel):
+    deleted_count: int
+
+
 class ProductRead(BaseModel):
     id: UUID
     tenant_id: UUID

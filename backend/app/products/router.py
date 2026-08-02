@@ -9,6 +9,8 @@ from app.products import bom_service, import_service, service, variant_service
 from app.products.bom_schemas import BomLineRead, BomReplaceRequest
 from app.products.models import Product, ProductBomLine, ProductStatus
 from app.products.schemas import (
+    BulkDeleteRequest,
+    BulkDeleteResult,
     ProductCreate,
     ProductQuery,
     ProductRead,
@@ -101,6 +103,24 @@ async def import_products(
     return ResponseEnvelope(data=[ProductRead.model_validate(p) for p in products])
 
 
+@router.post("/bulk-delete", response_model=ResponseEnvelope[BulkDeleteResult])
+async def bulk_delete_products(
+    data: BulkDeleteRequest,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=30))],
+) -> ResponseEnvelope[BulkDeleteResult]:
+    """One request for the whole selection.
+
+    Looping DELETE from the browser would be one round trip per product —
+    against a remote database that is seconds of spinner for a routine
+    cleanup, with a separate way to fail at each step.
+    """
+    count = await service.bulk_delete_products(session, tenant_id, data.product_ids)
+    return ResponseEnvelope(data=BulkDeleteResult(deleted_count=count))
+
+
 # --- variant generation -----------------------------------------------------
 # Registered before "/{product_id}" so the literal paths win the match.
 
@@ -178,6 +198,22 @@ async def generate_variants(
     return ResponseEnvelope(
         data=VariantGenerateResult(created_count=len(created), skipped_skus=skipped)
     )
+
+
+@router.post(
+    "/{product_id}/duplicate",
+    response_model=ResponseEnvelope[ProductRead],
+    status_code=status.HTTP_201_CREATED,
+)
+async def duplicate_product(
+    product_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=30))],
+) -> ResponseEnvelope[ProductRead]:
+    product = await service.duplicate_product(session, tenant_id, product_id)
+    return ResponseEnvelope(data=ProductRead.model_validate(product))
 
 
 # --- kit bill of materials --------------------------------------------------
