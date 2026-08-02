@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { CategorySelector } from "@/features/categories/CategorySelector";
 import {
@@ -33,6 +34,9 @@ const productSchema = z.object({
     .optional()
     .or(z.literal("")),
   status: z.enum(["draft", "active", "archived"]),
+  // "variant" is absent on purpose: variants are produced by the generator
+  // from a category's naming scheme, never typed in by hand.
+  productType: z.enum(["simple", "kit"]),
   categoryId: z.string().optional().or(z.literal("")),
   brandId: z.string().optional().or(z.literal("")),
   unitId: z.string().optional().or(z.literal("")),
@@ -66,7 +70,7 @@ export function ProductFormPage() {
     formState: { errors },
   } = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
-    defaultValues: { status: "active" },
+    defaultValues: { status: "active", productType: "simple" },
   });
 
   const watchedCategoryId = watch("categoryId");
@@ -86,6 +90,9 @@ export function ProductFormPage() {
         brandId: product.brand_id ?? undefined,
         unitId: product.unit_id ?? undefined,
         defaultWarehouseId: product.default_warehouse_id ?? undefined,
+        // Sent back on edit only to keep the form value in sync; the update
+        // endpoint has no product_type field and ignores it.
+        productType: product.product_type === "kit" ? "kit" : "simple",
       });
     }
   }, [isEdit, product, reset]);
@@ -189,6 +196,20 @@ export function ProductFormPage() {
                 emptyText="No active warehouses."
               />
             </div>
+
+            {!isEdit && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="productType">Product type</Label>
+                <NativeSelect id="productType" {...register("productType")}>
+                  <option value="simple">Simple — has its own stock</option>
+                  <option value="kit">Kit — built from other products</option>
+                </NativeSelect>
+                <p className="text-muted-foreground text-xs">
+                  A kit holds no stock of its own; selling one deducts its recipe components. This
+                  cannot be changed later — duplicate the product if you pick wrong.
+                </p>
+              </div>
+            )}
 
             {!isEdit && (
               <div className="flex flex-col gap-1.5">

@@ -43,6 +43,9 @@ const TransferFormPage = lazy(() =>
 const TransferDetailPage = lazy(() =>
   import("@/pages/TransferDetailPage").then((m) => ({ default: m.TransferDetailPage })),
 );
+const VariantGeneratorPage = lazy(() =>
+  import("@/pages/VariantGeneratorPage").then((m) => ({ default: m.VariantGeneratorPage })),
+);
 const CategoriesPage = lazy(() =>
   import("@/pages/CategoriesPage").then((m) => ({ default: m.CategoriesPage })),
 );
@@ -68,6 +71,7 @@ export function AppRoutes() {
             <Route path="/" element={<DashboardHomePage />} />
             <Route path="/products" element={<ProductsListPage />} />
             <Route path="/products/new" element={<ProductFormPage />} />
+            <Route path="/products/generate" element={<VariantGeneratorPage />} />
             <Route path="/products/:productId" element={<ProductDetailPage />} />
             <Route path="/products/:productId/edit" element={<ProductFormPage />} />
             <Route path="/warehouses" element={<WarehouseListPage />} />

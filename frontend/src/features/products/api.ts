@@ -15,6 +15,7 @@ export interface ProductInput {
   unitId?: string | undefined;
   defaultWarehouseId?: string | undefined;
   initialStock?: string | undefined;
+  productType?: ProductType | undefined;
 }
 
 export interface Product {
@@ -31,10 +32,15 @@ export interface Product {
   brand_id: string | null;
   unit_id: string | null;
   default_warehouse_id: string | null;
+  product_type: ProductType;
+  attributes: Record<string, string>;
   version: number;
   created_at: string;
   updated_at: string;
 }
+
+/** Mirrors the backend ProductType enum. */
+export type ProductType = "simple" | "variant" | "kit";
 
 export type ProductSort = "name" | "price" | "sku";
 export type ProductSortDir = "asc" | "desc";
@@ -90,7 +96,11 @@ export async function getProduct(id: string): Promise<Product> {
 export async function createProduct(input: ProductInput): Promise<Product> {
   return apiFetch<Product>("/v1/products", {
     method: "POST",
-    body: JSON.stringify(toPayload(input)),
+    // product_type is create-only: the backend's update schema has no such
+    // field, because changing a product with stock into a kit would make that
+    // stock meaningless. Pick the wrong type and you duplicate as the right
+    // one instead.
+    body: JSON.stringify({ ...toPayload(input), product_type: input.productType ?? "simple" }),
   });
 }
 
@@ -110,6 +120,18 @@ export async function deleteProduct(id: string, version: number): Promise<void> 
     method: "DELETE",
     body: JSON.stringify({ version }),
   });
+}
+
+export async function bulkDeleteProducts(productIds: string[]): Promise<number> {
+  const result = await apiFetch<{ deleted_count: number }>("/v1/products/bulk-delete", {
+    method: "POST",
+    body: JSON.stringify({ product_ids: productIds }),
+  });
+  return result.deleted_count;
+}
+
+export async function duplicateProduct(productId: string): Promise<Product> {
+  return apiFetch<Product>(`/v1/products/${productId}/duplicate`, { method: "POST" });
 }
 
 export async function downloadImportTemplate(): Promise<Blob> {

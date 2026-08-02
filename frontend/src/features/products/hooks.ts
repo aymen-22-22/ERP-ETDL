@@ -4,7 +4,15 @@ import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api/client";
 
 import type { ProductInput, ProductListParams } from "./api";
-import { createProduct, deleteProduct, getProduct, listProducts, updateProduct } from "./api";
+import {
+  bulkDeleteProducts,
+  createProduct,
+  deleteProduct,
+  duplicateProduct,
+  getProduct,
+  listProducts,
+  updateProduct,
+} from "./api";
 import { submitStockAdjustment } from "./inventoryMutations";
 
 const QUERY_KEY = ["products"] as const;
@@ -70,6 +78,46 @@ export function useDeleteProductMutation() {
     },
     onError: (error) =>
       toast({ title: "Delete failed", description: errorMessage(error), variant: "destructive" }),
+  });
+}
+
+export function useBulkDeleteProductsMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (productIds: string[]) => bulkDeleteProducts(productIds),
+    onSuccess: (count) => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      toast({ title: `${count} product${count === 1 ? "" : "s"} deleted` });
+    },
+    onError: (error) =>
+      toast({
+        title: "Delete failed",
+        // The backend refuses the whole batch when a product is a component of
+        // a kit and says which — that message is far more useful than a
+        // generic failure, so it is surfaced verbatim.
+        description:
+          error instanceof ApiError && error.code === "product_in_use_by_kit"
+            ? (error.detail ?? errorMessage(error))
+            : errorMessage(error),
+        variant: "destructive",
+      }),
+  });
+}
+
+export function useDuplicateProductMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (productId: string) => duplicateProduct(productId),
+    onSuccess: (product) => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      toast({ title: "Product duplicated", description: product.name });
+    },
+    onError: (error) =>
+      toast({
+        title: "Duplicate failed",
+        description: errorMessage(error),
+        variant: "destructive",
+      }),
   });
 }
 

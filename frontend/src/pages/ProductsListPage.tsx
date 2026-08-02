@@ -1,4 +1,14 @@
-import { ArrowRightIcon, DownloadIcon, PackageIcon, PlusIcon, UploadIcon } from "lucide-react";
+import {
+  ArrowRightIcon,
+  CopyIcon,
+  DownloadIcon,
+  ListTreeIcon,
+  PackageIcon,
+  PlusIcon,
+  Trash2Icon,
+  UploadIcon,
+  WandSparklesIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -11,7 +21,21 @@ import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/s
 import { useCategories } from "@/features/categories/hooks";
 import type { Product, ProductSort, ProductSortDir } from "@/features/products/api";
 import { downloadImportTemplate, importProductsExcel } from "@/features/products/api";
-import { useProducts } from "@/features/products/hooks";
+import {
+  useBulkDeleteProductsMutation,
+  useDuplicateProductMutation,
+  useProducts,
+} from "@/features/products/hooks";
+import { BomEditorSheet } from "@/features/bom/BomEditorSheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { StickyActionBar } from "@/components/ui/sticky-action-bar";
 import { toast } from "@/lib/toast";
 import { DataView, type DataColumn } from "@/components/patterns/DataView";
 import { ListCard } from "@/components/patterns/ListCard";
@@ -67,6 +91,39 @@ export function ProductsListPage() {
   const isFiltered = search !== "" || status !== "" || categoryId !== null;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [bomTarget, setBomTarget] = useState<{ id: string; name: string } | null>(null);
+  const bulkDeleteMutation = useBulkDeleteProductsMutation();
+  const duplicateMutation = useDuplicateProductMutation();
+
+  // Clear the selection whenever the visible page changes. Acting on a
+  // product that has scrolled out of view — especially deleting one — is the
+  // kind of surprise a bulk action must not spring on you.
+  const viewKey = `${filterKey}|${page}`;
+  const [prevViewKey, setPrevViewKey] = useState(viewKey);
+  if (viewKey !== prevViewKey) {
+    setPrevViewKey(viewKey);
+    setSelected(new Set());
+  }
+
+  const toggleRow = (id: string) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleAll = (allSelected: boolean) =>
+    setSelected(allSelected ? new Set() : new Set((products ?? []).map((p) => p.id)));
+
+  const selectedProducts = (products ?? []).filter((p) => selected.has(p.id));
+  // Duplicate and recipe act on exactly one product: duplicating several at
+  // once is confusing (each needs its own unique SKU) and a recipe belongs to
+  // a single kit.
+  const single = selectedProducts.length === 1 ? selectedProducts[0] : undefined;
 
   const handleExportTemplate = async () => {
     try {
@@ -192,6 +249,12 @@ export function ProductsListPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Products</h1>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/products/generate">
+              <WandSparklesIcon className="mr-1 size-4" />
+              Generate
+            </Link>
+          </Button>
           <Button variant="outline" size="sm" onClick={() => void handleExportTemplate()}>
             <DownloadIcon className="mr-1 size-4" />
             Template
@@ -225,10 +288,59 @@ export function ProductsListPage() {
 
       {filters}
 
+      {selected.size > 0 && (
+        <StickyActionBar className="md:justify-between md:rounded-md md:border md:bg-muted/40 md:p-3">
+          <span className="text-sm font-medium">{selected.size} selected</span>
+          <div className="flex flex-1 items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!single || single.product_type !== "kit"}
+              title={
+                !single
+                  ? "Select exactly one product"
+                  : single.product_type !== "kit"
+                    ? "Only kit products have a recipe"
+                    : undefined
+              }
+              onClick={() => single && setBomTarget({ id: single.id, name: single.name })}
+            >
+              <ListTreeIcon className="mr-1 size-4" />
+              Recipe
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!single || duplicateMutation.isPending}
+              title={single ? undefined : "Select exactly one product"}
+              onClick={() =>
+                single &&
+                duplicateMutation.mutate(single.id, {
+                  onSuccess: () => setSelected(new Set()),
+                })
+              }
+            >
+              <CopyIcon className="mr-1 size-4" />
+              Duplicate
+            </Button>
+            <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)}>
+              <Trash2Icon className="mr-1 size-4" />
+              Delete
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+              Clear
+            </Button>
+          </div>
+        </StickyActionBar>
+      )}
+
       <DataView
         rows={isLoading ? undefined : (products ?? [])}
         columns={columns}
         keyExtractor={(p) => p.id}
+        selectedIds={selected}
+        onToggleRow={toggleRow}
+        onToggleAll={toggleAll}
         renderCard={(p) => (
           <ListCard
             title={p.name}
@@ -296,6 +408,55 @@ export function ProductsListPage() {
             <PlusIcon />
           </Link>
         </Fab>
+      )}
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Delete {selected.size} product{selected.size === 1 ? "" : "s"}?
+            </DialogTitle>
+            <DialogDescription>
+              {selectedProducts
+                .slice(0, 5)
+                .map((p) => p.name)
+                .join(", ")}
+              {selectedProducts.length > 5 && ` and ${selectedProducts.length - 5} more`}.
+              {" Their stock history is kept."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={bulkDeleteMutation.isPending}
+              onClick={() =>
+                bulkDeleteMutation.mutate([...selected], {
+                  onSuccess: () => {
+                    setSelected(new Set());
+                    setConfirmDelete(false);
+                  },
+                  // Deliberately stays open on failure: the server refuses the
+                  // whole batch when a product is used in a recipe, and the
+                  // selection has to survive so you can untick it and retry.
+                })
+              }
+            >
+              {bulkDeleteMutation.isPending ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {bomTarget && (
+        <BomEditorSheet
+          kitProductId={bomTarget.id}
+          kitName={bomTarget.name}
+          open={bomTarget !== null}
+          onOpenChange={(open) => !open && setBomTarget(null)}
+        />
       )}
     </div>
   );
