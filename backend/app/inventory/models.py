@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, func
@@ -83,8 +83,14 @@ class ProductStockSnapshot(Base):
     reserved_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     min_quantity: Mapped[int | None] = mapped_column(Integer, default=None)
     max_quantity: Mapped[int | None] = mapped_column(Integer, default=None)
+    # Python-side onupdate for the same reason as TimestampMixin: a SQL-side
+    # default expires the attribute after flush, and reading it back under
+    # asyncio then raises MissingGreenlet. This row is rewritten on every stock
+    # movement, so it is squarely in the path that would trip it.
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     @property
