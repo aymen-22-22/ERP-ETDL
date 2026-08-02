@@ -109,6 +109,65 @@ class CategoryVariantScheme(TenantScopedAuditMixin, Base):
     allowed_values: Mapped[dict[str, list[str]]] = mapped_column(JSONB, default=dict)
 
 
+class BomUnit(StrEnum):
+    """How a BOM line's quantity is expressed.
+
+    Stock is always counted in PIECES. `PAIR` is a convenience for the way the
+    shop actually talks about supports ("1 paire support 19/19") and simply
+    doubles at deduction time — recipes also legitimately call for an odd
+    number ("3 pce support 28/19"), which is why the multiplier lives on the
+    line rather than on the product.
+    """
+
+    PIECE = "piece"
+    PAIR = "pair"
+
+
+PIECES_PER_UNIT: dict[BomUnit, int] = {BomUnit.PIECE: 1, BomUnit.PAIR: 2}
+
+
+class ProductBomLine(TenantScopedAuditMixin, Base):
+    """One component of a KIT product's recipe.
+
+    A kit ("Triangle 4600da") holds no stock itself; selling one deducts these
+    components from the selling warehouse instead.
+
+    `component_product_id` points at a *specific* product — for a generated
+    part that means a specific variant ("Tube 28 2m Torsadi Argent"), not the
+    family. Two colours of the same triangle are therefore two kits, which
+    keeps the till free of a "which colour?" step.
+    """
+
+    __tablename__ = "product_bom_lines"
+    __table_args__ = (
+        UniqueConstraint(
+            "kit_product_id", "component_product_id", name="uq_bom_lines_kit_component"
+        ),
+    )
+
+    kit_product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
+    )
+    component_product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    unit: Mapped[BomUnit] = mapped_column(
+        Enum(
+            BomUnit,
+            native_enum=False,
+            length=10,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+        ),
+        default=BomUnit.PIECE,
+    )
+
+    @property
+    def pieces_required(self) -> int:
+        """Quantity converted to the unit stock is actually counted in."""
+        return self.quantity * PIECES_PER_UNIT[self.unit]
+
+
 class Brand(TenantScopedAuditMixin, Base):
     __tablename__ = "brands"
     __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_brands_tenant_name"),)

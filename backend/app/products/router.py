@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, statu
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_permission
-from app.products import import_service, service, variant_service
-from app.products.models import ProductStatus
+from app.products import bom_service, import_service, service, variant_service
+from app.products.bom_schemas import BomLineRead, BomReplaceRequest
+from app.products.models import Product, ProductBomLine, ProductStatus
 from app.products.schemas import (
     ProductCreate,
     ProductQuery,
@@ -176,6 +177,74 @@ async def generate_variants(
     )
     return ResponseEnvelope(
         data=VariantGenerateResult(created_count=len(created), skipped_skus=skipped)
+    )
+
+
+# --- kit bill of materials --------------------------------------------------
+
+
+def _bom_read(lines: list[tuple[ProductBomLine, Product]]) -> list[BomLineRead]:
+    return [
+        BomLineRead(
+            component_product_id=product.id,
+            name=product.name,
+            sku=product.sku,
+            quantity=line.quantity,
+            unit=line.unit,
+            pieces_required=line.pieces_required,
+        )
+        for line, product in lines
+    ]
+
+
+@router.get("/{product_id}/bom", response_model=ResponseEnvelope[list[BomLineRead]])
+async def get_bom(
+    product_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+) -> ResponseEnvelope[list[BomLineRead]]:
+    lines = await bom_service.list_bom_lines(session, tenant_id, product_id)
+    return ResponseEnvelope(data=_bom_read(lines))
+
+
+@router.put("/{product_id}/bom", response_model=ResponseEnvelope[list[BomLineRead]])
+async def replace_bom(
+    product_id: UUID,
+    data: BomReplaceRequest,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+) -> ResponseEnvelope[list[BomLineRead]]:
+    lines = await bom_service.replace_bom(
+        session,
+        tenant_id,
+        product_id,
+        [(line.component_product_id, line.quantity, line.unit) for line in data.lines],
+    )
+    return ResponseEnvelope(data=_bom_read(lines))
+
+
+@router.get("/{product_id}/bom/cost", response_model=ResponseEnvelope[dict[str, object]])
+async def get_bom_cost(
+    product_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+) -> ResponseEnvelope[dict[str, object]]:
+    return ResponseEnvelope(data=await bom_service.cost_breakdown(session, tenant_id, product_id))
+
+
+@router.get("/{product_id}/bom/buildable", response_model=ResponseEnvelope[dict[str, object]])
+async def get_bom_buildable(
+    product_id: UUID,
+    warehouse_id: Annotated[UUID, Query()],
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+) -> ResponseEnvelope[dict[str, object]]:
+    return ResponseEnvelope(
+        data=await bom_service.buildable_quantity(session, tenant_id, product_id, warehouse_id)
     )
 
 
