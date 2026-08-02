@@ -1,4 +1,5 @@
 import { StockBadge } from "@/components/patterns/StatusBadge";
+import { Badge } from "@/components/ui/badge";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -49,14 +50,25 @@ export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
 
       <div className="min-w-0 pr-7">
         <p className="line-clamp-2 text-sm font-medium">{product.name}</p>
-        <p className="text-muted-foreground mt-0.5 truncate text-xs">{product.sku}</p>
+        <p className="text-muted-foreground mt-0.5 truncate text-xs">
+          {product.isKit ? "Kit" : product.sku}
+        </p>
       </div>
 
       <div className="mt-3 flex items-end justify-between gap-2">
         <span className="text-lg font-semibold tabular-nums">
           {formatMoney(product.unitPriceCents)}
         </span>
-        <StockBadge quantity={product.available} minQuantity={product.minQuantity} />
+        {product.isKit ? (
+          // A kit's number is how many its components can build, which is not
+          // the same claim as "we have N on the shelf" — labelled so nobody
+          // reads it as a physical count.
+          <Badge variant={product.available > 0 ? "secondary" : "outline"}>
+            {product.available > 0 ? `${product.available} buildable` : "Components short"}
+          </Badge>
+        ) : (
+          <StockBadge quantity={product.available} minQuantity={product.minQuantity} />
+        )}
       </div>
     </button>
   );

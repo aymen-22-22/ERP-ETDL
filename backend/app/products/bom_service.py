@@ -171,6 +171,81 @@ async def cost_breakdown(
     }
 
 
+async def list_sellable_kits(
+    session: AsyncSession, tenant_id: UUID, warehouse_id: UUID
+) -> list[dict[str, object]]:
+    """Every kit with how many the given warehouse can currently build.
+
+    The till needs this because a kit has no stock snapshot of its own, so it
+    would never show up in a warehouse's stock listing — the shop would be
+    unable to sell the very products this whole mechanism exists for.
+
+    Done in three queries regardless of how many kits there are, rather than
+    calling `buildable_quantity` per kit, which would be three each.
+    """
+    kits_result = await session.execute(
+        select(Product).where(
+            Product.tenant_id == tenant_id,
+            Product.product_type == ProductType.KIT,
+            Product.deleted_at.is_(None),
+        )
+    )
+    kits = list(kits_result.scalars().all())
+    if not kits:
+        return []
+
+    lines_result = await session.execute(
+        select(ProductBomLine).where(
+            ProductBomLine.tenant_id == tenant_id,
+            ProductBomLine.kit_product_id.in_([kit.id for kit in kits]),
+            ProductBomLine.deleted_at.is_(None),
+        )
+    )
+    lines_by_kit: dict[UUID, list[ProductBomLine]] = {}
+    component_ids: set[UUID] = set()
+    for line in lines_result.scalars().all():
+        lines_by_kit.setdefault(line.kit_product_id, []).append(line)
+        component_ids.add(line.component_product_id)
+
+    available: dict[UUID, int] = {}
+    if component_ids:
+        snapshots = await session.execute(
+            select(ProductStockSnapshot).where(
+                ProductStockSnapshot.tenant_id == tenant_id,
+                ProductStockSnapshot.warehouse_id == warehouse_id,
+                ProductStockSnapshot.product_id.in_(list(component_ids)),
+            )
+        )
+        available = {
+            snapshot.product_id: snapshot.available_quantity
+            for snapshot in snapshots.scalars().all()
+        }
+
+    result: list[dict[str, object]] = []
+    for kit in kits:
+        lines = lines_by_kit.get(kit.id, [])
+        # No recipe means nothing to deduct, so it is not sellable — not
+        # infinitely sellable.
+        buildable = 0
+        if lines:
+            buildable = min(
+                available.get(line.component_product_id, 0) // line.pieces_required
+                for line in lines
+            )
+        result.append(
+            {
+                "product_id": str(kit.id),
+                "name": kit.name,
+                "sku": kit.sku,
+                "category_id": str(kit.category_id) if kit.category_id else None,
+                "price": str(kit.price),
+                "buildable": buildable,
+                "has_recipe": bool(lines),
+            }
+        )
+    return result
+
+
 async def buildable_quantity(
     session: AsyncSession, tenant_id: UUID, kit_product_id: UUID, warehouse_id: UUID
 ) -> dict[str, object]:

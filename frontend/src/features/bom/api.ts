@@ -51,6 +51,21 @@ export interface BomBuildable {
   components: BomBuildableComponent[];
 }
 
+export interface SellableKit {
+  product_id: string;
+  name: string;
+  sku: string;
+  category_id: string | null;
+  price: string;
+  /** How many the warehouse can build from components on hand. */
+  buildable: number;
+  has_recipe: boolean;
+}
+
+export async function listSellableKits(warehouseId: string): Promise<SellableKit[]> {
+  return apiFetch<SellableKit[]>(`/v1/products/kits/sellable?warehouse_id=${warehouseId}`);
+}
+
 export async function getBom(kitProductId: string): Promise<BomLine[]> {
   return apiFetch<BomLine[]>(`/v1/products/${kitProductId}/bom`);
 }

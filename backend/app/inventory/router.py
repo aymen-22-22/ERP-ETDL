@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_permission
-from app.inventory import service
-from app.inventory.schemas import MovementCreate, MovementRead, StockSnapshotRead
+from app.inventory import sales_service, service
+from app.inventory.schemas import MovementCreate, MovementRead, SaleRequest, StockSnapshotRead
 from app.shared.core.envelope import PaginatedEnvelope, ResponseEnvelope
 from app.shared.core.pagination import PageParams
 from app.shared.core.tenant import get_current_tenant_id
@@ -28,6 +28,28 @@ async def record_movement(
 ) -> ResponseEnvelope[MovementRead]:
     movement = await service.record_movement(session, tenant_id, data)
     return ResponseEnvelope(data=MovementRead.model_validate(movement))
+
+
+@router.post(
+    "/sales",
+    response_model=ResponseEnvelope[dict[str, object]],
+    status_code=status.HTTP_201_CREATED,
+)
+async def record_sale(
+    data: SaleRequest,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("inventory:write"))],
+) -> ResponseEnvelope[dict[str, object]]:
+    """Record a whole sale in one transaction.
+
+    Kits are expanded into their recipe here rather than at the till, so the
+    components come off the shelf and the kit itself — which has no stock —
+    is never touched. One request rather than one per line: the basket has to
+    succeed or fail as a unit, and a browser loop could leave half a sale
+    deducted.
+    """
+    return ResponseEnvelope(data=await sales_service.record_sale(session, tenant_id, data))
 
 
 @router.get(

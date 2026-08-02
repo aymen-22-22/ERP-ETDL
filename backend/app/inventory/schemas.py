@@ -6,6 +6,19 @@ from pydantic import BaseModel, Field, computed_field, field_validator
 from app.inventory.models import MovementType
 
 
+class SaleLineInput(BaseModel):
+    """One line as rung up at the till. For a kit this is the kit itself; the
+    server expands it into components."""
+
+    product_id: UUID
+    quantity: int = Field(gt=0)
+
+
+class SaleRequest(BaseModel):
+    warehouse_id: UUID
+    lines: list[SaleLineInput] = Field(min_length=1, max_length=200)
+
+
 class MovementCreate(BaseModel):
     # Optional: the server generates a UUIDv7 when the client omits one (the
     # REST client always omits it now that offline-queued creates are gone;

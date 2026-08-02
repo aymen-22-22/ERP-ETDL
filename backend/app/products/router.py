@@ -105,6 +105,23 @@ async def import_products(
     return ResponseEnvelope(data=[ProductRead.model_validate(p) for p in products])
 
 
+@router.get("/kits/sellable", response_model=ResponseEnvelope[list[dict[str, object]]])
+async def list_sellable_kits(
+    warehouse_id: Annotated[UUID, Query()],
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+) -> ResponseEnvelope[list[dict[str, object]]]:
+    """Kits with how many the warehouse can build, for the till.
+
+    Kits have no stock snapshot, so they are absent from a warehouse's stock
+    listing and the POS cannot otherwise see them at all.
+    """
+    return ResponseEnvelope(
+        data=await bom_service.list_sellable_kits(session, tenant_id, warehouse_id)
+    )
+
+
 @router.get("/variant-groups", response_model=ResponseEnvelope[list[dict[str, object]]])
 async def list_variant_groups(
     session: Annotated[AsyncSession, Depends(get_tenant_db)],

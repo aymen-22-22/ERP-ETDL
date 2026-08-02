@@ -1,29 +1,36 @@
-import { v7 as uuidv7 } from "uuid";
-
 import { apiFetch } from "@/services/api/client";
 
 import type { CartLine } from "./cartStore";
 
-export interface SaleResult {
-  saleReference: string;
+export interface SaleDeduction {
+  product_id: string;
+  name: string;
+  quantity: number;
+  /** The cart line this came off — the kit's name, for an exploded component. */
+  sold_as: string;
 }
 
+export interface SaleResult {
+  reference_id: string;
+  movements_created: number;
+  deductions: SaleDeduction[];
+}
+
+/**
+ * Records the whole basket in one request.
+ *
+ * This used to loop over the cart posting one movement per line: a round trip
+ * each, and not atomic — a failure partway left the earlier lines already
+ * deducted for a sale that never completed. The server now takes the basket as
+ * a unit and expands any kit into its components there, so the till never
+ * needs to know what a recipe is.
+ */
 export async function submitSale(storeId: string, lines: CartLine[]): Promise<SaleResult> {
-  const saleReference = uuidv7();
-
-  for (const line of lines) {
-    await apiFetch("/v1/inventory/movements", {
-      method: "POST",
-      body: JSON.stringify({
-        product_id: line.productId,
-        warehouse_id: storeId,
-        movement_type: "sale",
-        quantity_delta: -line.quantity,
-        reference_id: saleReference,
-        note: `Sale ${saleReference.slice(0, 8)}`,
-      }),
-    });
-  }
-
-  return { saleReference };
+  return apiFetch<SaleResult>("/v1/inventory/sales", {
+    method: "POST",
+    body: JSON.stringify({
+      warehouse_id: storeId,
+      lines: lines.map((line) => ({ product_id: line.productId, quantity: line.quantity })),
+    }),
+  });
 }

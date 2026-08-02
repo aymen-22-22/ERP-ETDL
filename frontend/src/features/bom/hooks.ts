@@ -4,7 +4,7 @@ import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api/client";
 
 import type { BomUnit } from "./api";
-import { getBom, getBomBuildable, getBomCost, replaceBom } from "./api";
+import { getBom, getBomBuildable, getBomCost, listSellableKits, replaceBom } from "./api";
 
 const BOM_KEY = "bom" as const;
 const BOM_COST_KEY = "bom-cost" as const;
@@ -31,6 +31,14 @@ export function useBomBuildable(kitProductId: string, warehouseId: string | null
     queryKey: [BOM_BUILDABLE_KEY, kitProductId, warehouseId],
     queryFn: () => getBomBuildable(kitProductId, warehouseId!),
     enabled: !!kitProductId && !!warehouseId,
+  });
+}
+
+export function useSellableKits(warehouseId: string | null) {
+  return useQuery({
+    queryKey: ["sellable-kits", warehouseId],
+    queryFn: () => listSellableKits(warehouseId!),
+    enabled: !!warehouseId,
   });
 }
 
