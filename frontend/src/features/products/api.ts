@@ -16,6 +16,15 @@ export interface ProductInput {
   defaultWarehouseId?: string | undefined;
   initialStock?: string | undefined;
   productType?: ProductType | undefined;
+  /** Opening count per warehouse, so depot and store are set in one go. */
+  openingStock?: OpeningStockInput[] | undefined;
+}
+
+export interface OpeningStockInput {
+  warehouseId: string;
+  quantity: number;
+  /** Low-stock alert threshold. null means no alert for this warehouse. */
+  minQuantity?: number | null;
 }
 
 export interface Product {
@@ -100,7 +109,15 @@ export async function createProduct(input: ProductInput): Promise<Product> {
     // field, because changing a product with stock into a kit would make that
     // stock meaningless. Pick the wrong type and you duplicate as the right
     // one instead.
-    body: JSON.stringify({ ...toPayload(input), product_type: input.productType ?? "simple" }),
+    body: JSON.stringify({
+      ...toPayload(input),
+      product_type: input.productType ?? "simple",
+      opening_stock: (input.openingStock ?? []).map((entry) => ({
+        warehouse_id: entry.warehouseId,
+        quantity: entry.quantity,
+        min_quantity: entry.minQuantity ?? null,
+      })),
+    }),
   });
 }
 

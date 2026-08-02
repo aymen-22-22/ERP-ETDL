@@ -38,9 +38,16 @@ export async function previewVariants(
   });
 }
 
+export interface VariantGenerateItemInput {
+  attributes: Record<string, string>;
+  price: string;
+  cost_price?: string | null;
+  opening_stock?: { warehouse_id: string; quantity: number; min_quantity: number | null }[];
+}
+
 export async function generateVariants(
   categoryId: string,
-  items: { attributes: Record<string, string>; price: string; cost_price?: string | null }[],
+  items: VariantGenerateItemInput[],
   defaultWarehouseId: string | null,
 ): Promise<VariantGenerateResult> {
   return apiFetch<VariantGenerateResult>("/v1/products/variants/generate", {

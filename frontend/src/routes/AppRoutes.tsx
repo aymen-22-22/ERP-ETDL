@@ -43,6 +43,12 @@ const TransferFormPage = lazy(() =>
 const TransferDetailPage = lazy(() =>
   import("@/pages/TransferDetailPage").then((m) => ({ default: m.TransferDetailPage })),
 );
+const ProductTypeChooserPage = lazy(() =>
+  import("@/pages/ProductTypeChooserPage").then((m) => ({ default: m.ProductTypeChooserPage })),
+);
+const KitFormPage = lazy(() =>
+  import("@/pages/KitFormPage").then((m) => ({ default: m.KitFormPage })),
+);
 const VariantGeneratorPage = lazy(() =>
   import("@/pages/VariantGeneratorPage").then((m) => ({ default: m.VariantGeneratorPage })),
 );
@@ -70,7 +76,11 @@ export function AppRoutes() {
           <Route element={<DashboardLayout />}>
             <Route path="/" element={<DashboardHomePage />} />
             <Route path="/products" element={<ProductsListPage />} />
-            <Route path="/products/new" element={<ProductFormPage />} />
+            {/* /products/new asks which kind first; each kind then gets the
+                form that actually fits it. */}
+            <Route path="/products/new" element={<ProductTypeChooserPage />} />
+            <Route path="/products/new/simple" element={<ProductFormPage />} />
+            <Route path="/products/new/kit" element={<KitFormPage />} />
             <Route path="/products/generate" element={<VariantGeneratorPage />} />
             <Route path="/products/:productId" element={<ProductDetailPage />} />
             <Route path="/products/:productId/edit" element={<ProductFormPage />} />

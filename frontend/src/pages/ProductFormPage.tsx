@@ -1,15 +1,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
 import { z } from "zod";
 
 import { PageLoader } from "@/components/PageLoader";
+import { MarginSummary } from "@/components/patterns/MarginSummary";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { CategorySelector } from "@/features/categories/CategorySelector";
 import {
@@ -75,6 +75,23 @@ export function ProductFormPage() {
 
   const watchedCategoryId = watch("categoryId");
   const watchedWarehouseId = watch("defaultWarehouseId");
+  const watchedPrice = watch("price");
+  const watchedCostPrice = watch("costPrice");
+
+  // Opening stock is create-only and a dynamic per-warehouse grid, which
+  // react-hook-form handles awkwardly; plain state is clearer here.
+  type StockFields = { quantity: string; minQuantity: string };
+  const [openingStock, setOpeningStock] = useState<Record<string, StockFields>>({});
+
+  const setStockField = (warehouseId: string, field: "quantity" | "minQuantity", value: string) =>
+    setOpeningStock((current: Record<string, StockFields>) => ({
+      ...current,
+      [warehouseId]: {
+        quantity: current[warehouseId]?.quantity ?? "",
+        minQuantity: current[warehouseId]?.minQuantity ?? "",
+        [field]: value,
+      },
+    }));
 
   useEffect(() => {
     if (isEdit && product) {
@@ -103,9 +120,25 @@ export function ProductFormPage() {
     const goBack = { onSuccess: () => void navigate("/products") };
     if (isEdit && product) {
       updateMutation.mutate({ input: values, baseVersion: product.version }, goBack);
-    } else {
-      createMutation.mutate(values, goBack);
+      return;
     }
+    // Only warehouses actually filled in are sent; a blank row means "start at
+    // zero", which needs no movement and no threshold.
+    const entries = Object.entries<StockFields>(openingStock).flatMap(([warehouseId, fields]) => {
+      const quantity = parseInt(fields.quantity, 10);
+      const minQuantity = parseInt(fields.minQuantity, 10);
+      const hasQuantity = Number.isFinite(quantity) && quantity > 0;
+      const hasThreshold = Number.isFinite(minQuantity);
+      if (!hasQuantity && !hasThreshold) return [];
+      return [
+        {
+          warehouseId,
+          quantity: hasQuantity ? quantity : 0,
+          minQuantity: hasThreshold ? minQuantity : null,
+        },
+      ];
+    });
+    createMutation.mutate({ ...values, openingStock: entries }, goBack);
   });
 
   const isPending = createMutation.isPending || updateMutation.isPending;
@@ -148,20 +181,26 @@ export function ProductFormPage() {
               <Input id="description" {...register("description")} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="price">Price</Label>
-                <Input id="price" inputMode="decimal" {...register("price")} />
-                {errors.price && <p className="text-destructive text-sm">{errors.price.message}</p>}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="costPrice">Cost Price</Label>
+                <Label htmlFor="costPrice">Purchase price</Label>
                 <Input id="costPrice" inputMode="decimal" {...register("costPrice")} />
                 {errors.costPrice && (
                   <p className="text-destructive text-sm">{errors.costPrice.message}</p>
                 )}
               </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="price">Selling price</Label>
+                <Input id="price" inputMode="decimal" {...register("price")} />
+                {errors.price && <p className="text-destructive text-sm">{errors.price.message}</p>}
+              </div>
             </div>
+
+            <MarginSummary
+              costPrice={watchedCostPrice}
+              sellingPrice={watchedPrice}
+              costLabel="Purchase price"
+            />
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="status">Status</Label>
@@ -198,34 +237,47 @@ export function ProductFormPage() {
             </div>
 
             {!isEdit && (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="productType">Product type</Label>
-                <NativeSelect id="productType" {...register("productType")}>
-                  <option value="simple">Simple — has its own stock</option>
-                  <option value="kit">Kit — built from other products</option>
-                </NativeSelect>
+              <div className="flex flex-col gap-2">
+                <Label>Opening stock</Label>
                 <p className="text-muted-foreground text-xs">
-                  A kit holds no stock of its own; selling one deducts its recipe components. This
-                  cannot be changed later — duplicate the product if you pick wrong.
+                  Counted in when the product is created. Leave a warehouse blank to start it at
+                  zero. The alert threshold warns you when stock drops below it.
                 </p>
-              </div>
-            )}
-
-            {!isEdit && (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="initialStock">Initial Stock (optional)</Label>
-                <Input
-                  id="initialStock"
-                  inputMode="numeric"
-                  placeholder="0"
-                  {...register("initialStock")}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Added to the selected warehouse on creation.
-                </p>
-                {errors.initialStock && (
-                  <p className="text-destructive text-sm">{errors.initialStock.message}</p>
-                )}
+                <div className="flex flex-col gap-2">
+                  {(warehouses ?? [])
+                    .filter((w) => w.is_active)
+                    .map((warehouse) => (
+                      <div
+                        key={warehouse.id}
+                        className="flex flex-wrap items-center gap-2 rounded-md border p-2"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-sm">
+                          {warehouse.name}
+                          {warehouse.is_default && (
+                            <span className="text-muted-foreground"> (default)</span>
+                          )}
+                        </span>
+                        <Input
+                          inputMode="numeric"
+                          placeholder="Qty"
+                          aria-label={`Opening stock in ${warehouse.name}`}
+                          className="h-9 w-20 text-right tabular-nums"
+                          value={openingStock[warehouse.id]?.quantity ?? ""}
+                          onChange={(e) => setStockField(warehouse.id, "quantity", e.target.value)}
+                        />
+                        <Input
+                          inputMode="numeric"
+                          placeholder="Alert"
+                          aria-label={`Low stock alert threshold in ${warehouse.name}`}
+                          className="h-9 w-20 text-right tabular-nums"
+                          value={openingStock[warehouse.id]?.minQuantity ?? ""}
+                          onChange={(e) =>
+                            setStockField(warehouse.id, "minQuantity", e.target.value)
+                          }
+                        />
+                      </div>
+                    ))}
+                </div>
               </div>
             )}
 

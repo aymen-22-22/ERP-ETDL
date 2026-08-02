@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api/client";
 
+import type { VariantGenerateItemInput } from "./api";
 import { generateVariants, getVariantScheme, previewVariants } from "./api";
 
 export function useVariantScheme(categoryId: string | null) {
@@ -33,7 +34,7 @@ export function useGenerateVariantsMutation() {
   return useMutation({
     mutationFn: (vars: {
       categoryId: string;
-      items: { attributes: Record<string, string>; price: string; cost_price?: string | null }[];
+      items: VariantGenerateItemInput[];
       defaultWarehouseId: string | null;
     }) => generateVariants(vars.categoryId, vars.items, vars.defaultWarehouseId),
     onSuccess: (result) => {

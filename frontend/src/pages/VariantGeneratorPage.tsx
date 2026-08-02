@@ -35,7 +35,18 @@ export function VariantGeneratorPage() {
   const [selectedValues, setSelectedValues] = useState<Record<string, string[]>>({});
   const [customValue, setCustomValue] = useState<Record<string, string>>({});
   const [prices, setPrices] = useState<Record<string, string>>({});
+  const [costs, setCosts] = useState<Record<string, string>>({});
+  // Opening count per generated SKU, per warehouse. Entered here rather than
+  // afterwards because a 16-row tube grid would otherwise be 32 separate trips
+  // through the stock-adjustment screen.
+  const [stocks, setStocks] = useState<Record<string, Record<string, string>>>({});
   const [warehouseId, setWarehouseId] = useState<string | null>(null);
+
+  const setStock = (sku: string, warehouse: string, value: string) =>
+    setStocks((current) => ({
+      ...current,
+      [sku]: { ...(current[sku] ?? {}), [warehouse]: value },
+    }));
 
   const {
     data: scheme,
@@ -52,6 +63,8 @@ export function VariantGeneratorPage() {
     setSelectedValues({});
     setCustomValue({});
     setPrices({});
+    setCosts({});
+    setStocks({});
   };
 
   const toggleValue = (key: string, value: string) =>
@@ -85,12 +98,28 @@ export function VariantGeneratorPage() {
         categoryId,
         items: newItems
           .filter((item) => (prices[item.sku] ?? "").trim() !== "")
-          .map((item) => ({ attributes: item.attributes, price: prices[item.sku]!.trim() })),
+          .map((item) => {
+            const cost = (costs[item.sku] ?? "").trim();
+            const perWarehouse = stocks[item.sku] ?? {};
+            return {
+              attributes: item.attributes,
+              price: prices[item.sku]!.trim(),
+              ...(cost !== "" ? { cost_price: cost } : {}),
+              opening_stock: Object.entries(perWarehouse).flatMap(([wid, raw]) => {
+                const quantity = parseInt(raw, 10);
+                return Number.isFinite(quantity) && quantity > 0
+                  ? [{ warehouse_id: wid, quantity, min_quantity: null }]
+                  : [];
+              }),
+            };
+          }),
         defaultWarehouseId: warehouseId,
       },
       {
         onSuccess: () => {
           setPrices({});
+          setCosts({});
+          setStocks({});
           void navigate("/products");
         },
       },
@@ -227,27 +256,59 @@ export function VariantGeneratorPage() {
               <>
                 <ul className="flex list-none flex-col gap-2">
                   {preview.map((item) => (
-                    <li
-                      key={item.sku}
-                      className="flex flex-wrap items-center gap-2 rounded-md border p-3"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{item.name}</p>
-                        <p className="text-muted-foreground truncate text-xs">{item.sku}</p>
+                    <li key={item.sku} className="flex flex-col gap-2 rounded-md border p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{item.name}</p>
+                          <p className="text-muted-foreground truncate text-xs">{item.sku}</p>
+                        </div>
+                        {item.already_exists && <Badge variant="outline">Already exists</Badge>}
                       </div>
-                      {item.already_exists ? (
-                        <Badge variant="outline">Already exists</Badge>
-                      ) : (
-                        <Input
-                          inputMode="decimal"
-                          placeholder="Price"
-                          aria-label={`Price for ${item.name}`}
-                          className="h-9 w-28 text-right tabular-nums"
-                          value={prices[item.sku] ?? ""}
-                          onChange={(e) =>
-                            setPrices((current) => ({ ...current, [item.sku]: e.target.value }))
-                          }
-                        />
+
+                      {!item.already_exists && (
+                        <>
+                          <div className="flex flex-wrap gap-2">
+                            <Input
+                              inputMode="decimal"
+                              placeholder="Purchase"
+                              aria-label={`Purchase price for ${item.name}`}
+                              className="h-9 w-28 text-right tabular-nums"
+                              value={costs[item.sku] ?? ""}
+                              onChange={(e) =>
+                                setCosts((current) => ({ ...current, [item.sku]: e.target.value }))
+                              }
+                            />
+                            <Input
+                              inputMode="decimal"
+                              placeholder="Selling"
+                              aria-label={`Selling price for ${item.name}`}
+                              className="h-9 w-28 text-right tabular-nums"
+                              value={prices[item.sku] ?? ""}
+                              onChange={(e) =>
+                                setPrices((current) => ({
+                                  ...current,
+                                  [item.sku]: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-muted-foreground text-xs">Opening stock</span>
+                            {(warehouses ?? [])
+                              .filter((w) => w.is_active)
+                              .map((w) => (
+                                <Input
+                                  key={w.id}
+                                  inputMode="numeric"
+                                  placeholder={w.name}
+                                  aria-label={`Opening stock of ${item.name} in ${w.name}`}
+                                  className="h-9 w-24 text-right tabular-nums"
+                                  value={stocks[item.sku]?.[w.id] ?? ""}
+                                  onChange={(e) => setStock(item.sku, w.id, e.target.value)}
+                                />
+                              ))}
+                          </div>
+                        </>
                       )}
                     </li>
                   ))}
