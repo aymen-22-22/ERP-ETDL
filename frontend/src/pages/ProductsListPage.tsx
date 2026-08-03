@@ -1,4 +1,12 @@
-import { ArrowRightIcon, DownloadIcon, PackageIcon, PlusIcon, UploadIcon } from "lucide-react";
+import {
+  ArrowRightIcon,
+  DownloadIcon,
+  LayoutGridIcon,
+  PackageIcon,
+  PlusIcon,
+  TableIcon,
+  UploadIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -7,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Fab } from "@/components/ui/fab";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useCategories } from "@/features/categories/hooks";
 import type { Product, ProductSort, ProductSortDir } from "@/features/products/api";
@@ -19,6 +28,8 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
+const VIEW_MODE_KEY = "products-view-mode";
+type ViewMode = "table" | "cards";
 
 const selectClass =
   "border-input bg-background ring-offset-background flex h-10 rounded-md border px-3 py-2 text-sm";
@@ -39,6 +50,13 @@ export function ProductsListPage() {
   const [sortDir, setSortDir] = useState<ProductSortDir>("asc");
   const navigate = useNavigate();
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    () => (localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null) ?? "table",
+  );
+
+  useEffect(() => {
+    localStorage.setItem(VIEW_MODE_KEY, viewMode);
+  }, [viewMode]);
 
   const { data: categories } = useCategories();
 
@@ -192,6 +210,30 @@ export function ProductsListPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Products</h1>
         <div className="flex items-center gap-2">
+          {isDesktop && (
+            <div className="bg-muted flex items-center gap-0.5 rounded-md p-0.5">
+              <Button
+                variant={viewMode === "table" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-8 px-2"
+                aria-pressed={viewMode === "table"}
+                aria-label="Table view"
+                onClick={() => setViewMode("table")}
+              >
+                <TableIcon className="size-4" />
+              </Button>
+              <Button
+                variant={viewMode === "cards" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-8 px-2"
+                aria-pressed={viewMode === "cards"}
+                aria-label="Card view"
+                onClick={() => setViewMode("cards")}
+              >
+                <LayoutGridIcon className="size-4" />
+              </Button>
+            </div>
+          )}
           <Button variant="outline" size="sm" onClick={() => void handleExportTemplate()}>
             <DownloadIcon className="mr-1 size-4" />
             Template
@@ -225,11 +267,8 @@ export function ProductsListPage() {
 
       {filters}
 
-      <DataView
-        rows={isLoading ? undefined : (products ?? [])}
-        columns={columns}
-        keyExtractor={(p) => p.id}
-        renderCard={(p) => (
+      {(() => {
+        const renderCard = (p: Product) => (
           <ListCard
             title={p.name}
             subtitle={p.sku}
@@ -247,8 +286,9 @@ export function ProductsListPage() {
               </Button>
             }
           />
-        )}
-        empty={
+        );
+
+        const empty =
           total === 0 && !isFiltered ? (
             <EmptyState
               icon={PackageIcon}
@@ -260,9 +300,38 @@ export function ProductsListPage() {
             <p className="text-muted-foreground py-8 text-center text-sm">
               No products match your search or filters.
             </p>
-          )
+          );
+
+        if (isDesktop && viewMode === "cards") {
+          if (isLoading) {
+            return (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <Skeleton key={i} className="h-24 w-full rounded-lg" />
+                ))}
+              </div>
+            );
+          }
+          if (!products || products.length === 0) return empty;
+          return (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {products.map((p) => (
+                <div key={p.id}>{renderCard(p)}</div>
+              ))}
+            </div>
+          );
         }
-      />
+
+        return (
+          <DataView
+            rows={isLoading ? undefined : (products ?? [])}
+            columns={columns}
+            keyExtractor={(p) => p.id}
+            renderCard={renderCard}
+            empty={empty}
+          />
+        );
+      })()}
 
       {products !== undefined && products.length > 0 && (
         <div className="flex items-center justify-between text-sm">
