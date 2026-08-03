@@ -70,6 +70,18 @@ class Settings(BaseSettings):
 
     rate_limit_per_minute: int = 60
 
+    # Uploaded product images are stored on local disk rather than an object
+    # store — no S3/equivalent is provisioned yet. `media_root` is resolved
+    # relative to backend/ when not absolute, so it works the same under
+    # uvicorn and under Passenger regardless of process cwd.
+    media_root: str = "media"
+    media_url_prefix: str = "/media"
+
+    @property
+    def media_root_path(self) -> Path:
+        path = Path(self.media_root)
+        return path if path.is_absolute() else _BACKEND_ROOT / path
+
     @model_validator(mode="after")
     def _guard_production_secrets(self) -> Settings:
         """Refuses to boot a production process with the placeholder signing key.

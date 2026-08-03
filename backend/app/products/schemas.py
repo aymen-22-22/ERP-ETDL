@@ -60,6 +60,20 @@ class ProductRead(BaseModel):
     version: int
     created_at: datetime
     updated_at: datetime
+    # Populated by the router after the fact (a bulk lookup against
+    # `product_images`, not a mapped column) — never set from `from_attributes`.
+    image_url: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class ProductImageRead(BaseModel):
+    id: UUID
+    product_id: UUID
+    url: str
+    sort_order: int
+    is_primary: bool
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 

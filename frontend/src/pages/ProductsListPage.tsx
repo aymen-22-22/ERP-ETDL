@@ -1,6 +1,7 @@
 import {
   ArrowRightIcon,
   DownloadIcon,
+  ImageOffIcon,
   LayoutGridIcon,
   PackageIcon,
   PlusIcon,
@@ -19,7 +20,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useCategories } from "@/features/categories/hooks";
 import type { Product, ProductSort, ProductSortDir } from "@/features/products/api";
-import { downloadImportTemplate, importProductsExcel } from "@/features/products/api";
+import {
+  downloadImportTemplate,
+  importProductsExcel,
+  resolveProductImageUrl,
+} from "@/features/products/api";
 import { useProducts } from "@/features/products/hooks";
 import { toast } from "@/lib/toast";
 import { DataView, type DataColumn } from "@/components/patterns/DataView";
@@ -270,6 +275,7 @@ export function ProductsListPage() {
       {(() => {
         const renderCard = (p: Product) => (
           <ListCard
+            image={resolveProductImageUrl(p.image_url)}
             title={p.name}
             subtitle={p.sku}
             meta={<Badge variant={statusVariant[p.status] ?? "outline"}>{p.status}</Badge>}
@@ -288,6 +294,32 @@ export function ProductsListPage() {
           />
         );
 
+        const renderKanbanCard = (p: Product) => {
+          const imageUrl = resolveProductImageUrl(p.image_url);
+          return (
+            <Link
+              to={`/products/${p.id}`}
+              className="bg-card hover:border-foreground/30 flex flex-col overflow-hidden rounded-md border transition-colors"
+            >
+              <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
+                {imageUrl ? (
+                  <img src={imageUrl} alt={p.name} className="size-full object-cover" />
+                ) : (
+                  <ImageOffIcon className="text-muted-foreground size-8" />
+                )}
+              </div>
+              <div className="flex flex-1 flex-col gap-1 p-3">
+                <p className="truncate font-medium">{p.name}</p>
+                <p className="text-muted-foreground truncate text-sm">{p.sku}</p>
+                <div className="mt-auto flex items-center justify-between pt-2">
+                  <Badge variant={statusVariant[p.status] ?? "outline"}>{p.status}</Badge>
+                  <span className="text-sm font-medium tabular-nums">{p.price}</span>
+                </div>
+              </div>
+            </Link>
+          );
+        };
+
         const empty =
           total === 0 && !isFiltered ? (
             <EmptyState
@@ -305,18 +337,18 @@ export function ProductsListPage() {
         if (isDesktop && viewMode === "cards") {
           if (isLoading) {
             return (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 6 }, (_, i) => (
-                  <Skeleton key={i} className="h-24 w-full rounded-lg" />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {Array.from({ length: 8 }, (_, i) => (
+                  <Skeleton key={i} className="aspect-[3/4] w-full rounded-md" />
                 ))}
               </div>
             );
           }
           if (!products || products.length === 0) return empty;
           return (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {products.map((p) => (
-                <div key={p.id}>{renderCard(p)}</div>
+                <div key={p.id}>{renderKanbanCard(p)}</div>
               ))}
             </div>
           );

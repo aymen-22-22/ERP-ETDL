@@ -16,6 +16,8 @@ interface ListCardProps {
   to?: string;
   /** Actions row pinned to the bottom of the card. */
   actions?: ReactNode;
+  /** Optional leading thumbnail (e.g. a product photo). */
+  image?: string | null;
   className?: string;
 }
 
@@ -26,9 +28,23 @@ interface ListCardProps {
  * `actions` renders outside the link so buttons inside a card don't trigger
  * navigation when tapped.
  */
-function ListCard({ title, subtitle, meta, trailing, to, actions, className }: ListCardProps) {
+function ListCard({
+  title,
+  subtitle,
+  meta,
+  trailing,
+  to,
+  actions,
+  image,
+  className,
+}: ListCardProps) {
   const body = (
     <div className="flex items-start gap-3">
+      {image !== undefined && (
+        <div className="bg-muted size-12 shrink-0 overflow-hidden rounded-md">
+          {image && <img src={image} alt="" className="size-full object-cover" />}
+        </div>
+      )}
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{title}</p>
         {subtitle && <p className="text-muted-foreground mt-0.5 truncate text-sm">{subtitle}</p>}

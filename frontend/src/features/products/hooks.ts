@@ -4,10 +4,21 @@ import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api/client";
 
 import type { ProductInput, ProductListParams } from "./api";
-import { createProduct, deleteProduct, getProduct, listProducts, updateProduct } from "./api";
+import {
+  createProduct,
+  deleteProduct,
+  deleteProductImage,
+  getProduct,
+  listProductImages,
+  listProducts,
+  setPrimaryProductImage,
+  updateProduct,
+  uploadProductImage,
+} from "./api";
 import { submitStockAdjustment } from "./inventoryMutations";
 
 const QUERY_KEY = ["products"] as const;
+const IMAGES_QUERY_KEY = ["product-images"] as const;
 
 export function useProducts(page = 1, pageSize = 25, params: ProductListParams = {}) {
   return useQuery({
@@ -70,6 +81,65 @@ export function useDeleteProductMutation() {
     },
     onError: (error) =>
       toast({ title: "Delete failed", description: errorMessage(error), variant: "destructive" }),
+  });
+}
+
+export function useProductImages(productId: string) {
+  return useQuery({
+    queryKey: [...IMAGES_QUERY_KEY, productId],
+    queryFn: () => listProductImages(productId),
+    enabled: !!productId,
+  });
+}
+
+export function useUploadProductImageMutation(productId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => uploadProductImage(productId, file),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...IMAGES_QUERY_KEY, productId] });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+    onError: (error) =>
+      toast({
+        title: "Upload failed",
+        description: errorMessage(error),
+        variant: "destructive",
+      }),
+  });
+}
+
+export function useDeleteProductImageMutation(productId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (imageId: string) => deleteProductImage(productId, imageId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...IMAGES_QUERY_KEY, productId] });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+    onError: (error) =>
+      toast({
+        title: "Delete failed",
+        description: errorMessage(error),
+        variant: "destructive",
+      }),
+  });
+}
+
+export function useSetPrimaryProductImageMutation(productId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (imageId: string) => setPrimaryProductImage(productId, imageId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...IMAGES_QUERY_KEY, productId] });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+    onError: (error) =>
+      toast({
+        title: "Update failed",
+        description: errorMessage(error),
+        variant: "destructive",
+      }),
   });
 }
 
