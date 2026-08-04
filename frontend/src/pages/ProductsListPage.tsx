@@ -15,12 +15,11 @@ import { Link, useNavigate } from "react-router";
 import { EmptyState } from "@/components/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Fab } from "@/components/ui/fab";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useCategories } from "@/features/categories/hooks";
-import type { Product, ProductSort, ProductSortDir } from "@/features/products/api";
+import type { Product } from "@/features/products/api";
 import {
   downloadImportTemplate,
   importProductsExcel,
@@ -32,15 +31,11 @@ import { useSelectedWarehouseId } from "@/features/warehouses/hooks";
 import { toast } from "@/lib/toast";
 import { DataView, type DataColumn } from "@/components/patterns/DataView";
 import { ListCard } from "@/components/patterns/ListCard";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
 const VIEW_MODE_KEY = "products-view-mode";
 type ViewMode = "table" | "cards";
-
-const selectClass =
-  "border-input bg-background ring-offset-background flex h-10 rounded-md border px-3 py-2 text-sm";
 
 const statusVariant: Record<string, "default" | "outline" | "secondary"> = {
   active: "default",
@@ -52,12 +47,8 @@ export function ProductsListPage() {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [sort, setSort] = useState<ProductSort>("name");
-  const [sortDir, setSortDir] = useState<ProductSortDir>("asc");
   const navigate = useNavigate();
-  const isDesktop = useMediaQuery("(min-width: 768px)");
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null) ?? "table",
   );
@@ -78,7 +69,7 @@ export function ProductsListPage() {
     return () => clearTimeout(handle);
   }, [searchInput]);
 
-  const filterKey = `${search}|${status}|${categoryId}|${sort}|${sortDir}`;
+  const filterKey = `${search}|${categoryId}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   if (filterKey !== prevFilterKey) {
     setPrevFilterKey(filterKey);
@@ -87,15 +78,12 @@ export function ProductsListPage() {
 
   const { data, isLoading, isError, refetch } = useProducts(page, PAGE_SIZE, {
     search,
-    status,
-    sort,
-    sortDir,
     ...(categoryId ? { categoryId } : {}),
   });
   const products = data?.data;
   const total = data?.meta.total ?? 0;
   const pages = data?.meta.pages ?? 1;
-  const isFiltered = search !== "" || status !== "" || categoryId !== null;
+  const isFiltered = search !== "" || categoryId !== null;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
 
@@ -192,34 +180,11 @@ export function ProductsListPage() {
         placeholder="All categories"
         className="w-48"
       />
-      <select className={selectClass} value={status} onChange={(e) => setStatus(e.target.value)}>
-        <option value="">All statuses</option>
-        <option value="draft">Draft</option>
-        <option value="active">Active</option>
-        <option value="archived">Archived</option>
-      </select>
-      <select
-        className={selectClass}
-        value={sort}
-        onChange={(e) => setSort(e.target.value as ProductSort)}
-      >
-        <option value="name">Sort by name</option>
-        <option value="sku">Sort by SKU</option>
-        <option value="price">Sort by price</option>
-      </select>
-      <select
-        className={selectClass}
-        value={sortDir}
-        onChange={(e) => setSortDir(e.target.value as ProductSortDir)}
-      >
-        <option value="asc">Ascending</option>
-        <option value="desc">Descending</option>
-      </select>
     </div>
   );
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 pb-fab sm:px-6 sm:pt-6 md:pb-6">
+    <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 pb-nav sm:px-6 sm:pt-6 md:pb-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Products</h1>
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -265,14 +230,12 @@ export function ProductsListPage() {
             className="hidden"
             onChange={(e) => void handleImportFile(e)}
           />
-          {isDesktop && (
-            <Button asChild>
-              <Link to="/products/new">
-                <PlusIcon />
-                New product
-              </Link>
-            </Button>
-          )}
+          <Button asChild>
+            <Link to="/products/new">
+              <PlusIcon />
+              <span className="hidden sm:inline">New product</span>
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -407,14 +370,6 @@ export function ProductsListPage() {
             </Button>
           </div>
         </div>
-      )}
-
-      {!isDesktop && (
-        <Fab label="New product" asChild>
-          <Link to="/products/new">
-            <PlusIcon />
-          </Link>
-        </Fab>
       )}
     </div>
   );
