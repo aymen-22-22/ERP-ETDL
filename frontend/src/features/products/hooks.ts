@@ -11,6 +11,7 @@ import {
   deleteProduct,
   duplicateProduct,
   getProduct,
+  getProductFamily,
   listGroupedVariants,
   listProducts,
   listVariantGroups,
@@ -46,6 +47,14 @@ export function useProduct(productId: string) {
   return useQuery({
     queryKey: [...QUERY_KEY, productId],
     queryFn: () => getProduct(productId),
+    enabled: !!productId,
+  });
+}
+
+export function useProductFamily(productId: string) {
+  return useQuery({
+    queryKey: ["product-family", productId],
+    queryFn: () => getProductFamily(productId),
     enabled: !!productId,
   });
 }

@@ -270,6 +270,25 @@ async def add_product_variant(
     return ResponseEnvelope(data=ProductRead.model_validate(product))
 
 
+@router.get("/{product_id}/family", response_model=ResponseEnvelope[dict[str, object]])
+async def get_product_family(
+    product_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=120))],
+) -> ResponseEnvelope[dict[str, object]]:
+    """The product's colours with their per-warehouse stock, for the detail page.
+
+    "Support Cristal 28/19" is several rows (one per colour); this returns the
+    card view — name plus a Couleur / Dépôt / Store / Total table.
+    """
+    product = await service.get_product(session, tenant_id, product_id)
+    return ResponseEnvelope(
+        data=await variant_service.get_product_family(session, tenant_id, product)
+    )
+
+
 @router.post(
     "/{product_id}/duplicate",
     response_model=ResponseEnvelope[ProductRead],

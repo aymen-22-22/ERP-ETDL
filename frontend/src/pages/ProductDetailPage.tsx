@@ -1,6 +1,6 @@
-import { ArrowRightIcon, PaletteIcon } from "lucide-react";
+import { ArrowRightIcon, LayersIcon, PaletteIcon } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { PageLoader } from "@/components/PageLoader";
 import { TableLoader } from "@/components/TableLoader";
@@ -9,12 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProductStock, useMovements } from "@/features/inventory/hooks";
+import { AddVariantDialog } from "@/features/products/AddVariantDialog";
 import {
   useAdjustStockMutation,
   useDeleteProductMutation,
   useProduct,
+  useProductFamily,
 } from "@/features/products/hooks";
-import { AddVariantDialog } from "@/features/products/AddVariantDialog";
+import { ProductFamilyView } from "@/features/products/ProductFamilyView";
 import { useVariantScheme } from "@/features/variants/hooks";
 import { useSelectedWarehouseId } from "@/features/warehouses/hooks";
 import { WarehouseSelector } from "@/features/warehouses/WarehouseSelector";
@@ -23,24 +25,65 @@ import { NotFoundPage } from "@/pages/NotFoundPage";
 export function ProductDetailPage() {
   const { productId = "" } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const forceSingle = searchParams.get("view") === "single";
+  const [variantDialogOpen, setVariantDialogOpen] = useState(false);
 
   const { data: product, isLoading } = useProduct(productId);
+  const { data: family } = useProductFamily(productId);
+  const { data: scheme } = useVariantScheme(product?.category_id ?? null);
+
   const defaultWarehouseId = useSelectedWarehouseId();
   const [adjustWarehouseId, setAdjustWarehouseId] = useState<string | null>(null);
   const warehouseId = adjustWarehouseId ?? defaultWarehouseId;
-  const [variantDialogOpen, setVariantDialogOpen] = useState(false);
 
   const { data: stockSnapshot } = useProductStock(productId, warehouseId ?? "");
   const { data: movementsPage } = useMovements(productId, warehouseId ?? undefined);
   const adjustMutation = useAdjustStockMutation(productId);
   const deleteMutation = useDeleteProductMutation();
-  const { data: scheme } = useVariantScheme(product?.category_id ?? null);
 
   const [delta, setDelta] = useState("");
   const [note, setNote] = useState("");
 
   if (isLoading) return <PageLoader />;
   if (!product) return <NotFoundPage />;
+
+  // A product whose category has a naming scheme (or that already has colour
+  // rows) is shown as a colour family by default; ?view=single opens one
+  // colour's own page for movements and editing.
+  const showFamily =
+    !forceSingle &&
+    !!family &&
+    (family.has_scheme || family.rows.length > 1) &&
+    family.rows.length > 0;
+
+  if (showFamily && family) {
+    return (
+      <>
+        <ProductFamilyView
+          family={family}
+          scheme={scheme}
+          onAddColor={() => setVariantDialogOpen(true)}
+        />
+        {scheme?.color_key && variantDialogOpen && (
+          <AddVariantDialog
+            product={product}
+            scheme={scheme}
+            open={variantDialogOpen}
+            onOpenChange={setVariantDialogOpen}
+          />
+        )}
+      </>
+    );
+  }
+
+  const isFamilyMember = !!family && family.rows.length > 0;
+
+  const backToFamily = () =>
+    setSearchParams((previous) => {
+      previous.delete("view");
+      return previous;
+    });
 
   const submitAdjustment = () => {
     const parsed = Number(delta);
@@ -68,6 +111,12 @@ export function ProductDetailPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {isFamilyMember && (
+            <Button variant="outline" onClick={backToFamily}>
+              <LayersIcon className="mr-1 size-4" />
+              {family.rows.length} colour{family.rows.length === 1 ? "" : "s"}
+            </Button>
+          )}
           {scheme?.color_key && (
             <Button variant="outline" onClick={() => setVariantDialogOpen(true)}>
               <PaletteIcon className="mr-1 size-4" />
@@ -183,7 +232,7 @@ export function ProductDetailPage() {
         )}
       </div>
 
-      {scheme?.color_key && variantDialogOpen && product && (
+      {scheme?.color_key && variantDialogOpen && (
         <AddVariantDialog
           product={product}
           scheme={scheme}

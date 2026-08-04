@@ -347,3 +347,105 @@ async def add_variant(
     if not created:
         raise ConflictError("A product with this SKU already exists")
     return created[0]
+
+
+async def get_product_family(
+    session: AsyncSession, tenant_id: UUID, product: Product
+) -> dict[str, object]:
+    """One product as a colour family, for the detail page.
+
+    "Support Cristal 28/19" is really several `Product` rows (one per colour,
+    each with its own stock); this flattens them back into the card the user
+    recognises: a name, and a table of colours with Dépôt / Store / Total
+    quantities. Rows are matched by the structural name within the category,
+    the same rule the grouped variant list uses, so a hand-typed base product
+    groups with the colours added to it.
+    """
+    from app.inventory.models import ProductStockSnapshot
+    from app.warehouses.models import Warehouse
+
+    if product.category_id is None:
+        raise NotFoundError("This product has no category")
+
+    scheme_result = await session.execute(
+        select(CategoryVariantScheme).where(
+            CategoryVariantScheme.tenant_id == tenant_id,
+            CategoryVariantScheme.category_id == product.category_id,
+            CategoryVariantScheme.deleted_at.is_(None),
+        )
+    )
+    scheme = scheme_result.scalar_one_or_none()
+    color_key = scheme.color_key if scheme else None
+
+    rows_result = await session.execute(
+        select(Product)
+        .where(
+            Product.tenant_id == tenant_id,
+            Product.category_id == product.category_id,
+            Product.name == product.name,
+            Product.deleted_at.is_(None),
+        )
+        .order_by(Product.created_at)
+    )
+    rows = list(rows_result.scalars().all())
+    if not rows:
+        return {
+            "name": product.name,
+            "category_id": str(product.category_id),
+            "has_scheme": scheme is not None,
+            "color_key": color_key,
+            "rows": [],
+            "total_quantity": 0,
+        }
+
+    snapshots_result = await session.execute(
+        select(ProductStockSnapshot, Warehouse.name)
+        .join(Warehouse, Warehouse.id == ProductStockSnapshot.warehouse_id)
+        .where(
+            ProductStockSnapshot.tenant_id == tenant_id,
+            ProductStockSnapshot.product_id.in_([row.id for row in rows]),
+        )
+    )
+    stock_by_product: dict[UUID, list[dict[str, str | int]]] = {}
+    quantities_by_product: dict[UUID, list[int]] = {}
+    for snapshot, warehouse_name in snapshots_result.all():
+        stock_by_product.setdefault(snapshot.product_id, []).append(
+            {
+                "warehouse_id": str(snapshot.warehouse_id),
+                "warehouse_name": warehouse_name,
+                "quantity": snapshot.quantity_on_hand,
+            }
+        )
+        quantities_by_product.setdefault(snapshot.product_id, []).append(snapshot.quantity_on_hand)
+
+    color_rows: list[dict[str, object]] = []
+    total_quantity = 0
+    for row in rows:
+        attributes = row.attributes or {}
+        row_total = sum(quantities_by_product.get(row.id, []))
+        total_quantity += row_total
+        color_rows.append(
+            {
+                "product_id": str(row.id),
+                "sku": row.sku,
+                "attributes": attributes,
+                "color_label": str(attributes.get(color_key, "")) if color_key else "",
+                "price": str(row.price),
+                "cost_price": str(row.cost_price) if row.cost_price is not None else None,
+                "stock": stock_by_product.get(row.id, []),
+                "total_quantity": row_total,
+            }
+        )
+
+    # A hand-typed base product carries no colour; keep it first, then the
+    # colours alphabetically so the same family reads the same every visit.
+    color_rows.sort(key=lambda entry: (str(entry["color_label"]) == "", str(entry["color_label"])))
+
+    return {
+        "name": product.name,
+        "category_id": str(product.category_id),
+        "has_scheme": scheme is not None,
+        "color_key": color_key,
+        "rows": color_rows,
+        "total_quantity": total_quantity,
+    }

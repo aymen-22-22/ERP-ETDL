@@ -113,6 +113,32 @@ export interface GroupedVariant {
   total_quantity: number;
 }
 
+/** One product's colour family as the detail page shows it. */
+export interface ProductFamilyRow {
+  product_id: string;
+  sku: string;
+  attributes: Record<string, string>;
+  color_label: string;
+  price: string;
+  cost_price: string | null;
+  stock: GroupedVariantStock[];
+  total_quantity: number;
+}
+
+export interface ProductFamily {
+  name: string;
+  category_id: string;
+  has_scheme: boolean;
+  color_key: string | null;
+  rows: ProductFamilyRow[];
+  total_quantity: number;
+}
+
+/** One product as a colour family: name plus Couleur / Dépôt / Store / Total. */
+export async function getProductFamily(productId: string): Promise<ProductFamily> {
+  return apiFetch<ProductFamily>(`/v1/products/${productId}/family`);
+}
+
 /** One category's variants grouped by structural name, colours nested. */
 export async function listGroupedVariants(categoryId: string): Promise<GroupedVariant[]> {
   return apiFetch<GroupedVariant[]>(`/v1/products/variant-groups/${categoryId}`);
