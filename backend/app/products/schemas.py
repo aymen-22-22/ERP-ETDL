@@ -95,3 +95,18 @@ class ProductQuery(BaseModel):
     brand_id: UUID | None = None
     status: ProductStatus | None = None
     sort: ProductSort = ProductSort.NAME
+
+
+class ImportRowError(BaseModel):
+    row: int
+    message: str
+
+
+class ImportSummary(BaseModel):
+    """Result of an Excel import: rows are upserted by SKU (existing SKU ->
+    update, new SKU -> create), and one bad row never aborts the rest of the
+    batch -- it's reported in `errors` instead."""
+
+    created: list[ProductRead]
+    updated: list[ProductRead]
+    errors: list[ImportRowError]

@@ -176,12 +176,32 @@ export async function downloadImportTemplate(): Promise<Blob> {
   return resp.blob();
 }
 
+export async function exportProductsExcel(): Promise<Blob> {
+  const token = useAuthStore.getState().accessToken;
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const resp = await fetch(`${API_BASE_URL}/v1/products/export`, { headers });
+  if (!resp.ok) throw new ApiError(resp.status, "unknown_error");
+  return resp.blob();
+}
+
+export interface ImportRowError {
+  row: number;
+  message: string;
+}
+
+export interface ImportSummary {
+  created: Product[];
+  updated: Product[];
+  errors: ImportRowError[];
+}
+
 interface ImportEnvelope {
-  data?: Product[];
+  data?: ImportSummary;
   error?: { code?: string };
 }
 
-export async function importProductsExcel(file: File): Promise<Product[]> {
+export async function importProductsExcel(file: File): Promise<ImportSummary> {
   const token = useAuthStore.getState().accessToken;
   const form = new FormData();
   form.append("file", file);
@@ -194,5 +214,6 @@ export async function importProductsExcel(file: File): Promise<Product[]> {
   });
   const body = (await resp.json()) as ImportEnvelope;
   if (!resp.ok) throw new ApiError(resp.status, body.error?.code ?? "unknown_error");
-  return body.data ?? [];
+  if (!body.data) throw new ApiError(resp.status, "unknown_error");
+  return body.data;
 }

@@ -2,6 +2,7 @@ import {
   AlertTriangleIcon,
   ArrowRightIcon,
   DownloadIcon,
+  FileSpreadsheetIcon,
   ImageOffIcon,
   LayoutGridIcon,
   PackageIcon,
@@ -19,9 +20,10 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useCategories } from "@/features/categories/hooks";
-import type { Product } from "@/features/products/api";
+import type { ImportSummary, Product } from "@/features/products/api";
 import {
   downloadImportTemplate,
+  exportProductsExcel,
   importProductsExcel,
   resolveProductImageUrl,
 } from "@/features/products/api";
@@ -87,18 +89,41 @@ export function ProductsListPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
 
-  const handleExportTemplate = async () => {
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadTemplate = async () => {
     try {
       const blob = await downloadImportTemplate();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "product_import_template.xlsx";
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, "product_import_template.xlsx");
     } catch {
       toast({ title: "Download failed", variant: "destructive" });
     }
+  };
+
+  const [exporting, setExporting] = useState(false);
+  const handleExportProducts = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportProductsExcel();
+      downloadBlob(blob, "products_export.xlsx");
+    } catch {
+      toast({ title: "Export failed", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const describeImport = (summary: ImportSummary) => {
+    const parts = [`${summary.created.length} created`, `${summary.updated.length} updated`];
+    if (summary.errors.length > 0) parts.push(`${summary.errors.length} skipped`);
+    return parts.join(", ");
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,9 +131,21 @@ export function ProductsListPage() {
     if (!file) return;
     setImporting(true);
     try {
-      const created = await importProductsExcel(file);
-      toast({ title: `Imported ${created.length} products` });
-      window.location.reload();
+      const summary = await importProductsExcel(file);
+      const hasErrors = summary.errors.length > 0;
+      const firstErrors = summary.errors
+        .slice(0, 3)
+        .map((e) => `Row ${e.row}: ${e.message}`)
+        .join(" · ");
+      toast({
+        title: describeImport(summary),
+        variant: hasErrors ? "destructive" : "default",
+        ...(hasErrors && {
+          description: firstErrors + (summary.errors.length > 3 ? " · …" : ""),
+          duration: 10000,
+        }),
+      });
+      void refetch();
     } catch {
       toast({
         title: "Import failed",
@@ -210,14 +247,30 @@ export function ProductsListPage() {
               <LayoutGridIcon className="size-4" />
             </Button>
           </div>
-          <Button variant="outline" size="sm" onClick={() => void handleExportTemplate()}>
+          <Button
+            variant="outline"
+            size="sm"
+            title="Download a blank import template"
+            onClick={() => void handleDownloadTemplate()}
+          >
             <DownloadIcon className="size-4 sm:mr-1" />
             <span className="hidden sm:inline">Template</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
+            disabled={exporting}
+            title="Export all products to Excel"
+            onClick={() => void handleExportProducts()}
+          >
+            <FileSpreadsheetIcon className="size-4 sm:mr-1" />
+            <span className="hidden sm:inline">{exporting ? "Exporting..." : "Export"}</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             disabled={importing}
+            title="Import products from Excel"
             onClick={() => fileInputRef.current?.click()}
           >
             <UploadIcon className="size-4 sm:mr-1" />

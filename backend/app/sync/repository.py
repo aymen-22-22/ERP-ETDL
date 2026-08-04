@@ -51,6 +51,15 @@ class SyncableRepository[EntityT: SyncableMixin](ABC):
 
         entity = await self._persist(tenant_id, mutation)
         await self._session.flush()
+        # `updated_at` (onupdate=func.now()) and other server-computed columns
+        # are expired by the flush above -- refresh eagerly here, inside an
+        # awaited context. Without this, `serialize_syncable` below (a plain
+        # sync function) can trigger an implicit lazy-load on first access,
+        # which raises MissingGreenlet since it happens outside the async
+        # bridge. A single-mutation request rarely hits this because nothing
+        # else touches the session first; a caller that does several
+        # mutations in one session (e.g. a bulk import) hits it reliably.
+        await self._session.refresh(entity)
 
         changelog = ChangeLog(
             id=generate_uuid7(),
