@@ -27,6 +27,8 @@ import {
   resolveProductImageUrl,
 } from "@/features/products/api";
 import { useProducts } from "@/features/products/hooks";
+import { useWarehouseStock } from "@/features/inventory/hooks";
+import { useSelectedWarehouseId } from "@/features/warehouses/hooks";
 import { toast } from "@/lib/toast";
 import { DataView, type DataColumn } from "@/components/patterns/DataView";
 import { ListCard } from "@/components/patterns/ListCard";
@@ -65,6 +67,11 @@ export function ProductsListPage() {
   }, [viewMode]);
 
   const { data: categories } = useCategories();
+  const selectedWarehouseId = useSelectedWarehouseId();
+  const { data: warehouseStock } = useWarehouseStock(selectedWarehouseId);
+  const qtyByProduct = new Map(
+    (warehouseStock ?? []).map((s) => [s.product_id, s.available_quantity]),
+  );
 
   useEffect(() => {
     const handle = setTimeout(() => setSearch(searchInput), SEARCH_DEBOUNCE_MS);
@@ -213,36 +220,34 @@ export function ProductsListPage() {
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 pb-fab sm:px-6 sm:pt-6 md:pb-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Products</h1>
-        <div className="flex items-center gap-2">
-          {isDesktop && (
-            <div className="bg-muted flex items-center gap-0.5 rounded-md p-0.5">
-              <Button
-                variant={viewMode === "table" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8 px-2"
-                aria-pressed={viewMode === "table"}
-                aria-label="Table view"
-                onClick={() => setViewMode("table")}
-              >
-                <TableIcon className="size-4" />
-              </Button>
-              <Button
-                variant={viewMode === "cards" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8 px-2"
-                aria-pressed={viewMode === "cards"}
-                aria-label="Card view"
-                onClick={() => setViewMode("cards")}
-              >
-                <LayoutGridIcon className="size-4" />
-              </Button>
-            </div>
-          )}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="bg-muted flex items-center gap-0.5 rounded-md p-0.5">
+            <Button
+              variant={viewMode === "table" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 px-2"
+              aria-pressed={viewMode === "table"}
+              aria-label="Table view"
+              onClick={() => setViewMode("table")}
+            >
+              <TableIcon className="size-4" />
+            </Button>
+            <Button
+              variant={viewMode === "cards" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 px-2"
+              aria-pressed={viewMode === "cards"}
+              aria-label="Card view"
+              onClick={() => setViewMode("cards")}
+            >
+              <LayoutGridIcon className="size-4" />
+            </Button>
+          </div>
           <Button variant="outline" size="sm" onClick={() => void handleExportTemplate()}>
-            <DownloadIcon className="mr-1 size-4" />
-            Template
+            <DownloadIcon className="size-4 sm:mr-1" />
+            <span className="hidden sm:inline">Template</span>
           </Button>
           <Button
             variant="outline"
@@ -250,8 +255,8 @@ export function ProductsListPage() {
             disabled={importing}
             onClick={() => fileInputRef.current?.click()}
           >
-            <UploadIcon className="mr-1 size-4" />
-            {importing ? "Importing..." : "Import"}
+            <UploadIcon className="size-4 sm:mr-1" />
+            <span className="hidden sm:inline">{importing ? "Importing..." : "Import"}</span>
           </Button>
           <input
             ref={fileInputRef}
@@ -307,6 +312,7 @@ export function ProductsListPage() {
 
           const renderKanbanCard = (p: Product) => {
             const imageUrl = resolveProductImageUrl(p.image_url);
+            const qty = qtyByProduct.get(p.id);
             return (
               <Link
                 to={`/products/${p.id}`}
@@ -316,15 +322,16 @@ export function ProductsListPage() {
                   {imageUrl ? (
                     <img src={imageUrl} alt={p.name} className="size-full object-cover" />
                   ) : (
-                    <ImageOffIcon className="text-muted-foreground size-8" />
+                    <ImageOffIcon className="text-muted-foreground size-6" />
                   )}
                 </div>
-                <div className="flex flex-1 flex-col gap-1 p-3">
-                  <p className="truncate font-medium">{p.name}</p>
-                  <p className="text-muted-foreground truncate text-sm">{p.sku}</p>
-                  <div className="mt-auto flex items-center justify-between pt-2">
-                    <Badge variant={statusVariant[p.status] ?? "outline"}>{p.status}</Badge>
-                    <span className="text-sm font-medium tabular-nums">{p.price}</span>
+                <div className="flex flex-col gap-0.5 p-2">
+                  <p className="truncate text-xs font-medium">{p.name}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-xs tabular-nums">
+                      {qty !== undefined ? `Qty ${qty}` : "—"}
+                    </span>
+                    <span className="text-xs font-medium tabular-nums">{p.price}</span>
                   </div>
                 </div>
               </Link>
@@ -345,11 +352,11 @@ export function ProductsListPage() {
               </p>
             );
 
-          if (isDesktop && viewMode === "cards") {
+          if (viewMode === "cards") {
             if (isLoading) {
               return (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                  {Array.from({ length: 8 }, (_, i) => (
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
+                  {Array.from({ length: 9 }, (_, i) => (
                     <Skeleton key={i} className="aspect-[3/4] w-full rounded-md" />
                   ))}
                 </div>
@@ -357,7 +364,7 @@ export function ProductsListPage() {
             }
             if (!products || products.length === 0) return empty;
             return (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
                 {products.map((p) => (
                   <div key={p.id}>{renderKanbanCard(p)}</div>
                 ))}
