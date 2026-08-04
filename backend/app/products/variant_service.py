@@ -22,8 +22,8 @@ from app.inventory.repository import InventoryRepository
 from app.inventory.schemas import MovementCreate
 from app.products.models import CategoryVariantScheme, Product, ProductStatus, ProductType
 from app.products.repository import ProductRepository
-from app.products.variant_schemas import VariantGenerateItem
-from app.shared.core.exceptions import NotFoundError
+from app.products.variant_schemas import VariantAddRequest, VariantGenerateItem
+from app.shared.core.exceptions import ConflictError, NotFoundError
 from app.shared.core.ids import generate_uuid7
 from app.sync.models import ChangeOperation
 from app.sync.schemas import MutationEnvelope
@@ -220,10 +220,10 @@ async def generate_variants(
     """
     candidates: list[tuple[str, str, VariantGenerateItem]] = []
     for item in items:
-        name = build_name(
+        name = item.name or build_name(
             scheme.base_name, scheme.attribute_keys, item.attributes, scheme.color_key
         )
-        sku = build_sku(scheme.sku_prefix, scheme.attribute_keys, item.attributes)
+        sku = item.sku or build_sku(scheme.sku_prefix, scheme.attribute_keys, item.attributes)
         candidates.append((name, sku, item))
 
     taken = await existing_skus(session, tenant_id, [sku for _, sku, _ in candidates])
@@ -298,3 +298,52 @@ async def generate_variants(
 
     await session.commit()
     return created, skipped
+
+
+async def add_variant(
+    session: AsyncSession,
+    tenant_id: UUID,
+    base_product: Product,
+    data: VariantAddRequest,
+) -> Product:
+    """Create one sibling colour of an existing product.
+
+    The base product is never touched: the new colour is its own `Product`
+    row (that is what gives it independent stock), sharing the base's
+    structural name while the SKU gains the new colour's segment. When the
+    base's stored attributes carry the scheme's full formula the generated
+    name/SKU match the bulk generator exactly; a hand-typed base product
+    instead keeps its own name and appends the new value to its SKU.
+    """
+    if base_product.category_id is None:
+        raise NotFoundError("This product has no category to derive a variant from")
+    scheme = await get_scheme(session, tenant_id, base_product.category_id)
+
+    attributes = dict(base_product.attributes or {})
+    attributes.update(data.attributes)
+
+    structural_keys = [key for key in scheme.attribute_keys if key != scheme.color_key]
+    has_full_structure = all(str(attributes.get(key, "")).strip() for key in structural_keys)
+    if has_full_structure:
+        name = build_name(scheme.base_name, scheme.attribute_keys, attributes, scheme.color_key)
+        sku = build_sku(scheme.sku_prefix, scheme.attribute_keys, attributes)
+    else:
+        name = base_product.name
+        color_value = data.attributes.get(scheme.color_key, "") if scheme.color_key else ""
+        color_segment = _sku_segment(color_value)
+        sku = f"{base_product.sku}-{color_segment}" if color_segment else base_product.sku
+
+    item = VariantGenerateItem(
+        attributes=attributes,
+        price=data.price,
+        cost_price=data.cost_price,
+        opening_stock=data.opening_stock,
+        name=name,
+        sku=sku,
+    )
+    created, _ = await generate_variants(
+        session, tenant_id, scheme, [item], data.default_warehouse_id
+    )
+    if not created:
+        raise ConflictError("A product with this SKU already exists")
+    return created[0]

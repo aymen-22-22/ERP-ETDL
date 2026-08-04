@@ -28,6 +28,16 @@ export interface OpeningStockInput {
   minQuantity?: number | null;
 }
 
+/** The axis values (usually just the colour) plus price/stock for a new
+ * sibling variant of an existing product. */
+export interface AddVariantInput {
+  attributes: Record<string, string>;
+  price: string;
+  costPrice?: string | undefined;
+  defaultWarehouseId?: string | undefined;
+  openingStock?: OpeningStockInput[] | undefined;
+}
+
 export interface Product {
   id: string;
   tenant_id: string;
@@ -199,6 +209,26 @@ export async function bulkDeleteProducts(productIds: string[]): Promise<number> 
 
 export async function duplicateProduct(productId: string): Promise<Product> {
   return apiFetch<Product>(`/v1/products/${productId}/duplicate`, { method: "POST" });
+}
+
+export async function addProductVariant(
+  productId: string,
+  input: AddVariantInput,
+): Promise<Product> {
+  return apiFetch<Product>(`/v1/products/${productId}/variants`, {
+    method: "POST",
+    body: JSON.stringify({
+      attributes: input.attributes,
+      price: input.price,
+      cost_price: input.costPrice || null,
+      default_warehouse_id: input.defaultWarehouseId || null,
+      opening_stock: (input.openingStock ?? []).map((entry) => ({
+        warehouse_id: entry.warehouseId,
+        quantity: entry.quantity,
+        min_quantity: entry.minQuantity ?? null,
+      })),
+    }),
+  });
 }
 
 export async function downloadImportTemplate(): Promise<Blob> {

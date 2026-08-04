@@ -3,8 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api/client";
 
-import type { ProductInput, ProductListParams } from "./api";
+import type { AddVariantInput, ProductInput, ProductListParams } from "./api";
 import {
+  addProductVariant,
   bulkDeleteProducts,
   createProduct,
   deleteProduct,
@@ -132,6 +133,26 @@ export function useDuplicateProductMutation() {
     onError: (error) =>
       toast({
         title: "Duplicate failed",
+        description: errorMessage(error),
+        variant: "destructive",
+      }),
+  });
+}
+
+export function useAddProductVariantMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { productId: string; input: AddVariantInput }) =>
+      addProductVariant(vars.productId, vars.input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: ["variant-groups"] });
+      void queryClient.invalidateQueries({ queryKey: ["grouped-variants"] });
+      toast({ title: "Variant added" });
+    },
+    onError: (error) =>
+      toast({
+        title: "Could not add variant",
         description: errorMessage(error),
         variant: "destructive",
       }),

@@ -1,4 +1,4 @@
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon, PaletteIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
@@ -14,6 +14,8 @@ import {
   useDeleteProductMutation,
   useProduct,
 } from "@/features/products/hooks";
+import { AddVariantDialog } from "@/features/products/AddVariantDialog";
+import { useVariantScheme } from "@/features/variants/hooks";
 import { useSelectedWarehouseId } from "@/features/warehouses/hooks";
 import { WarehouseSelector } from "@/features/warehouses/WarehouseSelector";
 import { NotFoundPage } from "@/pages/NotFoundPage";
@@ -26,11 +28,13 @@ export function ProductDetailPage() {
   const defaultWarehouseId = useSelectedWarehouseId();
   const [adjustWarehouseId, setAdjustWarehouseId] = useState<string | null>(null);
   const warehouseId = adjustWarehouseId ?? defaultWarehouseId;
+  const [variantDialogOpen, setVariantDialogOpen] = useState(false);
 
   const { data: stockSnapshot } = useProductStock(productId, warehouseId ?? "");
   const { data: movementsPage } = useMovements(productId, warehouseId ?? undefined);
   const adjustMutation = useAdjustStockMutation(productId);
   const deleteMutation = useDeleteProductMutation();
+  const { data: scheme } = useVariantScheme(product?.category_id ?? null);
 
   const [delta, setDelta] = useState("");
   const [note, setNote] = useState("");
@@ -64,6 +68,12 @@ export function ProductDetailPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {scheme?.color_key && (
+            <Button variant="outline" onClick={() => setVariantDialogOpen(true)}>
+              <PaletteIcon className="mr-1 size-4" />
+              Add colour
+            </Button>
+          )}
           <Button variant="outline" asChild>
             <Link to={`/transfers/new?product=${productId}&warehouse=${warehouseId ?? ""}`}>
               <ArrowRightIcon className="mr-1 size-4" />
@@ -172,6 +182,15 @@ export function ProductDetailPage() {
           </div>
         )}
       </div>
+
+      {scheme?.color_key && variantDialogOpen && product && (
+        <AddVariantDialog
+          product={product}
+          scheme={scheme}
+          open={variantDialogOpen}
+          onOpenChange={setVariantDialogOpen}
+        />
+      )}
     </div>
   );
 }

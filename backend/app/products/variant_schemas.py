@@ -43,6 +43,25 @@ class VariantGenerateItem(BaseModel):
     cost_price: Decimal | None = Field(default=None, ge=0)
     # Opening stock per warehouse, same shape as ProductCreate.opening_stock.
     opening_stock: list[OpeningStock] = Field(default_factory=list)
+    # Server-side overrides used when adding one colour to an existing product
+    # (see variant_service.add_variant). Ignored by the bulk generator, which
+    # always derives both from the scheme.
+    name: str | None = None
+    sku: str | None = None
+
+
+class VariantAddRequest(BaseModel):
+    """The axis values (usually just the colour) for one sibling variant.
+
+    Merged over the base product's existing attributes, so "Tube 28 Torsadi
+    2m" + {"color": "Dorre"} becomes the Dorre row of the same family.
+    """
+
+    attributes: dict[str, str]
+    price: Decimal = Field(gt=0)
+    cost_price: Decimal | None = Field(default=None, ge=0)
+    default_warehouse_id: UUID | None = None
+    opening_stock: list[OpeningStock] = Field(default_factory=list)
 
 
 class VariantGenerateRequest(BaseModel):

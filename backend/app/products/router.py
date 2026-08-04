@@ -18,6 +18,7 @@ from app.products.schemas import (
     ProductUpdate,
 )
 from app.products.variant_schemas import (
+    VariantAddRequest,
     VariantGenerateRequest,
     VariantGenerateResult,
     VariantPreviewItem,
@@ -243,6 +244,30 @@ async def generate_variants(
     return ResponseEnvelope(
         data=VariantGenerateResult(created_count=len(created), skipped_skus=skipped)
     )
+
+
+@router.post(
+    "/{product_id}/variants",
+    response_model=ResponseEnvelope[ProductRead],
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_product_variant(
+    product_id: UUID,
+    data: VariantAddRequest,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=30))],
+) -> ResponseEnvelope[ProductRead]:
+    """Add one colour to an existing product, from the product detail page.
+
+    Creates a sibling VARIANT row that shares the base's structural name and
+    carries its own stock — the "add a colour" step the bulk generator can't
+    do on its own.
+    """
+    base = await service.get_product(session, tenant_id, product_id)
+    product = await variant_service.add_variant(session, tenant_id, base, data)
+    return ResponseEnvelope(data=ProductRead.model_validate(product))
 
 
 @router.post(

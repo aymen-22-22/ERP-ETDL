@@ -9,6 +9,9 @@ export interface VariantScheme {
   attribute_keys: string[];
   /** Suggested values per axis. Suggestions, not constraints. */
   allowed_values: Record<string, string[]>;
+  /** The axis grouped as a sub-row (a product's colour), null when every
+   * axis is structural. */
+  color_key?: string | null;
 }
 
 export interface VariantPreviewItem {
