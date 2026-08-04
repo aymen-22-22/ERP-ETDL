@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useSellableKits } from "@/features/bom/hooks";
 import type { CategoryTreeNode } from "@/features/categories/api";
 import { useWarehouseStock } from "@/features/inventory/hooks";
+import { resolveProductImageUrl } from "@/features/products/api";
 import { useProducts } from "@/features/products/hooks";
 import { useWarehouses } from "@/features/warehouses/hooks";
 import type { Warehouse } from "@/features/warehouses/api";
@@ -19,6 +20,7 @@ export interface SellableProduct {
   available: number;
   minQuantity: number | null;
   isKit: boolean;
+  imageUrl: string | null;
 }
 
 export function useSaleWarehouses(): Warehouse[] {
@@ -56,6 +58,7 @@ export function useSellableProducts(storeId: string | null): {
         available: item.available_quantity,
         minQuantity: item.min_quantity,
         isKit: false,
+        imageUrl: resolveProductImageUrl(server?.image_url),
       } satisfies SellableProduct;
     });
 
@@ -75,6 +78,7 @@ export function useSellableProducts(storeId: string | null): {
             available: kit.buildable,
             minQuantity: null,
             isKit: true,
+            imageUrl: null,
           }) satisfies SellableProduct,
       );
 
