@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-DGeXAQPT.js";import{o as t}from"./button-BYajTWvD.js";var n=e();function r({className:e,orientation:r=`horizontal`,decorative:i=!0,...a}){return(0,n.jsx)(`div`,{"data-slot":`separator`,...i?{role:`none`}:{role:`separator`,"aria-orientation":r},className:t(`bg-border shrink-0`,r===`horizontal`?`h-px w-full`:`h-full w-px`,e),...a})}export{r as t};
