@@ -1,4 +1,5 @@
 import {
+  AlertTriangleIcon,
   ArrowRightIcon,
   DownloadIcon,
   ImageOffIcon,
@@ -77,7 +78,7 @@ export function ProductsListPage() {
     setPage(1);
   }
 
-  const { data, isLoading } = useProducts(page, PAGE_SIZE, {
+  const { data, isLoading, isError, refetch } = useProducts(page, PAGE_SIZE, {
     search,
     status,
     sort,
@@ -211,7 +212,7 @@ export function ProductsListPage() {
   );
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 sm:p-6">
+    <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 pb-fab sm:px-6 sm:pt-6 md:pb-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Products</h1>
         <div className="flex items-center gap-2">
@@ -272,98 +273,108 @@ export function ProductsListPage() {
 
       {filters}
 
-      {(() => {
-        const renderCard = (p: Product) => (
-          <ListCard
-            image={resolveProductImageUrl(p.image_url)}
-            title={p.name}
-            subtitle={p.sku}
-            meta={<Badge variant={statusVariant[p.status] ?? "outline"}>{p.status}</Badge>}
-            trailing={p.price}
-            to={`/products/${p.id}`}
-            actions={
-              <Button variant="ghost" size="sm" asChild>
-                <Link
-                  to={`/transfers/new?product=${p.id}&warehouse=${p.default_warehouse_id ?? ""}`}
-                >
-                  <ArrowRightIcon className="mr-1 size-3" />
-                  Transfer
-                </Link>
-              </Button>
-            }
-          />
-        );
+      {!isLoading && isError && (
+        <EmptyState
+          icon={AlertTriangleIcon}
+          title="Couldn't load products"
+          description="Something went wrong fetching your products. Check your connection and try again."
+          action={{ label: "Retry", onClick: () => void refetch() }}
+        />
+      )}
 
-        const renderKanbanCard = (p: Product) => {
-          const imageUrl = resolveProductImageUrl(p.image_url);
-          return (
-            <Link
+      {!isError &&
+        (() => {
+          const renderCard = (p: Product) => (
+            <ListCard
+              image={resolveProductImageUrl(p.image_url)}
+              title={p.name}
+              subtitle={p.sku}
+              meta={<Badge variant={statusVariant[p.status] ?? "outline"}>{p.status}</Badge>}
+              trailing={p.price}
               to={`/products/${p.id}`}
-              className="bg-card hover:border-foreground/30 flex flex-col overflow-hidden rounded-md border transition-colors"
-            >
-              <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
-                {imageUrl ? (
-                  <img src={imageUrl} alt={p.name} className="size-full object-cover" />
-                ) : (
-                  <ImageOffIcon className="text-muted-foreground size-8" />
-                )}
-              </div>
-              <div className="flex flex-1 flex-col gap-1 p-3">
-                <p className="truncate font-medium">{p.name}</p>
-                <p className="text-muted-foreground truncate text-sm">{p.sku}</p>
-                <div className="mt-auto flex items-center justify-between pt-2">
-                  <Badge variant={statusVariant[p.status] ?? "outline"}>{p.status}</Badge>
-                  <span className="text-sm font-medium tabular-nums">{p.price}</span>
-                </div>
-              </div>
-            </Link>
-          );
-        };
-
-        const empty =
-          total === 0 && !isFiltered ? (
-            <EmptyState
-              icon={PackageIcon}
-              title="No products yet"
-              description="Add your first product to start tracking inventory."
-              action={{ label: "New product", onClick: () => void navigate("/products/new") }}
+              actions={
+                <Button variant="ghost" size="sm" asChild>
+                  <Link
+                    to={`/transfers/new?product=${p.id}&warehouse=${p.default_warehouse_id ?? ""}`}
+                  >
+                    <ArrowRightIcon className="mr-1 size-3" />
+                    Transfer
+                  </Link>
+                </Button>
+              }
             />
-          ) : (
-            <p className="text-muted-foreground py-8 text-center text-sm">
-              No products match your search or filters.
-            </p>
           );
 
-        if (isDesktop && viewMode === "cards") {
-          if (isLoading) {
+          const renderKanbanCard = (p: Product) => {
+            const imageUrl = resolveProductImageUrl(p.image_url);
+            return (
+              <Link
+                to={`/products/${p.id}`}
+                className="bg-card hover:border-foreground/30 flex flex-col overflow-hidden rounded-md border transition-colors"
+              >
+                <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
+                  {imageUrl ? (
+                    <img src={imageUrl} alt={p.name} className="size-full object-cover" />
+                  ) : (
+                    <ImageOffIcon className="text-muted-foreground size-8" />
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col gap-1 p-3">
+                  <p className="truncate font-medium">{p.name}</p>
+                  <p className="text-muted-foreground truncate text-sm">{p.sku}</p>
+                  <div className="mt-auto flex items-center justify-between pt-2">
+                    <Badge variant={statusVariant[p.status] ?? "outline"}>{p.status}</Badge>
+                    <span className="text-sm font-medium tabular-nums">{p.price}</span>
+                  </div>
+                </div>
+              </Link>
+            );
+          };
+
+          const empty =
+            total === 0 && !isFiltered ? (
+              <EmptyState
+                icon={PackageIcon}
+                title="No products yet"
+                description="Add your first product to start tracking inventory."
+                action={{ label: "New product", onClick: () => void navigate("/products/new") }}
+              />
+            ) : (
+              <p className="text-muted-foreground py-8 text-center text-sm">
+                No products match your search or filters.
+              </p>
+            );
+
+          if (isDesktop && viewMode === "cards") {
+            if (isLoading) {
+              return (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {Array.from({ length: 8 }, (_, i) => (
+                    <Skeleton key={i} className="aspect-[3/4] w-full rounded-md" />
+                  ))}
+                </div>
+              );
+            }
+            if (!products || products.length === 0) return empty;
             return (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {Array.from({ length: 8 }, (_, i) => (
-                  <Skeleton key={i} className="aspect-[3/4] w-full rounded-md" />
+                {products.map((p) => (
+                  <div key={p.id}>{renderKanbanCard(p)}</div>
                 ))}
               </div>
             );
           }
-          if (!products || products.length === 0) return empty;
-          return (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {products.map((p) => (
-                <div key={p.id}>{renderKanbanCard(p)}</div>
-              ))}
-            </div>
-          );
-        }
 
-        return (
-          <DataView
-            rows={isLoading ? undefined : (products ?? [])}
-            columns={columns}
-            keyExtractor={(p) => p.id}
-            renderCard={renderCard}
-            empty={empty}
-          />
-        );
-      })()}
+          return (
+            <DataView
+              rows={isLoading ? undefined : (products ?? [])}
+              columns={columns}
+              keyExtractor={(p) => p.id}
+              renderCard={renderCard}
+              empty={empty}
+            />
+          );
+        })()}
 
       {products !== undefined && products.length > 0 && (
         <div className="flex items-center justify-between text-sm">

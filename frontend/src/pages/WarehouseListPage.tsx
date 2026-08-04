@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PlusIcon, StarIcon, WarehouseIcon } from "lucide-react";
+import { AlertTriangleIcon, PlusIcon, StarIcon, WarehouseIcon } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router";
@@ -37,7 +37,7 @@ const selectClass =
   "border-input bg-background ring-offset-background flex h-10 w-full rounded-md border px-3 py-2 text-sm";
 
 export function WarehouseListPage() {
-  const { data: warehouses, isLoading } = useWarehouses();
+  const { data: warehouses, isLoading, isError, refetch } = useWarehouses();
   const [sheetOpen, setSheetOpen] = useState(false);
   const createMutation = useCreateWarehouseMutation();
   const setDefaultMutation = useSetDefaultWarehouseMutation();
@@ -81,7 +81,16 @@ export function WarehouseListPage() {
 
       {isLoading && <TableLoader rows={4} columns={4} />}
 
-      {!isLoading && warehouses?.length === 0 && (
+      {!isLoading && isError && (
+        <EmptyState
+          icon={AlertTriangleIcon}
+          title="Couldn't load warehouses"
+          description="Something went wrong fetching your warehouses. Check your connection and try again."
+          action={{ label: "Retry", onClick: () => void refetch() }}
+        />
+      )}
+
+      {!isLoading && !isError && warehouses?.length === 0 && (
         <EmptyState
           icon={WarehouseIcon}
           title="No warehouses yet"

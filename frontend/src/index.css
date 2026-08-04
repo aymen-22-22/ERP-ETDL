@@ -163,6 +163,13 @@
   .pb-nav {
     padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
   }
+  /* Tab-bar (3.5rem) + the Fab's own footprint above it (3.5rem size + 1rem
+     margin) + a small buffer — for scrollable content behind a <Fab>, so the
+     last row's action buttons never end up hidden under the floating button.
+     Released at `md` where the Fab hides itself. */
+  .pb-fab {
+    padding-bottom: calc(3.5rem + 3.5rem + 1rem + 0.5rem + env(safe-area-inset-bottom));
+  }
   /* Small uppercase label — used for section headers and table-ish captions. */
   .label-caps {
     @apply text-xs font-semibold tracking-wider uppercase;
