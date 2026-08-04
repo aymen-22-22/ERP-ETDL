@@ -9,7 +9,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.inventory.models import ProductStockSnapshot
-from app.products.models import Brand, Category, Product, ProductStatus, Unit
+from app.products.models import (
+    Brand,
+    Category,
+    CategoryVariantScheme,
+    Product,
+    ProductStatus,
+    ProductType,
+    Unit,
+)
 from app.products.schemas import (
     ImportRowError,
     ImportSummary,
@@ -18,6 +26,7 @@ from app.products.schemas import (
     ProductUpdate,
 )
 from app.products.service import create_product, update_product
+from app.products.variant_service import _sku_segment, build_name, build_sku
 from app.shared.core.ids import generate_uuid7
 from app.warehouses.models import Warehouse
 
@@ -33,6 +42,7 @@ TEMPLATE_COLUMNS = [
     ("cost_price", "Cost price"),
     ("status", "Status"),
     ("category", "Category path (e.g. Lustre > Sous Lustre)"),
+    ("colour", "Colour (leave blank for a simple product)"),
     ("brand", "Brand"),
     ("unit", "Unit"),
     ("warehouse", "Default warehouse"),
@@ -50,6 +60,7 @@ _EXAMPLE_ROW = (
     35.00,
     "active",
     "Films > Transfer Film",
+    "",
     "DTF Pro",
     "Roll",
     "Main Warehouse",
@@ -141,7 +152,7 @@ def _build_workbook(
     ws.add_data_validation(status_dv)
     status_dv.add(f"{status_col_letter}2:{status_col_letter}1000")
 
-    widths = [28, 18, 16, 32, 10, 12, 10, 30, 16, 12, 20, 22]
+    widths = [28, 18, 16, 32, 10, 12, 10, 30, 16, 16, 12, 20, 22]
     for i, width in enumerate(widths):
         ws.column_dimensions[chr(ord("A") + i)].width = width
 
@@ -170,6 +181,12 @@ def _build_workbook(
         "Status: draft, active, or archived (defaults to active if left blank).",
         "Category path: use > to separate levels, e.g. Lustre > Sous Lustre."
         " Unknown categories/brands are created automatically.",
+        "Colour: fill this in to add a colour of an existing product family."
+        " Give the SAME Name and Category as another row -- that row becomes"
+        " the family, and its formula (when the category has one) computes"
+        " the final Name/SKU for you, so what you type in Name/SKU for a"
+        " colour row is a starting point, not final. Leave blank for an"
+        " ordinary simple product.",
         "Unit and Default warehouse must already exist in the app (see the"
         " Reference sheet) -- these are not auto-created, since a typo would"
         " otherwise silently create a duplicate warehouse.",
@@ -257,6 +274,18 @@ async def export_products(session: AsyncSession, tenant_id: UUID) -> bytes:
             )
         ).all()
     }
+    color_key_by_category = {
+        s.category_id: s.color_key
+        for s in (
+            await session.scalars(
+                select(CategoryVariantScheme).where(
+                    CategoryVariantScheme.tenant_id == tenant_id,
+                    CategoryVariantScheme.deleted_at.is_(None),
+                )
+            )
+        ).all()
+        if s.color_key
+    }
 
     def category_path(cat_id: UUID | None) -> str | None:
         if cat_id is None or cat_id not in categories_by_id:
@@ -273,6 +302,11 @@ async def export_products(session: AsyncSession, tenant_id: UUID) -> bytes:
         stock_qty = (
             stock_by_key.get((p.id, p.default_warehouse_id)) if p.default_warehouse_id else None
         )
+        colour = None
+        if p.product_type == ProductType.VARIANT and p.category_id is not None:
+            color_key = color_key_by_category.get(p.category_id)
+            if color_key:
+                colour = (p.attributes or {}).get(color_key) or None
         rows.append(
             (
                 p.name,
@@ -283,6 +317,7 @@ async def export_products(session: AsyncSession, tenant_id: UUID) -> bytes:
                 float(p.cost_price) if p.cost_price is not None else None,
                 p.status.value,
                 category_path(p.category_id),
+                colour,
                 brands_by_id.get(p.brand_id) if p.brand_id else None,
                 units_by_id.get(p.unit_id) if p.unit_id else None,
                 warehouses_by_id.get(p.default_warehouse_id) if p.default_warehouse_id else None,
@@ -398,6 +433,7 @@ async def import_products(
             cost_raw,
             status_raw,
             category_raw,
+            colour_raw,
             brand_raw,
             unit_raw,
             warehouse_raw,
@@ -437,6 +473,59 @@ async def import_products(
             category_text = str(category_raw or "").strip()
             if category_text:
                 category_id = await _get_or_create_category(session, tenant_id, category_text)
+
+            colour = str(colour_raw or "").strip()
+            product_type = ProductType.SIMPLE
+            attributes: dict[str, str] = {}
+            if colour and category_id is not None:
+                product_type = ProductType.VARIANT
+                scheme = await session.scalar(
+                    select(CategoryVariantScheme).where(
+                        CategoryVariantScheme.tenant_id == tenant_id,
+                        CategoryVariantScheme.category_id == category_id,
+                        CategoryVariantScheme.deleted_at.is_(None),
+                    )
+                )
+                # The row sharing this Name + Category is the rest of the
+                # family -- its attributes seed this colour's, same as
+                # "Add colour" in the UI.
+                sibling = await session.scalar(
+                    select(Product)
+                    .where(
+                        Product.tenant_id == tenant_id,
+                        Product.category_id == category_id,
+                        Product.name == name,
+                        Product.deleted_at.is_(None),
+                    )
+                    .order_by(Product.created_at)
+                )
+                if sibling is not None:
+                    attributes = dict(sibling.attributes or {})
+                if scheme is not None and scheme.color_key:
+                    attributes[scheme.color_key] = colour
+                elif scheme is not None:
+                    attributes["color"] = colour
+
+                if scheme is not None:
+                    structural_keys = [
+                        key for key in scheme.attribute_keys if key != scheme.color_key
+                    ]
+                    has_full_structure = all(
+                        str(attributes.get(key, "")).strip() for key in structural_keys
+                    )
+                    if has_full_structure:
+                        name = build_name(
+                            scheme.base_name, scheme.attribute_keys, attributes, scheme.color_key
+                        )
+                        sku = build_sku(scheme.sku_prefix, scheme.attribute_keys, attributes)
+                    elif sibling is not None:
+                        name = sibling.name
+                        color_segment = _sku_segment(colour)
+                        sku = f"{sibling.sku}-{color_segment}" if color_segment else sibling.sku
+                elif sibling is not None:
+                    name = sibling.name
+                    color_segment = _sku_segment(colour)
+                    sku = f"{sibling.sku}-{color_segment}" if color_segment else sibling.sku
 
             brand_id = None
             brand_text = str(brand_raw or "").strip()
@@ -501,6 +590,8 @@ async def import_products(
                     price=price,
                     cost_price=cost_price,
                     status=status,
+                    product_type=product_type,
+                    attributes=attributes,
                     category_id=category_id,
                     brand_id=brand_id,
                     unit_id=unit_id,
