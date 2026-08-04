@@ -1,25 +1,25 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BuildingIcon, LayersIcon, PlusIcon, ShieldIcon, UserIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { NavLink } from "react-router";
 import { z } from "zod";
 
+import { TableLoader } from "@/components/TableLoader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { TableLoader } from "@/components/TableLoader";
-import { NavLink } from "react-router";
 import {
   createPlatformUser,
   fetchPlatformTenants,
   fetchPlatformUsers,
   type CreateUserInput,
-  type PlatformTenant,
-  type PlatformUser,
 } from "@/features/platform/api";
+import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/store/authStore";
 
 const tabs = ["Profile", "Preferences", "Super Admin"] as const;
@@ -35,11 +35,20 @@ export function SettingsPage() {
   const { isSuperuser } = useAuthStore();
   const [activeTab, setActiveTab] = useState<Tab>("Profile");
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [users, setUsers] = useState<PlatformUser[]>([]);
-  const [tenants, setTenants] = useState<PlatformTenant[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [tenantsLoading, setTenantsLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const showSuperAdminData = activeTab === "Super Admin" && isSuperuser;
+
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ["platform-users"],
+    queryFn: fetchPlatformUsers,
+    enabled: showSuperAdminData,
+  });
+  const { data: tenants = [], isLoading: tenantsLoading } = useQuery({
+    queryKey: ["platform-tenants"],
+    queryFn: fetchPlatformTenants,
+    enabled: showSuperAdminData,
+  });
 
   const {
     register,
@@ -50,33 +59,20 @@ export function SettingsPage() {
     resolver: zodResolver(userSchema),
   });
 
-  useEffect(() => {
-    if (activeTab === "Super Admin" && isSuperuser) {
-      setUsersLoading(true);
-      setTenantsLoading(true);
-      Promise.all([fetchPlatformUsers(), fetchPlatformTenants()])
-        .then(([u, t]) => {
-          setUsers(u);
-          setTenants(t);
-        })
-        .finally(() => {
-          setUsersLoading(false);
-          setTenantsLoading(false);
-        });
-    }
-  }, [activeTab, isSuperuser]);
-
-  const onSubmit = handleSubmit(async (values) => {
-    setLoading(true);
-    try {
-      await createPlatformUser(values);
+  const createUserMutation = useMutation({
+    mutationFn: createPlatformUser,
+    onSuccess: () => {
       setSheetOpen(false);
       reset();
-      setUsers(await fetchPlatformUsers());
-    } finally {
-      setLoading(false);
-    }
+      void queryClient.invalidateQueries({ queryKey: ["platform-users"] });
+    },
+    onError: () => toast({ title: "Failed to create user", variant: "destructive" }),
   });
+
+  const onSubmit = handleSubmit((values) => {
+    createUserMutation.mutate(values);
+  });
+  const loading = createUserMutation.isPending;
 
   const visibleTabs = isSuperuser ? tabs : tabs.filter((t) => t !== "Super Admin");
 

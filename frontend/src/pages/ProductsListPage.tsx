@@ -1,14 +1,15 @@
 import {
-  AlertTriangleIcon,
   ArrowRightIcon,
+  CopyIcon,
   DownloadIcon,
   FileSpreadsheetIcon,
-  ImageOffIcon,
-  LayoutGridIcon,
+  LayersIcon,
+  ListTreeIcon,
   PackageIcon,
   PlusIcon,
-  TableIcon,
+  Trash2Icon,
   UploadIcon,
+  WandSparklesIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -16,28 +17,44 @@ import { Link, useNavigate } from "react-router";
 import { EmptyState } from "@/components/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Fab } from "@/components/ui/fab";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useCategories } from "@/features/categories/hooks";
-import type { ImportSummary, Product } from "@/features/products/api";
+import type { ImportSummary, Product, ProductSort, ProductSortDir } from "@/features/products/api";
 import {
   downloadImportTemplate,
   exportProductsExcel,
   importProductsExcel,
-  resolveProductImageUrl,
 } from "@/features/products/api";
-import { useProducts } from "@/features/products/hooks";
-import { useWarehouseStock } from "@/features/inventory/hooks";
-import { useSelectedWarehouseId } from "@/features/warehouses/hooks";
+import { GroupedVariantsView } from "@/features/products/GroupedVariantsView";
+import {
+  useBulkDeleteProductsMutation,
+  useDuplicateProductMutation,
+  useGroupedVariants,
+  useProducts,
+  useVariantGroups,
+} from "@/features/products/hooks";
+import { BomEditorSheet } from "@/features/bom/BomEditorSheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { StickyActionBar } from "@/components/ui/sticky-action-bar";
 import { toast } from "@/lib/toast";
 import { DataView, type DataColumn } from "@/components/patterns/DataView";
 import { ListCard } from "@/components/patterns/ListCard";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
-const VIEW_MODE_KEY = "products-view-mode";
-type ViewMode = "table" | "cards";
+
+const selectClass =
+  "border-input bg-background ring-offset-background flex h-10 rounded-md border px-3 py-2 text-sm";
 
 const statusVariant: Record<string, "default" | "outline" | "secondary"> = {
   active: "default",
@@ -49,45 +66,85 @@ export function ProductsListPage() {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [sort, setSort] = useState<ProductSort>("name");
+  const [sortDir, setSortDir] = useState<ProductSortDir>("asc");
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    () => (localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null) ?? "table",
-  );
-
-  useEffect(() => {
-    localStorage.setItem(VIEW_MODE_KEY, viewMode);
-  }, [viewMode]);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const { data: categories } = useCategories();
-  const selectedWarehouseId = useSelectedWarehouseId();
-  const { data: warehouseStock } = useWarehouseStock(selectedWarehouseId);
-  const qtyByProduct = new Map(
-    (warehouseStock ?? []).map((s) => [s.product_id, s.available_quantity]),
-  );
 
   useEffect(() => {
     const handle = setTimeout(() => setSearch(searchInput), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(handle);
   }, [searchInput]);
 
-  const filterKey = `${search}|${categoryId}`;
+  const filterKey = `${search}|${status}|${categoryId}|${sort}|${sortDir}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   if (filterKey !== prevFilterKey) {
     setPrevFilterKey(filterKey);
     setPage(1);
   }
 
-  const { data, isLoading, isError, refetch } = useProducts(page, PAGE_SIZE, {
+  // Generated variants are hidden from the main list and surfaced as families
+  // below — a dozen tubes would otherwise bury everything else. Filtering to a
+  // specific category shows them, which is what clicking a family does.
+  const showingOneCategory = categoryId !== null;
+  const { data, isLoading } = useProducts(page, PAGE_SIZE, {
     search,
+    status,
+    sort,
+    sortDir,
+    includeVariants: showingOneCategory,
     ...(categoryId ? { categoryId } : {}),
   });
+  const { data: variantGroups } = useVariantGroups();
+  // Filtering to a category that turns out to hold variants switches the whole
+  // list to the nested colour view instead of the flat table — a category is
+  // either "structural products with colours" or "ordinary products" in this
+  // catalogue, never a mix, so there is no case where both need to render.
+  const { data: groupedVariants } = useGroupedVariants(showingOneCategory ? categoryId : null);
+  const showGrouped = showingOneCategory && !!groupedVariants && groupedVariants.length > 0;
   const products = data?.data;
   const total = data?.meta.total ?? 0;
   const pages = data?.meta.pages ?? 1;
-  const isFiltered = search !== "" || categoryId !== null;
+  const isFiltered = search !== "" || status !== "" || categoryId !== null;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [bomTarget, setBomTarget] = useState<{ id: string; name: string } | null>(null);
+  const bulkDeleteMutation = useBulkDeleteProductsMutation();
+  const duplicateMutation = useDuplicateProductMutation();
+
+  // Clear the selection whenever the visible page changes. Acting on a
+  // product that has scrolled out of view — especially deleting one — is the
+  // kind of surprise a bulk action must not spring on you.
+  const viewKey = `${filterKey}|${page}`;
+  const [prevViewKey, setPrevViewKey] = useState(viewKey);
+  if (viewKey !== prevViewKey) {
+    setPrevViewKey(viewKey);
+    setSelected(new Set());
+  }
+
+  const toggleRow = (id: string) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleAll = (allSelected: boolean) =>
+    setSelected(allSelected ? new Set() : new Set((products ?? []).map((p) => p.id)));
+
+  const selectedProducts = (products ?? []).filter((p) => selected.has(p.id));
+  // Duplicate and recipe act on exactly one product: duplicating several at
+  // once is confusing (each needs its own unique SKU) and a recipe belongs to
+  // a single kit.
+  const single = selectedProducts.length === 1 ? selectedProducts[0] : undefined;
 
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -98,7 +155,7 @@ export function ProductsListPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadTemplate = async () => {
+  const handleExportTemplate = async () => {
     try {
       const blob = await downloadImportTemplate();
       downloadBlob(blob, "product_import_template.xlsx");
@@ -135,7 +192,7 @@ export function ProductsListPage() {
       const hasErrors = summary.errors.length > 0;
       const firstErrors = summary.errors
         .slice(0, 3)
-        .map((e) => `Row ${e.row}: ${e.message}`)
+        .map((err) => `Row ${err.row}: ${err.message}`)
         .join(" · ");
       toast({
         title: describeImport(summary),
@@ -145,7 +202,7 @@ export function ProductsListPage() {
           duration: 10000,
         }),
       });
-      void refetch();
+      window.location.reload();
     } catch {
       toast({
         title: "Import failed",
@@ -217,44 +274,46 @@ export function ProductsListPage() {
         placeholder="All categories"
         className="w-48"
       />
+      <select className={selectClass} value={status} onChange={(e) => setStatus(e.target.value)}>
+        <option value="">All statuses</option>
+        <option value="draft">Draft</option>
+        <option value="active">Active</option>
+        <option value="archived">Archived</option>
+      </select>
+      <select
+        className={selectClass}
+        value={sort}
+        onChange={(e) => setSort(e.target.value as ProductSort)}
+      >
+        <option value="name">Sort by name</option>
+        <option value="sku">Sort by SKU</option>
+        <option value="price">Sort by price</option>
+      </select>
+      <select
+        className={selectClass}
+        value={sortDir}
+        onChange={(e) => setSortDir(e.target.value as ProductSortDir)}
+      >
+        <option value="asc">Ascending</option>
+        <option value="desc">Descending</option>
+      </select>
     </div>
   );
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 pb-nav sm:px-6 sm:pt-6 md:pb-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 sm:p-6">
+      <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Products</h1>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="bg-muted flex items-center gap-0.5 rounded-md p-0.5">
-            <Button
-              variant={viewMode === "table" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-8 px-2"
-              aria-pressed={viewMode === "table"}
-              aria-label="Table view"
-              onClick={() => setViewMode("table")}
-            >
-              <TableIcon className="size-4" />
-            </Button>
-            <Button
-              variant={viewMode === "cards" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-8 px-2"
-              aria-pressed={viewMode === "cards"}
-              aria-label="Card view"
-              onClick={() => setViewMode("cards")}
-            >
-              <LayoutGridIcon className="size-4" />
-            </Button>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            title="Download a blank import template"
-            onClick={() => void handleDownloadTemplate()}
-          >
-            <DownloadIcon className="size-4 sm:mr-1" />
-            <span className="hidden sm:inline">Template</span>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/products/generate">
+              <WandSparklesIcon className="mr-1 size-4" />
+              Generate
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void handleExportTemplate()}>
+            <DownloadIcon className="mr-1 size-4" />
+            Template
           </Button>
           <Button
             variant="outline"
@@ -263,18 +322,17 @@ export function ProductsListPage() {
             title="Export all products to Excel"
             onClick={() => void handleExportProducts()}
           >
-            <FileSpreadsheetIcon className="size-4 sm:mr-1" />
-            <span className="hidden sm:inline">{exporting ? "Exporting..." : "Export"}</span>
+            <FileSpreadsheetIcon className="mr-1 size-4" />
+            {exporting ? "Exporting..." : "Export"}
           </Button>
           <Button
             variant="outline"
             size="sm"
             disabled={importing}
-            title="Import products from Excel"
             onClick={() => fileInputRef.current?.click()}
           >
-            <UploadIcon className="size-4 sm:mr-1" />
-            <span className="hidden sm:inline">{importing ? "Importing..." : "Import"}</span>
+            <UploadIcon className="mr-1 size-4" />
+            {importing ? "Importing..." : "Import"}
           </Button>
           <input
             ref={fileInputRef}
@@ -283,31 +341,111 @@ export function ProductsListPage() {
             className="hidden"
             onChange={(e) => void handleImportFile(e)}
           />
-          <Button asChild>
-            <Link to="/products/new">
-              <PlusIcon />
-              <span className="hidden sm:inline">New product</span>
-            </Link>
-          </Button>
+          {isDesktop && (
+            <Button asChild>
+              <Link to="/products/new">
+                <PlusIcon />
+                New product
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
       {filters}
 
-      {!isLoading && isError && (
-        <EmptyState
-          icon={AlertTriangleIcon}
-          title="Couldn't load products"
-          description="Something went wrong fetching your products. Check your connection and try again."
-          action={{ label: "Retry", onClick: () => void refetch() }}
-        />
+      {!showingOneCategory && variantGroups && variantGroups.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="label-caps text-muted-foreground">Variant families</h2>
+          <ul className="flex list-none flex-col gap-2">
+            {variantGroups.map((group) => (
+              <li key={group.category_id}>
+                <button
+                  type="button"
+                  onClick={() => setCategoryId(group.category_id)}
+                  className="hover:bg-accent focus-visible:ring-ring/50 flex min-h-11 w-full items-center gap-3 rounded-md border px-3 py-2 text-left outline-none focus-visible:ring-2"
+                >
+                  <LayersIcon className="text-muted-foreground size-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {group.category_name}
+                  </span>
+                  <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                    {group.min_price === group.max_price
+                      ? group.min_price
+                      : `${group.min_price}–${group.max_price}`}
+                  </span>
+                  <Badge variant="secondary" className="shrink-0">
+                    {group.variant_count}
+                  </Badge>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="text-muted-foreground text-xs">
+            Generated variants are grouped here instead of filling the list. Open a family to see
+            and edit its variants.
+          </p>
+        </div>
       )}
 
-      {!isError &&
-        (() => {
-          const renderCard = (p: Product) => (
+      {selected.size > 0 && (
+        <StickyActionBar className="md:justify-between md:rounded-md md:border md:bg-muted/40 md:p-3">
+          <span className="text-sm font-medium">{selected.size} selected</span>
+          <div className="flex flex-1 items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!single || single.product_type !== "kit"}
+              title={
+                !single
+                  ? "Select exactly one product"
+                  : single.product_type !== "kit"
+                    ? "Only kit products have a recipe"
+                    : undefined
+              }
+              onClick={() => single && setBomTarget({ id: single.id, name: single.name })}
+            >
+              <ListTreeIcon className="mr-1 size-4" />
+              Recipe
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!single || duplicateMutation.isPending}
+              title={single ? undefined : "Select exactly one product"}
+              onClick={() =>
+                single &&
+                duplicateMutation.mutate(single.id, {
+                  onSuccess: () => setSelected(new Set()),
+                })
+              }
+            >
+              <CopyIcon className="mr-1 size-4" />
+              Duplicate
+            </Button>
+            <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)}>
+              <Trash2Icon className="mr-1 size-4" />
+              Delete
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+              Clear
+            </Button>
+          </div>
+        </StickyActionBar>
+      )}
+
+      {showGrouped ? (
+        <GroupedVariantsView groups={groupedVariants} />
+      ) : (
+        <DataView
+          rows={isLoading ? undefined : (products ?? [])}
+          columns={columns}
+          keyExtractor={(p) => p.id}
+          selectedIds={selected}
+          onToggleRow={toggleRow}
+          onToggleAll={toggleAll}
+          renderCard={(p) => (
             <ListCard
-              image={resolveProductImageUrl(p.image_url)}
               title={p.name}
               subtitle={p.sku}
               meta={<Badge variant={statusVariant[p.status] ?? "outline"}>{p.status}</Badge>}
@@ -324,37 +462,8 @@ export function ProductsListPage() {
                 </Button>
               }
             />
-          );
-
-          const renderKanbanCard = (p: Product) => {
-            const imageUrl = resolveProductImageUrl(p.image_url);
-            const qty = qtyByProduct.get(p.id);
-            return (
-              <Link
-                to={`/products/${p.id}`}
-                className="bg-card hover:border-foreground/30 flex flex-col overflow-hidden rounded-md border transition-colors"
-              >
-                <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
-                  {imageUrl ? (
-                    <img src={imageUrl} alt={p.name} className="size-full object-cover" />
-                  ) : (
-                    <ImageOffIcon className="text-muted-foreground size-6" />
-                  )}
-                </div>
-                <div className="flex flex-col gap-0.5 p-2">
-                  <p className="truncate text-xs font-medium">{p.name}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-xs tabular-nums">
-                      {qty !== undefined ? `Qty ${qty}` : "—"}
-                    </span>
-                    <span className="text-xs font-medium tabular-nums">{p.price}</span>
-                  </div>
-                </div>
-              </Link>
-            );
-          };
-
-          const empty =
+          )}
+          empty={
             total === 0 && !isFiltered ? (
               <EmptyState
                 icon={PackageIcon}
@@ -366,40 +475,12 @@ export function ProductsListPage() {
               <p className="text-muted-foreground py-8 text-center text-sm">
                 No products match your search or filters.
               </p>
-            );
-
-          if (viewMode === "cards") {
-            if (isLoading) {
-              return (
-                <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
-                  {Array.from({ length: 9 }, (_, i) => (
-                    <Skeleton key={i} className="aspect-[3/4] w-full rounded-md" />
-                  ))}
-                </div>
-              );
-            }
-            if (!products || products.length === 0) return empty;
-            return (
-              <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
-                {products.map((p) => (
-                  <div key={p.id}>{renderKanbanCard(p)}</div>
-                ))}
-              </div>
-            );
+            )
           }
+        />
+      )}
 
-          return (
-            <DataView
-              rows={isLoading ? undefined : (products ?? [])}
-              columns={columns}
-              keyExtractor={(p) => p.id}
-              renderCard={renderCard}
-              empty={empty}
-            />
-          );
-        })()}
-
-      {products !== undefined && products.length > 0 && (
+      {!showGrouped && products !== undefined && products.length > 0 && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
             Page {page} of {pages} · {total} total
@@ -423,6 +504,63 @@ export function ProductsListPage() {
             </Button>
           </div>
         </div>
+      )}
+
+      {!isDesktop && (
+        <Fab label="New product" asChild>
+          <Link to="/products/new">
+            <PlusIcon />
+          </Link>
+        </Fab>
+      )}
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Delete {selected.size} product{selected.size === 1 ? "" : "s"}?
+            </DialogTitle>
+            <DialogDescription>
+              {selectedProducts
+                .slice(0, 5)
+                .map((p) => p.name)
+                .join(", ")}
+              {selectedProducts.length > 5 && ` and ${selectedProducts.length - 5} more`}.
+              {" Their stock history is kept."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={bulkDeleteMutation.isPending}
+              onClick={() =>
+                bulkDeleteMutation.mutate([...selected], {
+                  onSuccess: () => {
+                    setSelected(new Set());
+                    setConfirmDelete(false);
+                  },
+                  // Deliberately stays open on failure: the server refuses the
+                  // whole batch when a product is used in a recipe, and the
+                  // selection has to survive so you can untick it and retry.
+                })
+              }
+            >
+              {bulkDeleteMutation.isPending ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {bomTarget && (
+        <BomEditorSheet
+          kitProductId={bomTarget.id}
+          kitName={bomTarget.name}
+          open={bomTarget !== null}
+          onOpenChange={(open) => !open && setBomTarget(null)}
+        />
       )}
     </div>
   );

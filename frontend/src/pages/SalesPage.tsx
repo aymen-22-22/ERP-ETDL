@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2Icon, ShoppingCartIcon, StoreIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
@@ -18,6 +19,7 @@ import { ProductTile } from "@/features/sales/ProductTile";
 import { submitSale } from "@/features/sales/submitSale";
 import { formatMoney } from "@/lib/money";
 import { toast } from "@/lib/toast";
+import { ApiError } from "@/services/api/client";
 import { cn } from "@/lib/utils";
 
 /**
@@ -29,6 +31,7 @@ import { cn } from "@/lib/utils";
  */
 export function SalesPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const stores = useSaleWarehouses();
   const { storeId, lines, setStore, addItem, setQuantity, removeLine, clear } = useCartStore();
 
@@ -116,18 +119,33 @@ export function SalesPage() {
     setSubmitting(true);
     void submitSale(activeStoreId, lines)
       .then((result) => {
-        setLastSale(result.saleReference.slice(0, 8));
+        setLastSale(result.reference_id.slice(0, 8));
         clear();
         setCartOpen(false);
+        // The shelf just changed. Without this the tiles keep offering the
+        // pre-sale quantities, and for kits the buildable count is derived
+        // from components that have just been consumed.
+        void queryClient.invalidateQueries({ queryKey: ["warehouse-stock"] });
+        void queryClient.invalidateQueries({ queryKey: ["sellable-kits"] });
         toast({
           title: "Sale completed",
-          description: `Stock updated for ${lineCount} product${lineCount === 1 ? "" : "s"}.`,
+          // Movements can exceed lines: one kit becomes several components.
+          description:
+            result.movements_created > lineCount
+              ? `${lineCount} line${lineCount === 1 ? "" : "s"} · ${result.movements_created} stock movements (kits deduct their components).`
+              : `Stock updated for ${lineCount} product${lineCount === 1 ? "" : "s"}.`,
         });
       })
-      .catch(() =>
+      .catch((error: unknown) =>
         toast({
           title: "Sale failed",
-          description: "Please check the sale and try again.",
+          // The server names exactly what is short ("Bouchon Argent 19mm
+          // (need 4, have 3)"), which is the difference between a cashier who
+          // can act and one who cannot.
+          description:
+            error instanceof ApiError
+              ? (error.detail ?? "Please check the sale and try again.")
+              : "Please check the sale and try again.",
           variant: "destructive",
         }),
       )

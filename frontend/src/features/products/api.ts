@@ -4,7 +4,8 @@ import { useAuthStore } from "@/store/authStore";
 
 export interface ProductInput {
   name: string;
-  sku: string;
+  /** Optional: the server derives one from the category when omitted. */
+  sku?: string | undefined;
   barcode?: string | undefined;
   description?: string | undefined;
   price: string;
@@ -15,6 +16,26 @@ export interface ProductInput {
   unitId?: string | undefined;
   defaultWarehouseId?: string | undefined;
   initialStock?: string | undefined;
+  productType?: ProductType | undefined;
+  /** Opening count per warehouse, so depot and store are set in one go. */
+  openingStock?: OpeningStockInput[] | undefined;
+}
+
+export interface OpeningStockInput {
+  warehouseId: string;
+  quantity: number;
+  /** Low-stock alert threshold. null means no alert for this warehouse. */
+  minQuantity?: number | null;
+}
+
+/** The axis values (usually just the colour) plus price/stock for a new
+ * sibling variant of an existing product. */
+export interface AddVariantInput {
+  attributes: Record<string, string>;
+  price: string;
+  costPrice?: string | undefined;
+  defaultWarehouseId?: string | undefined;
+  openingStock?: OpeningStockInput[] | undefined;
 }
 
 export interface Product {
@@ -31,6 +52,8 @@ export interface Product {
   brand_id: string | null;
   unit_id: string | null;
   default_warehouse_id: string | null;
+  product_type: ProductType;
+  attributes: Record<string, string>;
   version: number;
   created_at: string;
   updated_at: string;
@@ -46,6 +69,9 @@ export interface ProductImage {
   created_at: string;
 }
 
+/** Mirrors the backend ProductType enum. */
+export type ProductType = "simple" | "variant" | "kit";
+
 export type ProductSort = "name" | "price" | "sku";
 export type ProductSortDir = "asc" | "desc";
 
@@ -55,12 +81,86 @@ export interface ProductListParams {
   categoryId?: string | undefined;
   sort?: ProductSort;
   sortDir?: ProductSortDir;
+  /**
+   * Defaults to true server-side. The product list page passes false so a
+   * dozen generated tubes don't bury everything else; the POS and the recipe
+   * editor need them and leave it alone.
+   */
+  includeVariants?: boolean | undefined;
+}
+
+export interface VariantGroup {
+  category_id: string;
+  category_name: string;
+  variant_count: number;
+  min_price: string;
+  max_price: string;
+}
+
+export async function listVariantGroups(): Promise<VariantGroup[]> {
+  return apiFetch<VariantGroup[]>("/v1/products/variant-groups");
+}
+
+export interface GroupedVariantStock {
+  warehouse_id: string;
+  warehouse_name: string;
+  quantity: number;
+}
+
+export interface GroupedVariantColor {
+  product_id: string;
+  sku: string;
+  attributes: Record<string, string>;
+  price: string;
+  cost_price: string | null;
+  stock: GroupedVariantStock[];
+  total_quantity: number;
+}
+
+export interface GroupedVariant {
+  name: string;
+  colors: GroupedVariantColor[];
+  total_quantity: number;
+}
+
+/** One product's colour family as the detail page shows it. */
+export interface ProductFamilyRow {
+  product_id: string;
+  sku: string;
+  attributes: Record<string, string>;
+  color_label: string;
+  price: string;
+  cost_price: string | null;
+  stock: GroupedVariantStock[];
+  total_quantity: number;
+}
+
+export interface ProductFamily {
+  name: string;
+  category_id: string;
+  has_scheme: boolean;
+  color_key: string | null;
+  rows: ProductFamilyRow[];
+  total_quantity: number;
+}
+
+/** One product as a colour family: name plus Couleur / Dépôt / Store / Total. */
+export async function getProductFamily(productId: string): Promise<ProductFamily> {
+  return apiFetch<ProductFamily>(`/v1/products/${productId}/family`);
+}
+
+/** One category's variants grouped by structural name, colours nested. */
+export async function listGroupedVariants(categoryId: string): Promise<GroupedVariant[]> {
+  return apiFetch<GroupedVariant[]>(`/v1/products/variant-groups/${categoryId}`);
 }
 
 function toPayload(input: ProductInput): Record<string, unknown> {
   return {
     name: input.name,
-    sku: input.sku,
+    // Blank means "generate one" on create and "leave it alone" on update.
+    // Sent as undefined rather than "" so it is omitted from the JSON — the
+    // server rejects an empty SKU, it does not treat it as absent.
+    sku: input.sku?.trim() || undefined,
     barcode: input.barcode || null,
     description: input.description || null,
     price: input.price,
@@ -87,6 +187,7 @@ export async function listProducts(
   q.set("page_size", String(pageSize));
   if (params.search) q.set("search", params.search);
   if (params.status) q.set("status", params.status);
+  if (params.includeVariants === false) q.set("include_variants", "false");
   if (params.categoryId) q.set("category_id", params.categoryId);
   if (params.sort) q.set("sort", params.sort);
   if (params.sortDir) q.set("sort_dir", params.sortDir);
@@ -100,7 +201,19 @@ export async function getProduct(id: string): Promise<Product> {
 export async function createProduct(input: ProductInput): Promise<Product> {
   return apiFetch<Product>("/v1/products", {
     method: "POST",
-    body: JSON.stringify(toPayload(input)),
+    // product_type is create-only: the backend's update schema has no such
+    // field, because changing a product with stock into a kit would make that
+    // stock meaningless. Pick the wrong type and you duplicate as the right
+    // one instead.
+    body: JSON.stringify({
+      ...toPayload(input),
+      product_type: input.productType ?? "simple",
+      opening_stock: (input.openingStock ?? []).map((entry) => ({
+        warehouse_id: entry.warehouseId,
+        quantity: entry.quantity,
+        min_quantity: entry.minQuantity ?? null,
+      })),
+    }),
   });
 }
 
@@ -165,6 +278,38 @@ export async function setPrimaryProductImage(
 ): Promise<ProductImage> {
   return apiFetch<ProductImage>(`/v1/products/${productId}/images/${imageId}/primary`, {
     method: "POST",
+  });
+}
+
+export async function bulkDeleteProducts(productIds: string[]): Promise<number> {
+  const result = await apiFetch<{ deleted_count: number }>("/v1/products/bulk-delete", {
+    method: "POST",
+    body: JSON.stringify({ product_ids: productIds }),
+  });
+  return result.deleted_count;
+}
+
+export async function duplicateProduct(productId: string): Promise<Product> {
+  return apiFetch<Product>(`/v1/products/${productId}/duplicate`, { method: "POST" });
+}
+
+export async function addProductVariant(
+  productId: string,
+  input: AddVariantInput,
+): Promise<Product> {
+  return apiFetch<Product>(`/v1/products/${productId}/variants`, {
+    method: "POST",
+    body: JSON.stringify({
+      attributes: input.attributes,
+      price: input.price,
+      cost_price: input.costPrice || null,
+      default_warehouse_id: input.defaultWarehouseId || null,
+      opening_stock: (input.openingStock ?? []).map((entry) => ({
+        warehouse_id: entry.warehouseId,
+        quantity: entry.quantity,
+        min_quantity: entry.minQuantity ?? null,
+      })),
+    }),
   });
 }
 

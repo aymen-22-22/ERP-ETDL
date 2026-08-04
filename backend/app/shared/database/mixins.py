@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -10,8 +10,27 @@ from app.shared.core.ids import generate_uuid7
 
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # `onupdate` is a Python callable, NOT `func.now()`.
+    #
+    # With a SQL-side onupdate, the value is computed by the database, so after
+    # an UPDATE flush SQLAlchemy marks the attribute expired and re-reads it
+    # lazily on next access. Under asyncio that lazy read is synchronous IO
+    # outside the greenlet and raises:
+    #
+    #     MissingGreenlet: greenlet_spawn has not been called
+    #
+    # `serialize_syncable()` touches every column to snapshot the row for the
+    # ChangeLog, so it tripped that on the very next line — meaning *every*
+    # product update and delete failed with a 500, while creates worked because
+    # INSERT fetches server defaults inline via RETURNING.
+    #
+    # Computing it in Python keeps the value on the object, needs no extra
+    # query, and costs only that the timestamp comes from the app clock rather
+    # than the database clock.
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=lambda: datetime.now(UTC),
     )
 
 

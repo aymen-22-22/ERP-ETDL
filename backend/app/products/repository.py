@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import func, or_, select
 
-from app.products.models import Product
+from app.products.models import Product, ProductType
 from app.products.schemas import ProductCreate, ProductQuery, ProductSort, ProductUpdate
 from app.shared.core.pagination import PageParams
 from app.sync.repository import SyncableCRUDRepository
@@ -43,6 +43,8 @@ class ProductRepository(SyncableCRUDRepository[Product, ProductCreate, ProductUp
             base = base.where(Product.brand_id == query.brand_id)
         if query.status is not None:
             base = base.where(Product.status == query.status)
+        if not query.include_variants:
+            base = base.where(Product.product_type != ProductType.VARIANT)
 
         total = await self._session.scalar(select(func.count()).select_from(base.subquery()))
         ordered = base.order_by(_SORT_COLUMNS[query.sort])

@@ -5,7 +5,23 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.products.models import ProductStatus
+from app.products.models import ProductStatus, ProductType
+
+
+class OpeningStock(BaseModel):
+    """Stock counted into one warehouse when the product is first created.
+
+    A list of these replaces the single `initial_stock` + `default_warehouse_id`
+    pair, because the shop counts a new product into the depot *and* the store
+    in one go, and forcing two separate trips through the stock-adjustment
+    screen is how counts drift.
+    """
+
+    warehouse_id: UUID
+    quantity: int = Field(default=0, ge=0)
+    # Low-stock alert threshold for this product in this warehouse. Optional:
+    # not every product warrants an alert.
+    min_quantity: int | None = Field(default=None, ge=0)
 
 
 class ProductCreate(BaseModel):
@@ -16,17 +32,26 @@ class ProductCreate(BaseModel):
 
     id: UUID | None = None
     name: str = Field(min_length=1, max_length=255)
-    sku: str = Field(min_length=1, max_length=100)
+    # Optional: the server derives one from the category when omitted
+    # (Porte Chaussure -> PC-001). Hand-typed SKUs are how duplicates and
+    # typos get in, and the operator has no way to know the next free number.
+    sku: str | None = Field(default=None, min_length=1, max_length=100)
     barcode: str | None = Field(default=None, max_length=100)
     description: str | None = None
     price: Decimal = Field(gt=0)
     cost_price: Decimal | None = Field(default=None, ge=0)
     status: ProductStatus = ProductStatus.ACTIVE
+    product_type: ProductType = ProductType.SIMPLE
+    attributes: dict[str, str] = Field(default_factory=dict)
     category_id: UUID | None = None
     brand_id: UUID | None = None
     unit_id: UUID | None = None
     default_warehouse_id: UUID | None = None
+    # Legacy single-warehouse opening stock, kept because the Excel import
+    # still uses it. `opening_stock` supersedes it; when both are sent the
+    # list wins.
     initial_stock: int | None = Field(default=None, ge=0)
+    opening_stock: list[OpeningStock] = Field(default_factory=list)
 
 
 class ProductUpdate(BaseModel):
@@ -43,6 +68,14 @@ class ProductUpdate(BaseModel):
     default_warehouse_id: UUID | None = None
 
 
+class BulkDeleteRequest(BaseModel):
+    product_ids: list[UUID] = Field(min_length=1, max_length=200)
+
+
+class BulkDeleteResult(BaseModel):
+    deleted_count: int
+
+
 class ProductRead(BaseModel):
     id: UUID
     tenant_id: UUID
@@ -53,6 +86,8 @@ class ProductRead(BaseModel):
     price: Decimal
     cost_price: Decimal | None
     status: ProductStatus
+    product_type: ProductType
+    attributes: dict[str, str]
     category_id: UUID | None
     brand_id: UUID | None
     unit_id: UUID | None
@@ -95,6 +130,11 @@ class ProductQuery(BaseModel):
     brand_id: UUID | None = None
     status: ProductStatus | None = None
     sort: ProductSort = ProductSort.NAME
+    # Generated variants are individually tracked products, so they belong in
+    # the list by default — the POS prices from it and the recipe editor picks
+    # components from it. The product *list page* opts out so a dozen tubes
+    # don't bury everything else; it shows variant families instead.
+    include_variants: bool = True
 
 
 class ImportRowError(BaseModel):

@@ -26,11 +26,22 @@ interface ApiErrorBody {
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /**
+   * The server's human-readable explanation, when it sent one.
+   *
+   * Kept separate from `message` (which stays the machine code, so existing
+   * comparisons keep working) because some errors are only actionable with
+   * the server's own wording — "these products are components of a kit
+   * recipe: X (used by Triangle 4600da)" tells you what to do, where the bare
+   * code `product_in_use_by_kit` does not.
+   */
+  readonly detail: string | undefined;
 
-  constructor(status: number, code: string) {
+  constructor(status: number, code: string, detail?: string) {
     super(code);
     this.status = status;
     this.code = code;
+    this.detail = detail;
   }
 }
 
@@ -82,7 +93,7 @@ async function requestJson(path: string, options: RequestInit): Promise<unknown>
 
   const body = (await response.json()) as ApiErrorBody & Record<string, unknown>;
   if (!response.ok) {
-    throw new ApiError(response.status, body.error?.code ?? "unknown_error");
+    throw new ApiError(response.status, body.error?.code ?? "unknown_error", body.error?.message);
   }
   return body;
 }
