@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { CategorySelector } from "@/features/categories/CategorySelector";
+import { ProductImageManager } from "@/features/products/ProductImageManager";
 import {
   useCreateProductMutation,
   useProduct,
@@ -160,6 +161,15 @@ export function ProductFormPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-4">
+            {isEdit && productId ? (
+              <div className="flex flex-col gap-1.5">
+                <Label>Photos</Label>
+                <ProductImageManager productId={productId} />
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">Save the product first to add photos.</p>
+            )}
+
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="name">Name</Label>
               <Input id="name" {...register("name")} />

@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app import models as _models  # noqa: F401  — populates Base.metadata with every model
@@ -60,6 +61,13 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
     app.include_router(api_v1_router)
+
+    settings.media_root_path.mkdir(parents=True, exist_ok=True)
+    app.mount(
+        settings.media_url_prefix,
+        StaticFiles(directory=settings.media_root_path),
+        name="media",
+    )
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:

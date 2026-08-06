@@ -5,13 +5,15 @@ from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, statu
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_permission
-from app.products import bom_service, import_service, service, variant_service
+from app.products import bom_service, image_service, import_service, service, variant_service
 from app.products.bom_schemas import BomLineRead, BomReplaceRequest
 from app.products.models import Product, ProductBomLine, ProductStatus
 from app.products.schemas import (
     BulkDeleteRequest,
     BulkDeleteResult,
+    ImportSummary,
     ProductCreate,
+    ProductImageRead,
     ProductQuery,
     ProductRead,
     ProductSort,
@@ -50,6 +52,21 @@ async def create_product(
     return ResponseEnvelope(data=ProductRead.model_validate(product))
 
 
+async def _with_image(session: AsyncSession, tenant_id: UUID, product: ProductRead) -> ProductRead:
+    images = await image_service.primary_image_map(session, tenant_id, [product.id])
+    product.image_url = images.get(product.id)
+    return product
+
+
+async def _with_images(
+    session: AsyncSession, tenant_id: UUID, products: list[ProductRead]
+) -> list[ProductRead]:
+    images = await image_service.primary_image_map(session, tenant_id, [p.id for p in products])
+    for product in products:
+        product.image_url = images.get(product.id)
+    return products
+
+
 @router.get("", response_model=PaginatedEnvelope[ProductRead])
 async def list_products(
     session: Annotated[AsyncSession, Depends(get_tenant_db)],
@@ -75,17 +92,20 @@ async def list_products(
         include_variants=include_variants,
     )
     products, meta = await service.list_products(session, tenant_id, params, query)
-    return PaginatedEnvelope(
-        data=[ProductRead.model_validate(product) for product in products], meta=meta
+    reads = await _with_images(
+        session, tenant_id, [ProductRead.model_validate(product) for product in products]
     )
+    return PaginatedEnvelope(data=reads, meta=meta)
 
 
 @router.get("/import/template")
 async def download_import_template(
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
     _: Annotated[None, Depends(require_permission("products:read"))],
     __: Annotated[None, Depends(rate_limit("products", limit=30))],
 ) -> Response:
-    content = import_service.generate_template()
+    content = await import_service.generate_template(session, tenant_id)
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -93,17 +113,32 @@ async def download_import_template(
     )
 
 
-@router.post("/import", response_model=ResponseEnvelope[list[ProductRead]])
+@router.get("/export")
+async def export_products(
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=10))],
+) -> Response:
+    content = await import_service.export_products(session, tenant_id)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=products_export.xlsx"},
+    )
+
+
+@router.post("/import", response_model=ResponseEnvelope[ImportSummary])
 async def import_products(
     file: Annotated[UploadFile, File()],
     session: Annotated[AsyncSession, Depends(get_tenant_db)],
     tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
     _: Annotated[None, Depends(require_permission("products:write"))],
     __: Annotated[None, Depends(rate_limit("products", limit=10))],
-) -> ResponseEnvelope[list[ProductRead]]:
+) -> ResponseEnvelope[ImportSummary]:
     file_bytes = await file.read()
-    products = await import_service.import_products(session, tenant_id, file_bytes)
-    return ResponseEnvelope(data=[ProductRead.model_validate(p) for p in products])
+    summary = await import_service.import_products(session, tenant_id, file_bytes)
+    return ResponseEnvelope(data=summary)
 
 
 @router.get("/kits/sellable", response_model=ResponseEnvelope[list[dict[str, object]]])
@@ -382,7 +417,8 @@ async def get_product(
     __: Annotated[None, Depends(rate_limit("products", limit=120))],
 ) -> ResponseEnvelope[ProductRead]:
     product = await service.get_product(session, tenant_id, product_id)
-    return ResponseEnvelope(data=ProductRead.model_validate(product))
+    read = await _with_image(session, tenant_id, ProductRead.model_validate(product))
+    return ResponseEnvelope(data=read)
 
 
 @router.patch("/{product_id}", response_model=ResponseEnvelope[ProductRead])
@@ -407,3 +443,60 @@ async def delete_product(
     __: Annotated[None, Depends(rate_limit("products", limit=30))],
 ) -> None:
     await service.delete_product(session, tenant_id, product_id)
+
+
+@router.get("/{product_id}/images", response_model=ResponseEnvelope[list[ProductImageRead]])
+async def list_product_images(
+    product_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=120))],
+) -> ResponseEnvelope[list[ProductImageRead]]:
+    images = await image_service.list_images(session, tenant_id, product_id)
+    return ResponseEnvelope(data=[ProductImageRead.model_validate(img) for img in images])
+
+
+@router.post(
+    "/{product_id}/images",
+    response_model=ResponseEnvelope[ProductImageRead],
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_product_image(
+    product_id: UUID,
+    file: Annotated[UploadFile, File()],
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=30))],
+) -> ResponseEnvelope[ProductImageRead]:
+    image = await image_service.add_image(session, tenant_id, product_id, file)
+    return ResponseEnvelope(data=ProductImageRead.model_validate(image))
+
+
+@router.post(
+    "/{product_id}/images/{image_id}/primary",
+    response_model=ResponseEnvelope[ProductImageRead],
+)
+async def set_primary_product_image(
+    product_id: UUID,
+    image_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=30))],
+) -> ResponseEnvelope[ProductImageRead]:
+    image = await image_service.set_primary_image(session, tenant_id, product_id, image_id)
+    return ResponseEnvelope(data=ProductImageRead.model_validate(image))
+
+
+@router.delete("/{product_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_product_image(
+    product_id: UUID,
+    image_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=30))],
+) -> None:
+    await image_service.delete_image(session, tenant_id, product_id, image_id)

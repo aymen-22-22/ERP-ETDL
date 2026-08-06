@@ -1,4 +1,4 @@
-import { ArrowLeftRightIcon, PlusIcon } from "lucide-react";
+import { AlertTriangleIcon, ArrowLeftRightIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -25,7 +25,7 @@ const STATUS_VARIANT: Record<TransferStatus, "default" | "secondary" | "destruct
 export function TransferListPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<TransferStatus | "">("");
-  const { data: transfers, isLoading } = useTransfers(status || undefined);
+  const { data: transfers, isLoading, isError, refetch } = useTransfers(status || undefined);
   const { data: warehouses } = useWarehouses();
 
   const warehouseName = (id: string) => warehouses?.find((w) => w.id === id)?.name ?? id;
@@ -57,7 +57,16 @@ export function TransferListPage() {
 
       {isLoading && <TableLoader rows={4} columns={4} />}
 
-      {!isLoading && transfers?.length === 0 && (
+      {!isLoading && isError && (
+        <EmptyState
+          icon={AlertTriangleIcon}
+          title="Couldn't load transfers"
+          description="Something went wrong fetching your transfers. Check your connection and try again."
+          action={{ label: "Retry", onClick: () => void refetch() }}
+        />
+      )}
+
+      {!isLoading && !isError && transfers?.length === 0 && (
         <EmptyState
           icon={ArrowLeftRightIcon}
           title="No transfers"

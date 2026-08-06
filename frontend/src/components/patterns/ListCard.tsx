@@ -16,6 +16,8 @@ interface ListCardProps {
   to?: string;
   /** Actions row pinned to the bottom of the card. */
   actions?: ReactNode;
+  /** Optional leading thumbnail (e.g. a product photo). */
+  image?: string | null;
   className?: string;
 }
 
@@ -26,9 +28,28 @@ interface ListCardProps {
  * `actions` renders outside the link so buttons inside a card don't trigger
  * navigation when tapped.
  */
-function ListCard({ title, subtitle, meta, trailing, to, actions, className }: ListCardProps) {
+function ListCard({
+  title,
+  subtitle,
+  meta,
+  trailing,
+  to,
+  actions,
+  image,
+  className,
+}: ListCardProps) {
+  // A full-width banner reads much better than a small thumbnail once photos
+  // are the point of the card (e.g. product images) — it's the same
+  // image-forward treatment as the kanban card, just with the row layout
+  // for details underneath instead of the grid's mobile fallback.
+  const banner = image !== undefined && (
+    <div className="bg-muted flex aspect-video items-center justify-center overflow-hidden rounded-t-md">
+      {image && <img src={image} alt="" className="size-full object-cover" />}
+    </div>
+  );
+
   const body = (
-    <div className="flex items-start gap-3">
+    <div className="flex items-start gap-3 p-4">
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{title}</p>
         {subtitle && <p className="text-muted-foreground mt-0.5 truncate text-sm">{subtitle}</p>}
@@ -44,7 +65,7 @@ function ListCard({ title, subtitle, meta, trailing, to, actions, className }: L
       className={cn(
         // Structure comes from the border, not a shadow — flatter and more
         // document-like, which is the classic-professional read.
-        "bg-card rounded-md border transition-colors",
+        "bg-card overflow-hidden rounded-md border transition-colors",
         to && "hover:border-foreground/30 active:bg-accent",
         className,
       )}
@@ -52,12 +73,16 @@ function ListCard({ title, subtitle, meta, trailing, to, actions, className }: L
       {to ? (
         <Link
           to={to}
-          className="block p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-lg"
+          className="focus-visible:ring-ring/50 block rounded-lg outline-none focus-visible:ring-2"
         >
+          {banner}
           {body}
         </Link>
       ) : (
-        <div className="p-4">{body}</div>
+        <>
+          {banner}
+          {body}
+        </>
       )}
       {actions && <div className="flex items-center gap-2 border-t px-4 py-2">{actions}</div>}
     </div>

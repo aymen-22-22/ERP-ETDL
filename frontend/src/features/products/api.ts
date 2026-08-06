@@ -57,6 +57,16 @@ export interface Product {
   version: number;
   created_at: string;
   updated_at: string;
+  image_url: string | null;
+}
+
+export interface ProductImage {
+  id: string;
+  product_id: string;
+  url: string;
+  sort_order: number;
+  is_primary: boolean;
+  created_at: string;
 }
 
 /** Mirrors the backend ProductType enum. */
@@ -225,6 +235,52 @@ export async function deleteProduct(id: string, version: number): Promise<void> 
   });
 }
 
+/**
+ * `image_url` from the API is mount-relative (e.g. "/media/products/...") —
+ * it must resolve against the API host, not the frontend's own origin, the
+ * same way every other request in this file does via `API_BASE_URL`.
+ */
+export function resolveProductImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (/^https?:\/\//.test(url)) return url;
+  return `${API_BASE_URL}${url}`;
+}
+
+export async function listProductImages(productId: string): Promise<ProductImage[]> {
+  const res = await apiFetch<ProductImage[]>(`/v1/products/${productId}/images`);
+  return res;
+}
+
+export async function uploadProductImage(productId: string, file: File): Promise<ProductImage> {
+  const token = useAuthStore.getState().accessToken;
+  const form = new FormData();
+  form.append("file", file);
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const resp = await fetch(`${API_BASE_URL}/v1/products/${productId}/images`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+  const body = (await resp.json()) as { data?: ProductImage; error?: { code?: string } };
+  if (!resp.ok) throw new ApiError(resp.status, body.error?.code ?? "unknown_error");
+  if (!body.data) throw new ApiError(resp.status, "unknown_error");
+  return body.data;
+}
+
+export async function deleteProductImage(productId: string, imageId: string): Promise<void> {
+  await apiFetch<void>(`/v1/products/${productId}/images/${imageId}`, { method: "DELETE" });
+}
+
+export async function setPrimaryProductImage(
+  productId: string,
+  imageId: string,
+): Promise<ProductImage> {
+  return apiFetch<ProductImage>(`/v1/products/${productId}/images/${imageId}/primary`, {
+    method: "POST",
+  });
+}
+
 export async function bulkDeleteProducts(productIds: string[]): Promise<number> {
   const result = await apiFetch<{ deleted_count: number }>("/v1/products/bulk-delete", {
     method: "POST",
@@ -265,12 +321,32 @@ export async function downloadImportTemplate(): Promise<Blob> {
   return resp.blob();
 }
 
+export async function exportProductsExcel(): Promise<Blob> {
+  const token = useAuthStore.getState().accessToken;
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const resp = await fetch(`${API_BASE_URL}/v1/products/export`, { headers });
+  if (!resp.ok) throw new ApiError(resp.status, "unknown_error");
+  return resp.blob();
+}
+
+export interface ImportRowError {
+  row: number;
+  message: string;
+}
+
+export interface ImportSummary {
+  created: Product[];
+  updated: Product[];
+  errors: ImportRowError[];
+}
+
 interface ImportEnvelope {
-  data?: Product[];
+  data?: ImportSummary;
   error?: { code?: string };
 }
 
-export async function importProductsExcel(file: File): Promise<Product[]> {
+export async function importProductsExcel(file: File): Promise<ImportSummary> {
   const token = useAuthStore.getState().accessToken;
   const form = new FormData();
   form.append("file", file);
@@ -283,5 +359,6 @@ export async function importProductsExcel(file: File): Promise<Product[]> {
   });
   const body = (await resp.json()) as ImportEnvelope;
   if (!resp.ok) throw new ApiError(resp.status, body.error?.code ?? "unknown_error");
-  return body.data ?? [];
+  if (!body.data) throw new ApiError(resp.status, "unknown_error");
+  return body.data;
 }

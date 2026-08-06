@@ -2,6 +2,7 @@ import {
   ArrowRightIcon,
   CopyIcon,
   DownloadIcon,
+  FileSpreadsheetIcon,
   LayersIcon,
   ListTreeIcon,
   PackageIcon,
@@ -20,8 +21,12 @@ import { Fab } from "@/components/ui/fab";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useCategories } from "@/features/categories/hooks";
-import type { Product, ProductSort, ProductSortDir } from "@/features/products/api";
-import { downloadImportTemplate, importProductsExcel } from "@/features/products/api";
+import type { ImportSummary, Product, ProductSort, ProductSortDir } from "@/features/products/api";
+import {
+  downloadImportTemplate,
+  exportProductsExcel,
+  importProductsExcel,
+} from "@/features/products/api";
 import { GroupedVariantsView } from "@/features/products/GroupedVariantsView";
 import {
   useBulkDeleteProductsMutation,
@@ -156,18 +161,41 @@ export function ProductsListPage() {
   // a single kit.
   const single = selectedProducts.length === 1 ? selectedProducts[0] : undefined;
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleExportTemplate = async () => {
     try {
       const blob = await downloadImportTemplate();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "product_import_template.xlsx";
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, "product_import_template.xlsx");
     } catch {
       toast({ title: "Download failed", variant: "destructive" });
     }
+  };
+
+  const [exporting, setExporting] = useState(false);
+  const handleExportProducts = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportProductsExcel();
+      downloadBlob(blob, "products_export.xlsx");
+    } catch {
+      toast({ title: "Export failed", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const describeImport = (summary: ImportSummary) => {
+    const parts = [`${summary.created.length} created`, `${summary.updated.length} updated`];
+    if (summary.errors.length > 0) parts.push(`${summary.errors.length} skipped`);
+    return parts.join(", ");
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,8 +203,20 @@ export function ProductsListPage() {
     if (!file) return;
     setImporting(true);
     try {
-      const created = await importProductsExcel(file);
-      toast({ title: `Imported ${created.length} products` });
+      const summary = await importProductsExcel(file);
+      const hasErrors = summary.errors.length > 0;
+      const firstErrors = summary.errors
+        .slice(0, 3)
+        .map((err) => `Row ${err.row}: ${err.message}`)
+        .join(" · ");
+      toast({
+        title: describeImport(summary),
+        variant: hasErrors ? "destructive" : "default",
+        ...(hasErrors && {
+          description: firstErrors + (summary.errors.length > 3 ? " · …" : ""),
+          duration: 10000,
+        }),
+      });
       window.location.reload();
     } catch {
       toast({
@@ -289,6 +329,16 @@ export function ProductsListPage() {
           <Button variant="outline" size="sm" onClick={() => void handleExportTemplate()}>
             <DownloadIcon className="mr-1 size-4" />
             Template
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={exporting}
+            title="Export all products to Excel"
+            onClick={() => void handleExportProducts()}
+          >
+            <FileSpreadsheetIcon className="mr-1 size-4" />
+            {exporting ? "Exporting..." : "Export"}
           </Button>
           <Button
             variant="outline"

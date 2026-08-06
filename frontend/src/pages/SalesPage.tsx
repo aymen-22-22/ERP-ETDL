@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2Icon, ShoppingCartIcon, StoreIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/patterns/PageHeader";
@@ -29,6 +30,7 @@ import { cn } from "@/lib/utils";
  * comes from the server; prices come from the local product cache.
  */
 export function SalesPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const stores = useSaleWarehouses();
   const { storeId, lines, setStore, addItem, setQuantity, removeLine, clear } = useCartStore();
@@ -158,6 +160,7 @@ export function SalesPage() {
           icon={StoreIcon}
           title="No store to sell from"
           description="Sales run against a Store warehouse that allows sales. Create one, or enable sales on an existing store."
+          action={{ label: "Go to warehouses", onClick: () => void navigate("/warehouses") }}
         />
       </PageShell>
     );

@@ -32,7 +32,9 @@ export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
       disabled={disabled}
       aria-label={`Add ${product.name} to sale`}
       className={cn(
-        "bg-card relative flex min-h-28 flex-col justify-between rounded-md border p-3 text-left transition-colors",
+        // Same card language as the Products page: a bordered, flat surface
+        // with the photo as a full-width banner rather than a small thumbnail.
+        "bg-card relative flex flex-col overflow-hidden rounded-md border text-left transition-colors",
         "focus-visible:ring-ring/50 outline-none focus-visible:ring-2",
         disabled
           ? "cursor-not-allowed opacity-50"
@@ -42,33 +44,41 @@ export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
       {inCart > 0 && (
         <span
           aria-label={`${inCart} in sale`}
-          className="bg-primary text-primary-foreground absolute top-2 right-2 flex size-6 items-center justify-center rounded-full text-xs font-semibold tabular-nums"
+          className="bg-primary text-primary-foreground absolute top-2 right-2 z-10 flex size-6 items-center justify-center rounded-full text-xs font-semibold tabular-nums"
         >
           {inCart}
         </span>
       )}
 
-      <div className="min-w-0 pr-7">
-        <p className="line-clamp-2 text-sm font-medium">{product.name}</p>
-        <p className="text-muted-foreground mt-0.5 truncate text-xs">
-          {product.isKit ? "Kit" : product.sku}
-        </p>
+      <div className="bg-muted flex aspect-video items-center justify-center overflow-hidden">
+        {product.imageUrl && (
+          <img src={product.imageUrl} alt="" className="size-full object-cover" />
+        )}
       </div>
 
-      <div className="mt-3 flex items-end justify-between gap-2">
-        <span className="text-lg font-semibold tabular-nums">
-          {formatMoney(product.unitPriceCents)}
-        </span>
-        {product.isKit ? (
-          // A kit's number is how many its components can build, which is not
-          // the same claim as "we have N on the shelf" — labelled so nobody
-          // reads it as a physical count.
-          <Badge variant={product.available > 0 ? "secondary" : "outline"}>
-            {product.available > 0 ? `${product.available} buildable` : "Components short"}
-          </Badge>
-        ) : (
-          <StockBadge quantity={product.available} minQuantity={product.minQuantity} />
-        )}
+      <div className="flex flex-1 flex-col justify-between gap-3 p-3">
+        <div className="min-w-0">
+          <p className="line-clamp-2 text-sm font-medium">{product.name}</p>
+          <p className="text-muted-foreground mt-0.5 truncate text-xs">
+            {product.isKit ? "Kit" : product.sku}
+          </p>
+        </div>
+
+        <div className="flex items-end justify-between gap-2">
+          <span className="text-lg font-semibold tabular-nums">
+            {formatMoney(product.unitPriceCents)}
+          </span>
+          {product.isKit ? (
+            // A kit's number is how many its components can build, which is not
+            // the same claim as "we have N on the shelf" — labelled so nobody
+            // reads it as a physical count.
+            <Badge variant={product.available > 0 ? "secondary" : "outline"}>
+              {product.available > 0 ? `${product.available} buildable` : "Components short"}
+            </Badge>
+          ) : (
+            <StockBadge quantity={product.available} minQuantity={product.minQuantity} />
+          )}
+        </div>
       </div>
     </button>
   );
