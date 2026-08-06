@@ -10,7 +10,7 @@ import {
   UploadIcon,
   WandSparklesIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { EmptyState } from "@/components/EmptyState";
@@ -84,14 +84,16 @@ export function ProductsListPage() {
 
   // Generated variants are hidden from the main list and surfaced as families
   // below — a dozen tubes would otherwise bury everything else. Filtering to a
-  // specific category shows them, which is what clicking a family does.
+  // specific category shows them, which is what clicking a family does. A
+  // search also shows them: hiding variants from a search would make "tube
+  // liss" find nothing, since tubes only exist as variant rows.
   const showingOneCategory = categoryId !== null;
   const { data, isLoading } = useProducts(page, PAGE_SIZE, {
     search,
     status,
     sort,
     sortDir,
-    includeVariants: showingOneCategory,
+    includeVariants: showingOneCategory || search !== "",
     ...(categoryId ? { categoryId } : {}),
   });
   const { data: variantGroups } = useVariantGroups();
@@ -100,7 +102,20 @@ export function ProductsListPage() {
   // either "structural products with colours" or "ordinary products" in this
   // catalogue, never a mix, so there is no case where both need to render.
   const { data: groupedVariants } = useGroupedVariants(showingOneCategory ? categoryId : null);
-  const showGrouped = showingOneCategory && !!groupedVariants && groupedVariants.length > 0;
+  // A search is matched client-side against the grouped families (name + every
+  // colour's SKU) because the grouped endpoint has no search parameter of its
+  // own — "tube 19 liss" filters the nested view down to the right family.
+  const filteredGroups = useMemo(() => {
+    if (!groupedVariants) return groupedVariants;
+    const tokens = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return groupedVariants;
+    return groupedVariants.filter((group) => {
+      const haystack =
+        `${group.name} ${group.colors.map((color) => color.sku).join(" ")}`.toLowerCase();
+      return tokens.every((token) => haystack.includes(token));
+    });
+  }, [groupedVariants, search]);
+  const showGrouped = showingOneCategory && !!filteredGroups && filteredGroups.length > 0;
   const products = data?.data;
   const total = data?.meta.total ?? 0;
   const pages = data?.meta.pages ?? 1;
@@ -222,7 +237,7 @@ export function ProductsListPage() {
   const filters = (
     <div className="flex flex-wrap items-center gap-2">
       <Input
-        placeholder="Search by name or SKU..."
+        placeholder="Search by name, SKU or colour..."
         value={searchInput}
         onChange={(e) => setSearchInput(e.target.value)}
         className="max-w-xs"
@@ -304,7 +319,7 @@ export function ProductsListPage() {
 
       {filters}
 
-      {!showingOneCategory && variantGroups && variantGroups.length > 0 && (
+      {!showingOneCategory && search === "" && variantGroups && variantGroups.length > 0 && (
         <div className="flex flex-col gap-2">
           <h2 className="label-caps text-muted-foreground">Variant families</h2>
           <ul className="flex list-none flex-col gap-2">
@@ -385,7 +400,7 @@ export function ProductsListPage() {
       )}
 
       {showGrouped ? (
-        <GroupedVariantsView groups={groupedVariants} />
+        <GroupedVariantsView groups={filteredGroups ?? []} />
       ) : (
         <DataView
           rows={isLoading ? undefined : (products ?? [])}

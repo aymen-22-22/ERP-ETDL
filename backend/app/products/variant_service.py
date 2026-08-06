@@ -294,6 +294,12 @@ async def generate_variants(
                     tenant_id, product_id, entry.warehouse_id, entry.min_quantity
                 )
 
+        if item.opening_stock:
+            # A variant counted into one warehouse must exist (at 0) in every
+            # other active warehouse too, so the family table always shows a
+            # full row of warehouse columns instead of one warehouse vanishing.
+            await inventory_repo.ensure_snapshots_for_all_warehouses(tenant_id, product_id)
+
         created.append(product)
 
     await session.commit()

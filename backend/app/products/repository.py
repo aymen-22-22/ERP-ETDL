@@ -1,7 +1,8 @@
+import re
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import String, cast, func, or_, select
 
 from app.products.models import Product, ProductType
 from app.products.schemas import ProductCreate, ProductQuery, ProductSort, ProductUpdate
@@ -29,14 +30,23 @@ class ProductRepository(SyncableCRUDRepository[Product, ProductCreate, ProductUp
         base = select(Product).where(Product.tenant_id == tenant_id, Product.deleted_at.is_(None))
 
         if query.search:
-            term = f"%{query.search.strip()}%"
-            base = base.where(
-                or_(
-                    Product.name.ilike(term),
-                    Product.sku.ilike(term),
-                    Product.barcode.ilike(term),
+            # Tokenise the term so "tube 19 liss" matches "Tube 19 2m Liss":
+            # a contiguous "%tube 19 liss%" needle cannot, because the "2m"
+            # sits between "19" and "liss". Every token must appear somewhere
+            # in the name, SKU, barcode or attribute values (colour included).
+            attributes_text = cast(Product.attributes, String)
+            for token in re.split(r"\s+", query.search.strip()):
+                if not token:
+                    continue
+                term = f"%{token}%"
+                base = base.where(
+                    or_(
+                        Product.name.ilike(term),
+                        Product.sku.ilike(term),
+                        Product.barcode.ilike(term),
+                        attributes_text.ilike(term),
+                    )
                 )
-            )
         if query.category_id is not None:
             base = base.where(Product.category_id == query.category_id)
         if query.brand_id is not None:

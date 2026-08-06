@@ -348,6 +348,13 @@ async def _record_opening_stock(
                 tenant_id, product_id, entry.warehouse_id, entry.min_quantity
             )
 
+    if entries:
+        # The product starts life with stock somewhere; make it visible (at 0)
+        # in every other active warehouse, not just the ones it was counted
+        # into. Otherwise a warehouse shows no row at all until its first
+        # movement, which reads as "no such product here" instead of "0 here".
+        await inventory_repo.ensure_snapshots_for_all_warehouses(tenant_id, product_id)
+
 
 async def _components_in_use(
     session: AsyncSession, tenant_id: UUID, product_ids: list[UUID]

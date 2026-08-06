@@ -111,6 +111,34 @@ class InventoryRepository(SyncableRepository[InventoryMovement]):
             return
         snapshot.min_quantity = min_quantity
 
+    async def ensure_snapshots_for_all_warehouses(self, tenant_id: UUID, product_id: UUID) -> None:
+        """Create a zero-quantity snapshot for every active warehouse missing one.
+
+        A product that starts life with 10 units in the depot should exist at
+        0 in the store too — the staff counts on seeing every warehouse as a
+        column, not on a warehouse quietly vanishing until a movement touches
+        it. Snapshot rows are otherwise created lazily, so this backfills the
+        ones a fresh product has not been counted into yet.
+        """
+        result = await self._session.execute(
+            select(Warehouse.id).where(
+                Warehouse.tenant_id == tenant_id,
+                Warehouse.is_active.is_(True),
+                Warehouse.deleted_at.is_(None),
+            )
+        )
+        for (warehouse_id,) in result.all():
+            snapshot = await self._session.get(ProductStockSnapshot, (product_id, warehouse_id))
+            if snapshot is None:
+                self._session.add(
+                    ProductStockSnapshot(
+                        product_id=product_id,
+                        warehouse_id=warehouse_id,
+                        tenant_id=tenant_id,
+                        quantity_on_hand=0,
+                    )
+                )
+
     async def get_snapshot(
         self, tenant_id: UUID, product_id: UUID, warehouse_id: UUID
     ) -> ProductStockSnapshot | None:
