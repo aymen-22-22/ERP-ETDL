@@ -371,23 +371,25 @@ async def _get_or_create_brand(session: AsyncSession, tenant_id: UUID, name: str
 
 
 async def _find_unit(session: AsyncSession, tenant_id: UUID, text: str) -> UUID | None:
-    return await session.scalar(
+    unit_id: UUID | None = await session.scalar(
         select(Unit.id).where(
             Unit.tenant_id == tenant_id,
             Unit.deleted_at.is_(None),
             (Unit.name.ilike(text)) | (Unit.abbreviation.ilike(text)),
         )
     )
+    return unit_id
 
 
 async def _find_warehouse(session: AsyncSession, tenant_id: UUID, name: str) -> UUID | None:
-    return await session.scalar(
+    warehouse_id: UUID | None = await session.scalar(
         select(Warehouse.id).where(
             Warehouse.tenant_id == tenant_id,
             Warehouse.deleted_at.is_(None),
             Warehouse.name.ilike(name),
         )
     )
+    return warehouse_id
 
 
 def _parse_decimal(raw: object) -> Decimal | None:
