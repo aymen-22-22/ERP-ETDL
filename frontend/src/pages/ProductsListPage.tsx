@@ -3,10 +3,13 @@ import {
   CopyIcon,
   DownloadIcon,
   FileSpreadsheetIcon,
+  ImageOffIcon,
   LayersIcon,
+  LayoutGridIcon,
   ListTreeIcon,
   PackageIcon,
   PlusIcon,
+  TableIcon,
   Trash2Icon,
   UploadIcon,
   WandSparklesIcon,
@@ -20,12 +23,14 @@ import { Button } from "@/components/ui/button";
 import { Fab } from "@/components/ui/fab";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCategories } from "@/features/categories/hooks";
 import type { ImportSummary, Product, ProductSort, ProductSortDir } from "@/features/products/api";
 import {
   downloadImportTemplate,
   exportProductsExcel,
   importProductsExcel,
+  resolveProductImageUrl,
 } from "@/features/products/api";
 import { GroupedVariantsView } from "@/features/products/GroupedVariantsView";
 import {
@@ -52,6 +57,8 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
+const VIEW_MODE_KEY = "products-view-mode";
+type ViewMode = "table" | "cards";
 
 const selectClass =
   "border-input bg-background ring-offset-background flex h-10 rounded-md border px-3 py-2 text-sm";
@@ -70,10 +77,17 @@ export function ProductsListPage() {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [sort, setSort] = useState<ProductSort>("name");
   const [sortDir, setSortDir] = useState<ProductSortDir>("asc");
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    () => (localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null) ?? "table",
+  );
   const navigate = useNavigate();
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const { data: categories } = useCategories();
+
+  useEffect(() => {
+    localStorage.setItem(VIEW_MODE_KEY, viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     const handle = setTimeout(() => setSearch(searchInput), SEARCH_DEBOUNCE_MS);
@@ -274,6 +288,61 @@ export function ProductsListPage() {
     },
   ];
 
+  const renderKanban = () => {
+    if (isLoading) {
+      return (
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
+          {Array.from({ length: 9 }, (_, i) => (
+            <Skeleton key={i} className="aspect-[3/4] w-full rounded-md" />
+          ))}
+        </div>
+      );
+    }
+    if (!products || products.length === 0) {
+      return total === 0 && !isFiltered ? (
+        <EmptyState
+          icon={PackageIcon}
+          title="No products yet"
+          description="Add your first product to start tracking inventory."
+          action={{ label: "New product", onClick: () => void navigate("/products/new") }}
+        />
+      ) : (
+        <p className="text-muted-foreground py-8 text-center text-sm">
+          No products match your search or filters.
+        </p>
+      );
+    }
+    return (
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
+        {products.map((p) => {
+          const imageUrl = resolveProductImageUrl(p.image_url);
+          return (
+            <Link
+              key={p.id}
+              to={`/products/${p.id}`}
+              className="bg-card hover:border-foreground/30 flex flex-col overflow-hidden rounded-md border transition-colors"
+            >
+              <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
+                {imageUrl ? (
+                  <img src={imageUrl} alt={p.name} className="size-full object-cover" />
+                ) : (
+                  <ImageOffIcon className="text-muted-foreground size-6" />
+                )}
+              </div>
+              <div className="flex flex-col gap-0.5 p-2">
+                <p className="truncate text-xs font-medium">{p.name}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-xs tabular-nums">{p.sku}</span>
+                  <span className="text-xs font-medium tabular-nums">{p.price}</span>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    );
+  };
+
   const filters = (
     <div className="flex flex-wrap items-center gap-2">
       <Input
@@ -320,6 +389,28 @@ export function ProductsListPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Products</h1>
         <div className="flex items-center gap-2">
+          <div className="bg-muted flex items-center gap-0.5 rounded-md p-0.5">
+            <Button
+              variant={viewMode === "table" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 px-2"
+              aria-pressed={viewMode === "table"}
+              aria-label="Table view"
+              onClick={() => setViewMode("table")}
+            >
+              <TableIcon className="size-4" />
+            </Button>
+            <Button
+              variant={viewMode === "cards" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 px-2"
+              aria-pressed={viewMode === "cards"}
+              aria-label="Card view"
+              onClick={() => setViewMode("cards")}
+            >
+              <LayoutGridIcon className="size-4" />
+            </Button>
+          </div>
           <Button variant="outline" size="sm" asChild>
             <Link to="/products/generate">
               <WandSparklesIcon className="mr-1 size-4" />
@@ -451,6 +542,8 @@ export function ProductsListPage() {
 
       {showGrouped ? (
         <GroupedVariantsView groups={filteredGroups ?? []} />
+      ) : viewMode === "cards" ? (
+        renderKanban()
       ) : (
         <DataView
           rows={isLoading ? undefined : (products ?? [])}
