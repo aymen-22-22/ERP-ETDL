@@ -430,30 +430,44 @@ export function ProductsListPage() {
       {!showingOneCategory && search === "" && variantGroups && variantGroups.length > 0 && (
         <div className="flex flex-col gap-2">
           <h2 className="label-caps text-muted-foreground">Variant families</h2>
-          <ul className="flex list-none flex-col gap-2">
-            {variantGroups.map((group) => (
-              <li key={group.category_id}>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
+            {variantGroups.map((group) => {
+              const imageUrl = resolveProductImageUrl(group.image_url);
+              return (
                 <button
+                  key={group.category_id}
                   type="button"
                   onClick={() => setCategoryId(group.category_id)}
-                  className="hover:bg-accent focus-visible:ring-ring/50 flex min-h-11 w-full items-center gap-3 rounded-md border px-3 py-2 text-left outline-none focus-visible:ring-2"
+                  className="bg-card hover:border-foreground/30 flex flex-col overflow-hidden rounded-md border text-left transition-colors"
                 >
-                  <LayersIcon className="text-muted-foreground size-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {group.category_name}
-                  </span>
-                  <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                    {group.min_price === group.max_price
-                      ? group.min_price
-                      : `${group.min_price}–${group.max_price}`}
-                  </span>
-                  <Badge variant="secondary" className="shrink-0">
-                    {group.variant_count}
-                  </Badge>
+                  <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt={group.category_name}
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <LayersIcon className="text-muted-foreground size-6" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-0.5 p-2">
+                    <p className="truncate text-xs font-medium">{group.category_name}</p>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-muted-foreground text-xs tabular-nums">
+                        {group.min_price === group.max_price
+                          ? group.min_price
+                          : `${group.min_price}–${group.max_price}`}
+                      </span>
+                      <Badge variant="secondary" className="shrink-0 text-xs">
+                        {group.variant_count}
+                      </Badge>
+                    </div>
+                  </div>
                 </button>
-              </li>
-            ))}
-          </ul>
+              );
+            })}
+          </div>
           <p className="text-muted-foreground text-xs">
             Generated variants are grouped here instead of filling the list. Open a family to see
             and edit its variants.

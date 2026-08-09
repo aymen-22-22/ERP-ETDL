@@ -95,6 +95,8 @@ export interface VariantGroup {
   variant_count: number;
   min_price: string;
   max_price: string;
+  /** Primary photo of the first variant in the family, if it has one. */
+  image_url: string | null;
 }
 
 export async function listVariantGroups(): Promise<VariantGroup[]> {

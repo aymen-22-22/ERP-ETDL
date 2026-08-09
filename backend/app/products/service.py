@@ -12,6 +12,7 @@ from app.products.models import (
     Category,
     Product,
     ProductBomLine,
+    ProductImage,
     ProductStatus,
     ProductType,
     Unit,
@@ -239,6 +240,33 @@ async def list_variant_groups(session: AsyncSession, tenant_id: UUID) -> list[di
         .group_by(Product.category_id, Category.name)
         .order_by(Category.name)
     )
+    groups = result.all()
+    if not groups:
+        return []
+
+    # One card image per family: the earliest variant in the category that
+    # has a primary photo. Picked with DISTINCT ON so a category with many
+    # coloured variants returns a single row.
+    representative = aliased(Product)
+    image_rows = (
+        await session.execute(
+            select(representative.category_id, ProductImage.url)
+            .join(ProductImage, ProductImage.product_id == representative.id)
+            .where(
+                representative.tenant_id == tenant_id,
+                representative.deleted_at.is_(None),
+                representative.product_type == ProductType.VARIANT,
+                representative.category_id.in_([g[0] for g in groups]),
+                ProductImage.tenant_id == tenant_id,
+                ProductImage.is_primary.is_(True),
+                ProductImage.deleted_at.is_(None),
+            )
+            .order_by(representative.category_id, representative.created_at)
+            .distinct(representative.category_id)
+        )
+    ).all()
+    image_by_category = {row.category_id: row.url for row in image_rows}
+
     return [
         {
             "category_id": str(category_id),
@@ -246,8 +274,9 @@ async def list_variant_groups(session: AsyncSession, tenant_id: UUID) -> list[di
             "variant_count": count,
             "min_price": str(min_price),
             "max_price": str(max_price),
+            "image_url": image_by_category.get(category_id),
         }
-        for category_id, category_name, count, min_price, max_price in result.all()
+        for category_id, category_name, count, min_price, max_price in groups
     ]
 
 
