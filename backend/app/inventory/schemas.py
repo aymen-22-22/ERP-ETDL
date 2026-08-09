@@ -61,6 +61,40 @@ class MovementRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SaleListItem(BaseModel):
+    """One completed sale as the history list needs it: grouped from the
+    SALE movements sharing a `reference_id`."""
+
+    reference_id: UUID
+    sold_at: datetime
+    warehouse_id: UUID
+    # How many product lines came off the shelf (kits expand to several).
+    line_count: int
+    # Total pieces deducted across all lines.
+    total_quantity: int
+
+
+class SaleLineRead(BaseModel):
+    """One product deducted by a sale. `quantity` is the positive count taken
+    off the shelf; `sold_as` is the cart line that caused it (a kit's name for
+    an exploded component)."""
+
+    product_id: UUID
+    name: str
+    sku: str
+    quantity: int
+    sold_as: str | None
+
+
+class SaleDetail(BaseModel):
+    reference_id: UUID
+    sold_at: datetime
+    warehouse_id: UUID
+    line_count: int
+    total_quantity: int
+    lines: list[SaleLineRead]
+
+
 class StockSnapshotRead(BaseModel):
     product_id: UUID
     warehouse_id: UUID

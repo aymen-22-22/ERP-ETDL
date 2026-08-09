@@ -34,6 +34,9 @@ const WarehouseListPage = lazy(() =>
 const WarehouseDetailPage = lazy(() =>
   import("@/pages/WarehouseDetailPage").then((m) => ({ default: m.WarehouseDetailPage })),
 );
+const WarehouseCategoryPage = lazy(() =>
+  import("@/pages/WarehouseCategoryPage").then((m) => ({ default: m.WarehouseCategoryPage })),
+);
 const TransferListPage = lazy(() =>
   import("@/pages/TransferListPage").then((m) => ({ default: m.TransferListPage })),
 );
@@ -56,6 +59,12 @@ const CategoriesPage = lazy(() =>
   import("@/pages/CategoriesPage").then((m) => ({ default: m.CategoriesPage })),
 );
 const SalesPage = lazy(() => import("@/pages/SalesPage").then((m) => ({ default: m.SalesPage })));
+const SalesHistoryPage = lazy(() =>
+  import("@/pages/SalesHistoryPage").then((m) => ({ default: m.SalesHistoryPage })),
+);
+const SaleDetailPage = lazy(() =>
+  import("@/pages/SaleDetailPage").then((m) => ({ default: m.SaleDetailPage })),
+);
 const ConfigurableProductsPage = lazy(() =>
   import("@/pages/ConfigurableProductsPage").then((m) => ({ default: m.ConfigurableProductsPage })),
 );
@@ -99,8 +108,14 @@ export function AppRoutes() {
             <Route path="/products/:productId/edit" element={<ProductFormPage />} />
             <Route path="/warehouses" element={<WarehouseListPage />} />
             <Route path="/warehouses/:warehouseId" element={<WarehouseDetailPage />} />
+            <Route
+              path="/warehouses/:warehouseId/categories/:categoryId"
+              element={<WarehouseCategoryPage />}
+            />
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/sales" element={<SalesPage />} />
+            <Route path="/sales/history" element={<SalesHistoryPage />} />
+            <Route path="/sales/history/:referenceId" element={<SaleDetailPage />} />
             <Route path="/configurable" element={<ConfigurableProductsPage />} />
             <Route path="/configurable/new" element={<NewConfigurableProductPage />} />
             <Route path="/configurable/:productId" element={<ConfigurableDefinitionPage />} />

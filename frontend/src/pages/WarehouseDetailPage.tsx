@@ -1,13 +1,15 @@
-import { ArrowLeftIcon, Trash2Icon } from "lucide-react";
+import { FolderOpenIcon } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 
-import { CategoryBrowser } from "@/components/CategoryBrowser";
+import { CardGridSkeleton } from "@/components/CardGridSkeleton";
+import { CategoryGrid } from "@/components/category/CategoryGrid";
+import { CategoryCard } from "@/components/category/CategoryCard";
+import { EmptyState } from "@/components/EmptyState";
 import { PageLoader } from "@/components/PageLoader";
-import { TableLoader } from "@/components/TableLoader";
-import { Badge } from "@/components/ui/badge";
+import { WarehouseHeader } from "@/components/warehouse/WarehouseHeader";
+import { WarehouseStats } from "@/components/warehouse/WarehouseStats";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -16,25 +18,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { countProductsInCategory } from "@/features/categories/treeUtils";
 import { useCategoryTree } from "@/features/categories/hooks";
 import { useWarehouseStock, useWarehouseSummary } from "@/features/inventory/hooks";
-import { useDeleteWarehouseMutation, useWarehouses } from "@/features/warehouses/hooks";
+import {
+  useDeleteWarehouseMutation,
+  useSetDefaultWarehouseMutation,
+  useWarehouses,
+} from "@/features/warehouses/hooks";
+import { NotFoundPage } from "@/pages/NotFoundPage";
 
 export function WarehouseDetailPage() {
   const { warehouseId = "" } = useParams();
   const navigate = useNavigate();
-  const [currentCategoryId, setCurrentCategoryId] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const { data: warehouses } = useWarehouses();
+  const { data: warehouses, isLoading: warehousesLoading } = useWarehouses();
   const warehouse = warehouses?.find((w) => w.id === warehouseId);
   const deleteMutation = useDeleteWarehouseMutation();
+  const setDefaultMutation = useSetDefaultWarehouseMutation();
 
-  const { data: stock, isLoading: stockLoading } = useWarehouseStock(warehouseId || null);
+  const { data: stock } = useWarehouseStock(warehouseId || null);
   const { data: summary, isLoading: summaryLoading } = useWarehouseSummary(warehouseId || null);
   const { data: categoryTree, isLoading: treeLoading } = useCategoryTree();
 
-  if (!warehouse) return <PageLoader />;
+  if (warehousesLoading) return <PageLoader />;
+  if (!warehouse) return <NotFoundPage />;
 
   const handleDelete = () => {
     deleteMutation.mutate(warehouseId, {
@@ -44,75 +53,57 @@ export function WarehouseDetailPage() {
     });
   };
 
+  const rootCategories = categoryTree ?? [];
+
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Link to="/warehouses" className="text-muted-foreground hover:text-foreground">
-              <ArrowLeftIcon className="size-4" />
-            </Link>
-            <h1 className="text-2xl font-semibold">{warehouse.name}</h1>
-            {warehouse.is_default && <Badge variant="secondary">Default</Badge>}
-          </div>
-          <p className="text-muted-foreground mt-1 text-sm capitalize">
-            {warehouse.warehouse_type}
-            {warehouse.code ? ` · ${warehouse.code}` : ""}
-          </p>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 sm:p-6">
+      <WarehouseHeader
+        warehouse={warehouse}
+        onSetDefault={
+          warehouse.is_default ? undefined : () => setDefaultMutation.mutate(warehouseId)
+        }
+        onDelete={() => setDeleteOpen(true)}
+      />
+
+      <WarehouseStats summary={summaryLoading ? undefined : summary} />
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Categories</h2>
+          {!treeLoading && stock !== undefined && categoryTree !== undefined && (
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {rootCategories.length} {rootCategories.length === 1 ? "category" : "categories"}
+            </span>
+          )}
         </div>
-        {!warehouse.is_default && (
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
-            <Trash2Icon className="mr-1 size-4" />
-            Delete
-          </Button>
-        )}
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm">Total Products</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold tabular-nums">
-              {summaryLoading ? "..." : (summary?.total_products ?? 0)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm">Total Quantity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold tabular-nums">
-              {summaryLoading ? "..." : (summary?.total_quantity ?? 0)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm">Low Stock Items</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold tabular-nums">
-              {summaryLoading ? "..." : (summary?.low_stock_count ?? 0)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+        {treeLoading && <CardGridSkeleton count={4} />}
 
-      <div className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Inventory</h2>
-        {(stockLoading || treeLoading) && <TableLoader rows={5} columns={4} />}
-        {!stockLoading && !treeLoading && categoryTree && stock && (
-          <CategoryBrowser
-            tree={categoryTree}
-            stock={stock}
-            currentCategoryId={currentCategoryId}
-            onSelectCategory={setCurrentCategoryId}
-          />
-        )}
-      </div>
+        {!treeLoading &&
+          stock !== undefined &&
+          categoryTree !== undefined &&
+          (rootCategories.length === 0 ? (
+            <EmptyState
+              icon={FolderOpenIcon}
+              title="No categories yet"
+              description="Add categories under Catalog to start organizing stock here."
+            />
+          ) : (
+            <CategoryGrid>
+              {rootCategories.map((category) => (
+                <CategoryCard
+                  key={category.id}
+                  category={category}
+                  productCount={countProductsInCategory(category.id, categoryTree, stock)}
+                  onClick={() =>
+                    void navigate(`/warehouses/${warehouseId}/categories/${category.id}`)
+                  }
+                />
+              ))}
+            </CategoryGrid>
+          ))}
+      </section>
+
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>

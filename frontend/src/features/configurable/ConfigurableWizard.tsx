@@ -1,4 +1,4 @@
-import { AlertTriangleIcon } from "lucide-react";
+import { AlertTriangleIcon, ArrowLeftIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,94 @@ function axisLabel(key: string): string {
   return AXIS_LABELS[key] ?? (key.length > 0 ? key[0]!.toUpperCase() + key.slice(1) : key);
 }
 
+/** "28 Cristal K19" -> type "28 Cristal", model "K19".
+ *
+ * The motif is chosen in two steps on the till (type first, then the model)
+ * because one type — "28 Cristal" — has several models. The value sent to the
+ * recipe is the original full string, so resolution is untouched; only the
+ * picker groups the flat list.
+ */
+function splitMotifValue(value: string): { type: string; model: string; value: string } {
+  const trimmed = value.trim();
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  if (tokens.length <= 1) return { type: trimmed, model: "", value: trimmed };
+  return {
+    type: tokens.slice(0, -1).join(" "),
+    model: tokens[tokens.length - 1]!,
+    value: trimmed,
+  };
+}
+
+interface MotifPickerProps {
+  values: string[];
+  selected: string | undefined;
+  selectedType: string | null;
+  onSelectType: (type: string) => void;
+  onSelect: (value: string) => void;
+}
+
+/** Two-step motif choice: pick the type ("28 Cristal"), then the model ("K19"). */
+function MotifPicker({ values, selected, selectedType, onSelectType, onSelect }: MotifPickerProps) {
+  const byType = new Map<string, { model: string; value: string }[]>();
+  for (const value of values) {
+    const entry = splitMotifValue(value);
+    const list = byType.get(entry.type) ?? [];
+    list.push(entry);
+    byType.set(entry.type, list);
+  }
+  const types = [...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const active = selectedType !== null ? byType.get(selectedType) ?? [] : [];
+
+  const chip = (
+    value: string,
+    label: string,
+    selectedNow: boolean,
+    onClick: () => void,
+  ) => (
+    <button
+      key={value}
+      type="button"
+      aria-pressed={selectedNow}
+      onClick={onClick}
+      className={cn(
+        "rounded-md border px-3 py-2 text-sm transition-colors",
+        "focus-visible:ring-ring/50 outline-none focus-visible:ring-2",
+        selectedNow
+          ? "bg-primary text-primary-foreground border-transparent"
+          : "hover:bg-accent",
+      )}
+    >
+      {label}
+    </button>
+  );
+
+  if (selectedType === null) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {types.map(([type]) => chip(type, type, false, () => onSelectType(type)))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        className="text-muted-foreground flex w-fit items-center gap-1 text-sm underline-offset-4 hover:underline"
+        onClick={() => onSelectType("")}
+      >
+        <ArrowLeftIcon className="size-3.5" />
+        {selectedType} — change type
+      </button>
+      <div className="flex flex-wrap gap-2">
+        {active.map(({ model, value }) =>
+          chip(value, model || value, selected === value, () => onSelect(value)),
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
  * The configuration picker, opened from a configurable tile on the till.
  *
@@ -56,9 +144,12 @@ export function ConfigurableWizard({
   const readyKey = open && definition ? product.productId : null;
   const [wizardKey, setWizardKey] = useState<string | null>(null);
   const [configuration, setConfiguration] = useState<Record<string, string>>({});
+  // For the two-step motif choice: which type ("28 Cristal") is currently open.
+  const [motifType, setMotifType] = useState<string | null>(null);
   if (readyKey !== wizardKey) {
     setWizardKey(readyKey);
     setConfiguration({});
+    setMotifType(null);
   }
 
   const optionKeys = definition ? Object.keys(definition.options) : [];
@@ -121,38 +212,50 @@ export function ConfigurableWizard({
               {stepKeys.map((key) => (
                 <div key={key} className="flex flex-col gap-2">
                   <span className="label-caps text-muted-foreground">{axisLabel(key)}</span>
-                  <div className="flex flex-wrap gap-2">
-                    {valuesFor(key).map(({ value, price }) => {
-                      const selected = configuration[key] === value;
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() => select(key, value)}
-                          className={cn(
-                            "rounded-md border px-3 py-2 text-sm transition-colors",
-                            "focus-visible:ring-ring/50 outline-none focus-visible:ring-2",
-                            selected
-                              ? "bg-primary text-primary-foreground border-transparent"
-                              : "hover:bg-accent",
-                          )}
-                        >
-                          {value}
-                          {price !== undefined && (
-                            <span
-                              className={cn(
-                                "ml-2 text-xs tabular-nums",
-                                selected ? "text-primary-foreground/80" : "text-muted-foreground",
-                              )}
-                            >
-                              {formatMoney(toCents(price))}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {key === "motif" ? (
+                    <MotifPicker
+                      values={valuesFor(key).map(({ value }) => value)}
+                      selected={configuration[key]}
+                      selectedType={motifType}
+                      onSelectType={(type) => setMotifType(type || null)}
+                      onSelect={(value) => select(key, value)}
+                    />
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {valuesFor(key).map(({ value, price }) => {
+                        const selected = configuration[key] === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => select(key, value)}
+                            className={cn(
+                              "rounded-md border px-3 py-2 text-sm transition-colors",
+                              "focus-visible:ring-ring/50 outline-none focus-visible:ring-2",
+                              selected
+                                ? "bg-primary text-primary-foreground border-transparent"
+                                : "hover:bg-accent",
+                            )}
+                          >
+                            {value}
+                            {price !== undefined && (
+                              <span
+                                className={cn(
+                                  "ml-2 text-xs tabular-nums",
+                                  selected
+                                    ? "text-primary-foreground/80"
+                                    : "text-muted-foreground",
+                                )}
+                              >
+                                {formatMoney(toCents(price))}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ))}
 

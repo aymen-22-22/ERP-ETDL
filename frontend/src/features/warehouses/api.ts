@@ -8,6 +8,9 @@ export interface Warehouse {
   name: string;
   code: string | null;
   warehouse_type: WarehouseType;
+  /** API returns this once warehouse images exist; optional so the UI falls
+   * back to a themed placeholder in the meantime. */
+  image_url?: string | null;
   is_default: boolean;
   is_active: boolean;
   allow_sales: boolean;

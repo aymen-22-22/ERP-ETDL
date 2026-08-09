@@ -6,7 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_permission
 from app.inventory import sales_service, service
-from app.inventory.schemas import MovementCreate, MovementRead, SaleRequest, StockSnapshotRead
+from app.inventory.schemas import (
+    MovementCreate,
+    MovementRead,
+    SaleDetail,
+    SaleListItem,
+    SaleRequest,
+    StockSnapshotRead,
+)
 from app.shared.core.envelope import PaginatedEnvelope, ResponseEnvelope
 from app.shared.core.pagination import PageParams
 from app.shared.core.tenant import get_current_tenant_id
@@ -50,6 +57,38 @@ async def record_sale(
     deducted.
     """
     return ResponseEnvelope(data=await sales_service.record_sale(session, tenant_id, data))
+
+
+@router.get(
+    "/sales",
+    response_model=PaginatedEnvelope[SaleListItem],
+)
+async def list_sales(
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("inventory:read"))],
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=200),
+    warehouse_id: UUID | None = Query(default=None),
+) -> PaginatedEnvelope[SaleListItem]:
+    """Completed-sales log: which products came off the shelf, grouped by sale."""
+    params = PageParams(page=page, page_size=page_size)
+    sales, meta = await sales_service.list_sales(session, tenant_id, params, warehouse_id)
+    return PaginatedEnvelope(data=sales, meta=meta)
+
+
+@router.get(
+    "/sales/{reference_id}",
+    response_model=ResponseEnvelope[SaleDetail],
+)
+async def get_sale(
+    reference_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("inventory:read"))],
+) -> ResponseEnvelope[SaleDetail]:
+    sale = await sales_service.get_sale(session, tenant_id, reference_id)
+    return ResponseEnvelope(data=sale)
 
 
 @router.get(

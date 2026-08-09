@@ -5,12 +5,18 @@ import {
   getWarehouseSummary,
   listProductMovements,
   listWarehouseStock,
+  listWarehouseSummaries,
 } from "./api";
 
 const STOCK_KEY = "warehouse-stock" as const;
 const SUMMARY_KEY = "warehouse-summary" as const;
+const SUMMARIES_KEY = "warehouse-summaries" as const;
 const PRODUCT_STOCK_KEY = "product-stock" as const;
 const MOVEMENTS_KEY = "product-movements" as const;
+
+export function useWarehouseSummaries() {
+  return useQuery({ queryKey: [SUMMARIES_KEY], queryFn: listWarehouseSummaries });
+}
 
 export function useWarehouseStock(warehouseId: string | null) {
   return useQuery({

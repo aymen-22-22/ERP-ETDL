@@ -1,30 +1,19 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  AlertTriangleIcon,
-  LayoutGridIcon,
-  PlusIcon,
-  StarIcon,
-  TableIcon,
-  WarehouseIcon,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertTriangleIcon, PlusIcon, SearchIcon, WarehouseIcon } from "lucide-react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router";
 import { z } from "zod";
 
+import { CardGridSkeleton } from "@/components/CardGridSkeleton";
 import { EmptyState } from "@/components/EmptyState";
-import { TableLoader } from "@/components/TableLoader";
-import { Badge } from "@/components/ui/badge";
+import { WarehouseCard } from "@/components/warehouse/WarehouseCard";
+import { WarehouseGrid } from "@/components/warehouse/WarehouseGrid";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import {
-  useCreateWarehouseMutation,
-  useSetDefaultWarehouseMutation,
-  useWarehouses,
-} from "@/features/warehouses/hooks";
+import { useWarehouseSummaries } from "@/features/inventory/hooks";
+import { useCreateWarehouseMutation, useWarehouses } from "@/features/warehouses/hooks";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const warehouseSchema = z.object({
@@ -43,22 +32,13 @@ type WarehouseFormValues = z.infer<typeof warehouseSchema>;
 const selectClass =
   "border-input bg-background ring-offset-background flex h-10 w-full rounded-md border px-3 py-2 text-sm";
 
-const VIEW_MODE_KEY = "warehouses-view-mode";
-type ViewMode = "table" | "cards";
-
 export function WarehouseListPage() {
   const { data: warehouses, isLoading, isError, refetch } = useWarehouses();
+  const { data: summaries } = useWarehouseSummaries();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const createMutation = useCreateWarehouseMutation();
-  const setDefaultMutation = useSetDefaultWarehouseMutation();
   const isDesktop = useMediaQuery("(min-width: 768px)");
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    () => (localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null) ?? "cards",
-  );
-
-  useEffect(() => {
-    localStorage.setItem(VIEW_MODE_KEY, viewMode);
-  }, [viewMode]);
 
   const {
     register,
@@ -86,43 +66,24 @@ export function WarehouseListPage() {
     });
   });
 
+  const visibleWarehouses =
+    warehouses?.filter((w) => w.name.toLowerCase().includes(search.trim().toLowerCase())) ?? [];
+
+  const countByWarehouse = new Map(
+    (summaries ?? []).map((summary) => [summary.warehouse_id, summary.total_products]),
+  );
+
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 sm:p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Warehouses</h1>
-        <div className="flex items-center gap-2">
-          {isDesktop && (
-            <div className="bg-muted flex items-center gap-0.5 rounded-md p-0.5">
-              <Button
-                variant={viewMode === "table" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8 px-2"
-                aria-pressed={viewMode === "table"}
-                aria-label="Table view"
-                onClick={() => setViewMode("table")}
-              >
-                <TableIcon className="size-4" />
-              </Button>
-              <Button
-                variant={viewMode === "cards" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8 px-2"
-                aria-pressed={viewMode === "cards"}
-                aria-label="Card view"
-                onClick={() => setViewMode("cards")}
-              >
-                <LayoutGridIcon className="size-4" />
-              </Button>
-            </div>
-          )}
-          <Button onClick={() => setSheetOpen(true)}>
-            <PlusIcon />
-            {!isDesktop ? "" : "New warehouse"}
-          </Button>
-        </div>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 sm:p-6">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-lg font-semibold sm:text-xl">Warehouses</h1>
+        <Button onClick={() => setSheetOpen(true)} className="shrink-0">
+          <PlusIcon />
+          {!isDesktop ? "" : "New warehouse"}
+        </Button>
       </div>
 
-      {isLoading && <TableLoader rows={4} columns={4} />}
+      {isLoading && <CardGridSkeleton />}
 
       {!isLoading && isError && (
         <EmptyState
@@ -142,134 +103,40 @@ export function WarehouseListPage() {
         />
       )}
 
-      {!isLoading &&
-        warehouses !== undefined &&
-        warehouses.length > 0 &&
-        (isDesktop && viewMode === "table" ? (
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground text-left">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Name</th>
-                  <th className="px-4 py-2 font-medium">Type</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium">Flags</th>
-                  <th className="px-4 py-2 font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {warehouses.map((w) => (
-                  <tr key={w.id} className="hover:bg-accent/50 border-t">
-                    <td className="px-4 py-2">
-                      <div className="flex items-center gap-1.5">
-                        <Link
-                          to={`/warehouses/${w.id}`}
-                          className="text-primary underline-offset-4 hover:underline"
-                        >
-                          {w.name}
-                        </Link>
-                        {w.is_default && (
-                          <Badge variant="secondary">
-                            <StarIcon className="mr-1 size-3" />
-                            Default
-                          </Badge>
-                        )}
-                      </div>
-                      {w.code && <span className="text-muted-foreground text-xs">{w.code}</span>}
-                    </td>
-                    <td className="text-muted-foreground px-4 py-2 capitalize">
-                      {w.warehouse_type}
-                    </td>
-                    <td className="px-4 py-2">
-                      <Badge variant={w.is_active ? "default" : "outline"}>
-                        {w.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                    </td>
-                    <td className="text-muted-foreground px-4 py-2 text-xs">
-                      {[
-                        w.allow_sales && "Sales",
-                        w.allow_purchases && "Purchases",
-                        w.allow_transfers && "Transfers",
-                        w.allow_negative_stock && "Negative stock",
-                      ]
-                        .filter(Boolean)
-                        .join(", ") || "—"}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {!w.is_default && w.is_active && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDefaultMutation.mutate(w.id)}
-                        >
-                          Set default
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {warehouses.map((w) => (
-              <Link key={w.id} to={`/warehouses/${w.id}`} className="h-full">
-                <Card className="hover:border-primary/50 flex h-full flex-col transition-colors">
-                  <CardContent className="flex flex-col gap-2 p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium">{w.name}</span>
-                          {w.is_default && (
-                            <Badge variant="secondary" className="shrink-0 text-xs">
-                              <StarIcon className="mr-0.5 size-2.5" />
-                              Default
-                            </Badge>
-                          )}
-                        </div>
-                        <span className="text-muted-foreground text-xs capitalize">
-                          {w.warehouse_type}
-                          {w.code ? ` · ${w.code}` : ""}
-                        </span>
-                      </div>
-                      <Badge
-                        variant={w.is_active ? "default" : "outline"}
-                        className="shrink-0 text-xs"
-                      >
-                        {w.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                    </div>
-                    <span className="text-muted-foreground text-xs">
-                      {[
-                        w.allow_sales && "Sales",
-                        w.allow_purchases && "Purchases",
-                        w.allow_transfers && "Transfers",
-                        w.allow_negative_stock && "Negative stock",
-                      ]
-                        .filter(Boolean)
-                        .join(", ") || "—"}
-                    </span>
-                    <div className="mt-auto flex justify-end pt-1">
-                      {!w.is_default && w.is_active && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setDefaultMutation.mutate(w.id);
-                          }}
-                        >
-                          Set default
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        ))}
+      {!isLoading && !isError && (warehouses?.length ?? 0) > 0 && (
+        <>
+          {warehouses!.length > 6 && (
+            <div className="relative">
+              <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+              <Input
+                type="search"
+                placeholder="Search warehouses"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          )}
+
+          {visibleWarehouses.length === 0 ? (
+            <EmptyState
+              icon={WarehouseIcon}
+              title="No matching warehouses"
+              description={`Nothing matched "${search}". Try a different search.`}
+            />
+          ) : (
+            <WarehouseGrid>
+              {visibleWarehouses.map((warehouse) => (
+                <WarehouseCard
+                  key={warehouse.id}
+                  warehouse={warehouse}
+                  productCount={countByWarehouse.get(warehouse.id)}
+                />
+              ))}
+            </WarehouseGrid>
+          )}
+        </>
+      )}
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent>

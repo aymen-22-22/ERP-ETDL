@@ -14,6 +14,7 @@ export interface WarehouseStockItem {
 }
 
 export interface WarehouseSummary {
+  warehouse_id: string;
   total_products: number;
   total_quantity: number;
   low_stock_count: number;
@@ -41,6 +42,10 @@ export interface Movement {
 
 export async function listWarehouseStock(warehouseId: string): Promise<WarehouseStockItem[]> {
   return apiFetch<WarehouseStockItem[]>(`/v1/inventory/warehouses/${warehouseId}/stock`);
+}
+
+export async function listWarehouseSummaries(): Promise<WarehouseSummary[]> {
+  return apiFetch<WarehouseSummary[]>("/v1/inventory/warehouses/summaries");
 }
 
 export async function getWarehouseSummary(warehouseId: string): Promise<WarehouseSummary> {

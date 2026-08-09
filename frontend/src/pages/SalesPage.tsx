@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2Icon, ShoppingCartIcon, StoreIcon } from "lucide-react";
+import { CheckCircle2Icon, HistoryIcon, ShoppingCartIcon, StoreIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -207,18 +207,24 @@ export function SalesPage() {
         title="New sale"
         description="Tap a product to add it to the sale."
         actions={
-          <NativeSelect
-            aria-label="Store"
-            value={activeStoreId ?? ""}
-            onChange={(e) => setStore(e.target.value)}
-            className="w-48"
-          >
-            {stores.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </NativeSelect>
+          <>
+            <Button variant="outline" size="sm" onClick={() => void navigate("/sales/history")}>
+              <HistoryIcon />
+              History
+            </Button>
+            <NativeSelect
+              aria-label="Store"
+              value={activeStoreId ?? ""}
+              onChange={(e) => setStore(e.target.value)}
+              className="w-48"
+            >
+              {stores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </>
         }
         actionsOnMobile
       />

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProductStock, useMovements } from "@/features/inventory/hooks";
 import { AddVariantDialog } from "@/features/products/AddVariantDialog";
+import { ProductImageManager } from "@/features/products/ProductImageManager";
 import {
   useAdjustStockMutation,
   useDeleteProductMutation,
@@ -146,6 +147,15 @@ export function ProductDetailPage() {
           </Button>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Photos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProductImageManager productId={product.id} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

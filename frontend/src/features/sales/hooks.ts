@@ -1,9 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { useSellableKits } from "@/features/bom/hooks";
 import type { CategoryTreeNode } from "@/features/categories/api";
 import { useConfigurableProducts } from "@/features/configurable/hooks";
 import { useWarehouseStock } from "@/features/inventory/hooks";
+import { getSale, listSales } from "@/features/sales/historyApi";
 import { resolveProductImageUrl } from "@/features/products/api";
 import { useProducts } from "@/features/products/hooks";
 import { useWarehouses } from "@/features/warehouses/hooks";
@@ -124,4 +126,21 @@ export function useSellableProducts(storeId: string | null): {
 
 export function collectCategoryIds(node: CategoryTreeNode): string[] {
   return [node.id, ...node.children.flatMap(collectCategoryIds)];
+}
+
+/** The completed-sales log, newest first. */
+export function useSales(page = 1, pageSize = 25) {
+  return useQuery({
+    queryKey: ["sales-history", page, pageSize],
+    queryFn: () => listSales(page, pageSize),
+  });
+}
+
+/** One completed sale's deductions. */
+export function useSale(referenceId: string | null) {
+  return useQuery({
+    queryKey: ["sales-history", "detail", referenceId],
+    queryFn: () => getSale(referenceId!),
+    enabled: !!referenceId,
+  });
 }

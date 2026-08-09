@@ -23,10 +23,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.inventory.models import MovementType, ProductStockSnapshot
 from app.inventory.repository import InventoryRepository
-from app.inventory.schemas import MovementCreate, SaleRequest
+from app.inventory.schemas import (
+    MovementCreate,
+    SaleDetail,
+    SaleLineRead,
+    SaleListItem,
+    SaleRequest,
+)
 from app.products.models import Product, ProductType
 from app.shared.core.exceptions import AppError, ConflictError, NotFoundError
 from app.shared.core.ids import generate_uuid7
+from app.shared.core.pagination import PageParams, PaginationMeta
 from app.sync.models import ChangeOperation
 from app.sync.schemas import MutationEnvelope
 from app.warehouses.service import require_active_warehouse
@@ -222,3 +229,67 @@ async def record_sale(
             for product, quantity, sold_as, _ in deductions
         ],
     }
+
+
+async def list_sales(
+    session: AsyncSession,
+    tenant_id: UUID,
+    params: PageParams,
+    warehouse_id: UUID | None = None,
+) -> tuple[list[SaleListItem], PaginationMeta]:
+    """The completed-sales log, newest first.
+
+    Sales are read back from the movement ledger — every sale already writes
+    one `InventoryMovement` per deducted product under a shared `reference_id`,
+    so the log is derived data, not a second record that could drift.
+    """
+    repo = InventoryRepository(session)
+    rows, total = await repo.list_sale_references(tenant_id, params, warehouse_id)
+    items = [
+        SaleListItem(
+            reference_id=reference_id,
+            sold_at=sold_at,
+            warehouse_id=warehouse_id,
+            line_count=line_count,
+            total_quantity=total_quantity,
+        )
+        for reference_id, sold_at, warehouse_id, line_count, total_quantity in rows
+    ]
+    return items, PaginationMeta.create(total=total, params=params)
+
+
+async def get_sale(
+    session: AsyncSession, tenant_id: UUID, reference_id: UUID
+) -> SaleDetail:
+    """One sale's deductions — which products came off the shelf, and how much."""
+    repo = InventoryRepository(session)
+    movements = await repo.get_sale_movements(tenant_id, reference_id)
+    if not movements:
+        raise NotFoundError("Sale not found")
+
+    product_ids = {m.product_id for m in movements}
+    result = await session.execute(
+        select(Product.id, Product.name, Product.sku).where(Product.id.in_(product_ids))
+    )
+    products = {row.id: (row.name, row.sku) for row in result}
+    # All movements of one sale share the same transaction timestamp.
+    sold_at = movements[0].created_at
+
+    lines = [
+        SaleLineRead(
+            product_id=movement.product_id,
+            name=products.get(movement.product_id, ("Unknown product", ""))[0],
+            sku=products.get(movement.product_id, ("", ""))[1],
+            quantity=abs(movement.quantity_delta),
+            sold_as=movement.note,
+        )
+        for movement in movements
+    ]
+    return SaleDetail(
+        reference_id=reference_id,
+        sold_at=sold_at,
+        warehouse_id=movements[0].warehouse_id,
+        line_count=len(lines),
+        total_quantity=sum(line.quantity for line in lines),
+        lines=lines,
+    )

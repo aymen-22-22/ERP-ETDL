@@ -1,12 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftIcon, PaletteIcon, PlusIcon } from "lucide-react";
+import { ArrowLeftIcon, CameraIcon, PaletteIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "@/lib/toast";
 import type { ProductFamily, ProductFamilyRow } from "@/features/products/api";
+import { ProductImageManager } from "@/features/products/ProductImageManager";
 import { submitStockAdjustment } from "@/features/products/inventoryMutations";
 import type { VariantScheme } from "@/features/variants/api";
 import { useSelectedWarehouseId, useWarehouses } from "@/features/warehouses/hooks";
@@ -37,6 +44,7 @@ export function ProductFamilyView({ family, scheme, onAddColor }: ProductFamilyV
 
   const [warehouseId, setWarehouseId] = useState<string | null>(null);
   const [deltas, setDeltas] = useState<Record<string, string>>({});
+  const [photoProduct, setPhotoProduct] = useState<ProductFamilyRow | null>(null);
   const targetWarehouseId = warehouseId ?? defaultWarehouseId;
 
   const adjustMutation = useMutation({
@@ -196,6 +204,16 @@ export function ProductFamilyView({ family, scheme, onAddColor }: ProductFamilyV
                     >
                       Details
                     </Link>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-xs"
+                      onClick={() => setPhotoProduct(row)}
+                      title={`Add or change the photo of ${colorLabel(row)}`}
+                    >
+                      <CameraIcon className="size-4" />
+                      Photo
+                    </Button>
                   </div>
                 </td>
               </tr>
@@ -221,6 +239,15 @@ export function ProductFamilyView({ family, scheme, onAddColor }: ProductFamilyV
         This is one product with {family.rows.length} colour row
         {family.rows.length === 1 ? "" : "s"}; each colour keeps its own stock, so counts never mix.
       </p>
+
+      <Dialog open={photoProduct !== null} onOpenChange={(open) => !open && setPhotoProduct(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Photo — {photoProduct ? colorLabel(photoProduct) : ""}</DialogTitle>
+          </DialogHeader>
+          {photoProduct && <ProductImageManager productId={photoProduct.product_id} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

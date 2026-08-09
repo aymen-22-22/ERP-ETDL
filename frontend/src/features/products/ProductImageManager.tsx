@@ -87,7 +87,7 @@ export function ProductImageManager({ productId }: { productId: string }) {
           {images.map((image) => (
             <div
               key={image.id}
-              className="group relative aspect-square overflow-hidden rounded-md border"
+              className="relative aspect-square overflow-hidden rounded-md border"
             >
               <img
                 src={resolveProductImageUrl(image.url) ?? undefined}
@@ -99,7 +99,7 @@ export function ProductImageManager({ productId }: { productId: string }) {
                   Primary
                 </span>
               )}
-              <div className="absolute inset-x-0 bottom-0 flex items-center justify-end gap-1 bg-black/50 p-1 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-end gap-1 bg-black/50 p-1">
                 {!image.is_primary && (
                   <Button
                     type="button"

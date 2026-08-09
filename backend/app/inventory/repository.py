@@ -1,8 +1,9 @@
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
 
-from app.inventory.models import InventoryMovement, ProductStockSnapshot
+from app.inventory.models import InventoryMovement, MovementType, ProductStockSnapshot
 from app.inventory.schemas import MovementCreate
 from app.shared.core.exceptions import ConflictError
 from app.shared.core.pagination import PageParams
@@ -274,3 +275,61 @@ class InventoryRepository(SyncableRepository[InventoryMovement]):
         for summary in summaries.values():
             summary.setdefault("low_stock_count", 0)
         return summaries
+
+    async def list_sale_references(
+        self,
+        tenant_id: UUID,
+        params: PageParams,
+        warehouse_id: UUID | None = None,
+    ) -> tuple[list[tuple[UUID, datetime, UUID, int, int]], int]:
+        """The sales history: one row per completed sale, grouped from the
+        SALE movements that share a `reference_id`. Each row is
+        (reference_id, sold_at, warehouse_id, line_count, total_quantity)."""
+        base = (
+            select(
+                InventoryMovement.reference_id,
+                func.min(InventoryMovement.created_at).label("sold_at"),
+                InventoryMovement.warehouse_id,
+                func.count().label("line_count"),
+                func.coalesce(
+                    func.sum(func.abs(InventoryMovement.quantity_delta)), 0
+                ).label("total_quantity"),
+            )
+            .where(
+                InventoryMovement.tenant_id == tenant_id,
+                InventoryMovement.movement_type == MovementType.SALE,
+                InventoryMovement.reference_id.isnot(None),
+            )
+            .group_by(
+                InventoryMovement.reference_id, InventoryMovement.warehouse_id
+            )
+        )
+        if warehouse_id is not None:
+            base = base.where(InventoryMovement.warehouse_id == warehouse_id)
+
+        total = await self._session.scalar(select(func.count()).select_from(base.subquery()))
+        result = await self._session.execute(
+            base.order_by(func.min(InventoryMovement.created_at).desc())
+            .offset(params.offset)
+            .limit(params.page_size)
+        )
+        rows = [
+            (reference_id, sold_at, warehouse_id, line_count, int(total_quantity))
+            for reference_id, sold_at, warehouse_id, line_count, total_quantity in result
+        ]
+        return rows, total or 0
+
+    async def get_sale_movements(
+        self, tenant_id: UUID, reference_id: UUID
+    ) -> list[InventoryMovement]:
+        """Every movement a completed sale wrote — one per product deducted."""
+        result = await self._session.execute(
+            select(InventoryMovement)
+            .where(
+                InventoryMovement.tenant_id == tenant_id,
+                InventoryMovement.reference_id == reference_id,
+                InventoryMovement.movement_type == MovementType.SALE,
+            )
+            .order_by(InventoryMovement.created_at, InventoryMovement.product_id)
+        )
+        return list(result.scalars().all())
