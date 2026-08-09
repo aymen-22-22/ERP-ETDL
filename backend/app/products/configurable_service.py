@@ -284,6 +284,12 @@ async def save_definition(
     existing_prices = await _load_prices(session, tenant_id, product_id)
     for price in existing_prices:
         await session.delete(price)
+    # The replacements reuse the same (product, length) unique keys, so the
+    # deletes must hit the DB before the inserts. SQLAlchemy's unit of work
+    # would otherwise INSERT the new rows first (the `_load_recipe` query
+    # below autoflushes them) and trip the unique constraint, 500-ing an
+    # edit of an existing definition.
+    await session.flush()
     for input_price in data.prices:
         session.add(
             ConfigurablePrice(
@@ -297,6 +303,7 @@ async def save_definition(
     existing_recipe = await _load_recipe(session, tenant_id, product_id)
     for existing_line in existing_recipe:
         await session.delete(existing_line)
+    await session.flush()
     for recipe_line in data.recipe:
         session.add(
             ConfigurableRecipeLine(
