@@ -12,8 +12,9 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCategoryTree } from "@/features/categories/hooks";
+import { ConfigurableWizard } from "@/features/configurable/ConfigurableWizard";
 import { CartPanel } from "@/features/sales/CartPanel";
-import { computeTotals, useCartStore } from "@/features/sales/cartStore";
+import { computeTotals, useCartStore, type CartLineDraft } from "@/features/sales/cartStore";
 import { collectCategoryIds, useSaleWarehouses, useSellableProducts } from "@/features/sales/hooks";
 import { ProductTile } from "@/features/sales/ProductTile";
 import { submitSale } from "@/features/sales/submitSale";
@@ -45,6 +46,12 @@ export function SalesPage() {
   const [cartOpen, setCartOpen] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
   const [lastSale, setLastSale] = useState<string | null>(null);
+  // The tile being configured, or null when no wizard is open.
+  const [configuring, setConfiguring] = useState<{
+    productId: string;
+    name: string;
+    sku: string;
+  } | null>(null);
 
   const inCartByProduct = useMemo(
     () => new Map(lines.map((l) => [l.productId, l.quantity])),
@@ -88,6 +95,12 @@ export function SalesPage() {
   const add = (productId: string) => {
     const product = products?.find((p) => p.productId === productId);
     if (!product) return;
+    // A configurable product has no single price to ring — route through the
+    // wizard, which resolves price and components for the chosen options.
+    if (product.isConfigurable) {
+      setConfiguring({ productId: product.productId, name: product.name, sku: product.sku });
+      return;
+    }
     addItem({
       productId: product.productId,
       name: product.name,
@@ -95,6 +108,8 @@ export function SalesPage() {
       unitPriceCents: product.unitPriceCents,
     });
   };
+
+  const addConfigured = (draft: CartLineDraft) => addItem(draft);
 
   /** A barcode scanner types the code then sends Enter — treat an exact
    *  barcode/SKU match as "add this now" so scanning never needs a tap. */
@@ -107,7 +122,13 @@ export function SalesPage() {
       (p) => p.barcode?.toLowerCase() === needle || p.sku.toLowerCase() === needle,
     );
     const target = exact ?? (visible.length === 1 ? visible[0] : undefined);
-    if (target && target.available > (inCartByProduct.get(target.productId) ?? 0)) {
+    if (!target) return;
+    if (target.isConfigurable) {
+      add(target.productId);
+      setSearch("");
+      return;
+    }
+    if (target.available > (inCartByProduct.get(target.productId) ?? 0)) {
       add(target.productId);
       setSearch("");
     }
@@ -305,6 +326,15 @@ export function SalesPage() {
           <div className="px-4 pb-6">{cart}</div>
         </SheetContent>
       </Sheet>
+
+      <ConfigurableWizard
+        product={configuring}
+        storeId={activeStoreId}
+        onOpenChange={(open) => {
+          if (!open) setConfiguring(null);
+        }}
+        onAdd={addConfigured}
+      />
     </PageShell>
   );
 }

@@ -4,6 +4,7 @@ import {
   LayersIcon,
   LayoutDashboardIcon,
   PackageIcon,
+  Settings2Icon,
   SettingsIcon,
   ShoppingCartIcon,
   TruckIcon,
@@ -23,6 +24,7 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { label: "Dashboard", path: "/", icon: LayoutDashboardIcon },
   { label: "Products", path: "/products", icon: PackageIcon },
+  { label: "Configurable", path: "/configurable", icon: Settings2Icon },
   { label: "Categories", path: "/categories", icon: LayersIcon },
   { label: "Warehouses", path: "/warehouses", icon: WarehouseIcon },
   { label: "Transfers", path: "/transfers", icon: ArrowLeftRightIcon },

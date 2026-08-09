@@ -20,9 +20,12 @@ interface ProductTileProps {
  * prominent element because it's what gets read aloud.
  */
 export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
-  const soldOut = product.available <= 0;
-  // Everything already in the basket counts against what's left on the shelf.
-  const exhausted = inCart >= product.available;
+  // A configurable tile is never "sold out": how many can be built depends on
+  // the configuration, which is only known once the wizard resolves it. It is
+  // also never exhausted by the basket — two different configurations of the
+  // same product are separate lines.
+  const soldOut = !product.isConfigurable && product.available <= 0;
+  const exhausted = !product.isConfigurable && inCart >= product.available;
   const disabled = soldOut || exhausted;
 
   return (
@@ -60,15 +63,20 @@ export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
         <div className="min-w-0">
           <p className="line-clamp-2 text-sm font-medium">{product.name}</p>
           <p className="text-muted-foreground mt-0.5 truncate text-xs">
-            {product.isKit ? "Kit" : product.sku}
+            {product.isConfigurable ? "Configurable" : product.isKit ? "Kit" : product.sku}
           </p>
         </div>
 
         <div className="flex items-end justify-between gap-2">
           <span className="text-lg font-semibold tabular-nums">
+            {product.isConfigurable && (
+              <span className="text-muted-foreground text-xs font-normal">from </span>
+            )}
             {formatMoney(product.unitPriceCents)}
           </span>
-          {product.isKit ? (
+          {product.isConfigurable ? (
+            <Badge variant="secondary">Configure</Badge>
+          ) : product.isKit ? (
             // A kit's number is how many its components can build, which is not
             // the same claim as "we have N on the shelf" — labelled so nobody
             // reads it as a physical count.

@@ -1,9 +1,13 @@
-"""Recording a sale, including exploding kits into their components.
+"""Recording a sale, including exploding kits and configurable products into
+their components.
 
-A kit ("Triangle Fix 4600 DA") holds no stock. Selling one must deduct its
-recipe from the selling warehouse instead — 1 Tube 28, 1 Tube 19, 1 pair of
-supports (2 pieces), 1 motif, 2 bouchons — and never touch a "Triangle" count,
-because there isn't one.
+A kit ("Triangle Fix 4600 DA") and a CONFIGURABLE product ("Triangle Double
+28/19 F2-F3-F4") hold no stock. Selling one must deduct its recipe from the
+selling warehouse instead — 1 Tube 28, 1 Tube 19, 1 pair of supports (2
+pieces), 1 motif, 2 bouchons — and never touch a "Triangle" count, because
+there isn't one. For a configurable product the till's configuration is
+re-resolved against the catalog here: the browser's price and component list
+are never trusted, only its choices.
 
 The whole sale is one transaction. Previously the till posted one movement per
 cart line from the browser, which meant a round trip each and no atomicity: a
@@ -35,6 +39,7 @@ async def record_sale(
     # app.inventory.models, so a top-level import closes the loop
     # inventory -> products -> inventory and fails at startup.
     from app.products.bom_service import list_bom_lines
+    from app.products.configurable_service import resolve_configuration
 
     warehouse = await require_active_warehouse(session, tenant_id, data.warehouse_id)
     # The flag has existed on warehouses since the module was written and was
@@ -58,32 +63,93 @@ async def record_sale(
 
     # Expand every sold line into the things actually coming off the shelf.
     # `sold_as` is carried through so the ledger and any receipt can say which
-    # cart line caused a deduction.
-    deductions: list[tuple[Product, int, str]] = []
+    # cart line caused a deduction; `config` is the snapshot of a
+    # CONFIGURABLE line as sold, persisted on the movements it creates.
+    # Configurable components are recorded by id here and resolved to full
+    # products in one batched query after the loop.
+    deductions: list[tuple[Product, int, str, dict[str, object] | None]] = []
+    pending_configurable: list[tuple[UUID, int, str, dict[str, object] | None]] = []
     for line in data.lines:
         product = products[line.product_id]
 
-        if product.product_type != ProductType.KIT:
-            deductions.append((product, line.quantity, product.name))
+        if product.product_type == ProductType.KIT:
+            bom = await list_bom_lines(session, tenant_id, product.id)
+            if not bom:
+                # Selling it would deduct nothing at all and silently overstate
+                # what the shop has.
+                raise AppError(
+                    f"{product.name} has no recipe, so it cannot be sold yet",
+                    error_code="kit_without_recipe",
+                )
+            for bom_line, component in bom:
+                deductions.append(
+                    (
+                        component,
+                        bom_line.pieces_required * line.quantity,
+                        product.name,
+                        None,
+                    )
+                )
             continue
 
-        bom = await list_bom_lines(session, tenant_id, product.id)
-        if not bom:
-            # Selling it would deduct nothing at all and silently overstate
-            # what the shop has.
-            raise AppError(
-                f"{product.name} has no recipe, so it cannot be sold yet",
-                error_code="kit_without_recipe",
+        if product.product_type == ProductType.CONFIGURABLE:
+            if not line.configuration:
+                raise AppError(
+                    f"{product.name} must be configured before it can be sold",
+                    error_code="configurable_missing_configuration",
+                )
+            resolution = await resolve_configuration(
+                session, tenant_id, product.id, configuration=line.configuration
             )
-        for bom_line, component in bom:
-            deductions.append((component, bom_line.pieces_required * line.quantity, product.name))
+            config_snapshot: dict[str, object] = {
+                "product_id": str(product.id),
+                "configuration": dict(resolution.configuration),
+                "display_name": resolution.display_name,
+                "components": [
+                    {
+                        "product_id": str(entry.component_product_id),
+                        "name": entry.name,
+                        "pieces_required": entry.pieces_required,
+                    }
+                    for entry in resolution.lines
+                ],
+            }
+            for entry in resolution.lines:
+                pending_configurable.append(
+                    (
+                        entry.component_product_id,
+                        entry.pieces_required * line.quantity,
+                        resolution.display_name,
+                        config_snapshot,
+                    )
+                )
+            continue
+
+        deductions.append((product, line.quantity, product.name, None))
+
+    if pending_configurable:
+        component_ids = {entry[0] for entry in pending_configurable}
+        missing = [cid for cid in component_ids if cid not in products]
+        if missing:
+            found = await session.execute(
+                select(Product).where(
+                    Product.id.in_(missing), Product.tenant_id == tenant_id
+                )
+            )
+            products.update({product.id: product for product in found.scalars().all()})
+            still_missing = [cid for cid in missing if cid not in products]
+            if still_missing:
+                raise NotFoundError(f"Component product not found: {still_missing[0]}")
+        for component_id, quantity, sold_as, config in pending_configurable:
+            component = products[component_id]
+            deductions.append((component, quantity, sold_as, config))
 
     # Check the whole basket before writing any of it. Two cart lines can share
     # a component — a Triangle 4600 and a Triangle 3900 both take bouchons — so
     # requirements are summed per product first; checking them independently
     # would let a basket pass that the shelf cannot actually fill.
     required: dict[UUID, int] = {}
-    for product, quantity, _ in deductions:
+    for product, quantity, _, _ in deductions:
         required[product.id] = required.get(product.id, 0) + quantity
 
     if not warehouse.allow_negative_stock:
@@ -98,7 +164,7 @@ async def record_sale(
             snapshot.product_id: snapshot.available_quantity
             for snapshot in snapshots.scalars().all()
         }
-        names = {product.id: product.name for product, _, _ in deductions}
+        names = {product.id: product.name for product, _, _, _ in deductions}
         shortages = [
             f"{names[product_id]} (need {quantity}, have {available.get(product_id, 0)})"
             for product_id, quantity in required.items()
@@ -113,7 +179,7 @@ async def record_sale(
     reference_id = generate_uuid7()
     repo = InventoryRepository(session)
 
-    for product, quantity, sold_as in deductions:
+    for product, quantity, sold_as, config in deductions:
         movement = MovementCreate(
             id=generate_uuid7(),
             product_id=product.id,
@@ -122,6 +188,7 @@ async def record_sale(
             quantity_delta=-quantity,
             reference_id=reference_id,
             note=sold_as if sold_as != product.name else None,
+            config=config,
         )
         await repo.apply_mutation(
             tenant_id,
@@ -148,6 +215,6 @@ async def record_sale(
                 "quantity": quantity,
                 "sold_as": sold_as,
             }
-            for product, quantity, sold_as in deductions
+            for product, quantity, sold_as, _ in deductions
         ],
     }

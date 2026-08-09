@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.database.mixins import SyncableMixin
@@ -53,6 +53,12 @@ class InventoryMovement(SyncableMixin, Base):
     quantity_delta: Mapped[int] = mapped_column(Integer, nullable=False)
     reference_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), default=None)
     note: Mapped[str | None] = mapped_column(String(500), default=None)
+    # The full configuration of a CONFIGURABLE product as rung up at the till
+    # (e.g. {"support": "F3", "motif": "K19", "length": "4m", "color": "GD"}),
+    # plus the resolved component lines. Saved so the ledger/receipt can
+    # reproduce exactly what was sold and what came off the shelf; NULL for
+    # every other movement.
+    config: Mapped[dict[str, object] | None] = mapped_column(JSONB, default=None)
 
 
 class ProductStockSnapshot(Base):

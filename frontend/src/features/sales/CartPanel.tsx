@@ -12,8 +12,8 @@ interface CartPanelProps {
   lines: CartLine[];
   subtotalCents: number;
   totalCents: number;
-  onSetQuantity: (productId: string, quantity: number) => void;
-  onRemove: (productId: string) => void;
+  onSetQuantity: (key: string, quantity: number) => void;
+  onRemove: (key: string) => void;
   onComplete: () => void;
   onClear: () => void;
   isSubmitting: boolean;
@@ -53,9 +53,12 @@ export function CartPanel({
     <div className={cn("flex flex-col gap-4", className)}>
       <ul className="flex list-none flex-col gap-2">
         {lines.map((line) => {
-          const max = availableByProduct.get(line.productId) ?? line.quantity;
+          // Configurable lines carry their own cap (how many of that exact
+          // configuration stock can build); plain lines cap against the
+          // warehouse snapshot like before.
+          const max = line.maxQuantity ?? availableByProduct.get(line.productId) ?? line.quantity;
           return (
-            <li key={line.productId} className="rounded-md border p-3">
+            <li key={line.key} className="rounded-md border p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{line.name}</p>
@@ -74,7 +77,7 @@ export function CartPanel({
                   size="icon"
                   className="size-9"
                   aria-label={`Decrease ${line.name}`}
-                  onClick={() => onSetQuantity(line.productId, line.quantity - 1)}
+                  onClick={() => onSetQuantity(line.key, line.quantity - 1)}
                 >
                   <MinusIcon />
                 </Button>
@@ -84,7 +87,7 @@ export function CartPanel({
                   value={line.quantity}
                   onChange={(e) => {
                     const next = parseInt(e.target.value, 10);
-                    onSetQuantity(line.productId, Number.isFinite(next) ? next : 0);
+                    onSetQuantity(line.key, Number.isFinite(next) ? next : 0);
                   }}
                   className="h-9 w-14 px-1 text-center tabular-nums"
                 />
@@ -94,7 +97,7 @@ export function CartPanel({
                   className="size-9"
                   aria-label={`Increase ${line.name}`}
                   disabled={line.quantity >= max}
-                  onClick={() => onSetQuantity(line.productId, line.quantity + 1)}
+                  onClick={() => onSetQuantity(line.key, line.quantity + 1)}
                 >
                   <PlusIcon />
                 </Button>
@@ -103,7 +106,7 @@ export function CartPanel({
                   size="icon"
                   className="ml-auto size-9"
                   aria-label={`Remove ${line.name}`}
-                  onClick={() => onRemove(line.productId)}
+                  onClick={() => onRemove(line.key)}
                 >
                   <Trash2Icon />
                 </Button>

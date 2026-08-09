@@ -70,7 +70,7 @@ export interface ProductImage {
 }
 
 /** Mirrors the backend ProductType enum. */
-export type ProductType = "simple" | "variant" | "kit";
+export type ProductType = "simple" | "variant" | "kit" | "configurable";
 
 export type ProductSort = "name" | "price" | "sku";
 export type ProductSortDir = "asc" | "desc";

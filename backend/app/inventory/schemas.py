@@ -8,10 +8,14 @@ from app.inventory.models import MovementType
 
 class SaleLineInput(BaseModel):
     """One line as rung up at the till. For a kit this is the kit itself; the
-    server expands it into components."""
+    server expands it into components. For a CONFIGURABLE product the chosen
+    configuration (support/motif/length/colour) is carried here so the server
+    can re-resolve it against the current catalog — it never trusts a price
+    or a component list sent from the browser."""
 
     product_id: UUID
     quantity: int = Field(gt=0)
+    configuration: dict[str, str] | None = None
 
 
 class SaleRequest(BaseModel):
@@ -30,6 +34,9 @@ class MovementCreate(BaseModel):
     quantity_delta: int
     reference_id: UUID | None = None
     note: str | None = Field(default=None, max_length=500)
+    # Snapshot of a CONFIGURABLE line as sold (chosen configuration + resolved
+    # components), persisted with the movement so the ledger can reproduce it.
+    config: dict[str, object] | None = None
 
     @field_validator("quantity_delta")
     @classmethod
@@ -48,6 +55,7 @@ class MovementRead(BaseModel):
     quantity_delta: int
     reference_id: UUID | None
     note: str | None
+    config: dict[str, object] | None
     created_at: datetime
 
     model_config = {"from_attributes": True}

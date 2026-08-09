@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import { useSellableKits } from "@/features/bom/hooks";
 import type { CategoryTreeNode } from "@/features/categories/api";
+import { useConfigurableProducts } from "@/features/configurable/hooks";
 import { useWarehouseStock } from "@/features/inventory/hooks";
 import { resolveProductImageUrl } from "@/features/products/api";
 import { useProducts } from "@/features/products/hooks";
@@ -20,6 +21,8 @@ export interface SellableProduct {
   available: number;
   minQuantity: number | null;
   isKit: boolean;
+  /** A configurable product is picked through the wizard, not added as-is. */
+  isConfigurable: boolean;
   imageUrl: string | null;
 }
 
@@ -41,6 +44,10 @@ export function useSellableProducts(storeId: string | null): {
   // listing entirely — without this the till could not sell a Triangle Fix at
   // all. "Available" for a kit is how many its components can build.
   const { data: kits, isLoading: kitsLoading } = useSellableKits(storeId);
+  // Configurable products likewise hold no stock of their own. A tile opens
+  // the configuration wizard; buildability is resolved per configuration, so
+  // the tile itself only needs to exist (available=1 keeps it enabled).
+  const { data: configurable, isLoading: configurableLoading } = useConfigurableProducts();
 
   const products = useMemo(() => {
     if (!stock || !productsPage) return undefined;
@@ -58,6 +65,7 @@ export function useSellableProducts(storeId: string | null): {
         available: item.available_quantity,
         minQuantity: item.min_quantity,
         isKit: false,
+        isConfigurable: false,
         imageUrl: resolveProductImageUrl(server?.image_url),
       } satisfies SellableProduct;
     });
@@ -78,14 +86,40 @@ export function useSellableProducts(storeId: string | null): {
             available: kit.buildable,
             minQuantity: null,
             isKit: true,
+            isConfigurable: false,
             imageUrl: null,
           }) satisfies SellableProduct,
       );
 
-    return [...kitTiles, ...stocked];
-  }, [stock, productsPage, kits]);
+    // A configurable product without a definition cannot be configured, so it
+    // is excluded exactly like a recipe-less kit.
+    const configurableTiles = (configurable ?? [])
+      .filter((item) => item.has_definition)
+      .map(
+        (item) =>
+          ({
+            productId: item.product_id,
+            name: item.name,
+            sku: item.sku,
+            barcode: null,
+            categoryId: item.category_id,
+            // "From" price: the cheapest length, shown until one is picked.
+            unitPriceCents: toCents(item.price_from ?? 0),
+            available: 1,
+            minQuantity: null,
+            isKit: false,
+            isConfigurable: true,
+            imageUrl: null,
+          }) satisfies SellableProduct,
+      );
 
-  return { products, isLoading: stockLoading || productsLoading || kitsLoading };
+    return [...kitTiles, ...configurableTiles, ...stocked];
+  }, [stock, productsPage, kits, configurable]);
+
+  return {
+    products,
+    isLoading: stockLoading || productsLoading || kitsLoading || configurableLoading,
+  };
 }
 
 export function collectCategoryIds(node: CategoryTreeNode): string[] {

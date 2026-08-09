@@ -30,7 +30,13 @@ export async function submitSale(storeId: string, lines: CartLine[]): Promise<Sa
     method: "POST",
     body: JSON.stringify({
       warehouse_id: storeId,
-      lines: lines.map((line) => ({ product_id: line.productId, quantity: line.quantity })),
+      lines: lines.map((line) => ({
+        product_id: line.productId,
+        quantity: line.quantity,
+        // Present on configurable lines only; the server re-resolves the
+        // configuration into components itself rather than trusting a price.
+        configuration: line.configuration,
+      })),
     }),
   });
 }

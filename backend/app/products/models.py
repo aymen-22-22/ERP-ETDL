@@ -45,11 +45,24 @@ class ProductType(StrEnum):
                   **no stock of its own**. Selling one deducts its bill of
                   materials from the selling warehouse instead (see the
                   ``product_bom_lines`` table).
+
+    ``CONFIGURABLE``
+                — the shop configures it at the till (support/motif/length/
+                  colour), and the configuration determines both the price and
+                  the components taken off the shelf. Like a KIT it holds no
+                  stock of its own: selling one deducts the resolved recipe
+                  from the selling warehouse, never a "triangle" count. The
+                  recipe is defined once per product as component *patterns*
+                  (category + attribute match + colour) and resolved against
+                  the real variant products when a configuration is picked
+                  (see the ``configurable_definitions`` / ``configurable_prices``
+                  / ``configurable_recipe_lines`` tables).
     """
 
     SIMPLE = "simple"
     VARIANT = "variant"
     KIT = "kit"
+    CONFIGURABLE = "configurable"
 
 
 class Category(TenantScopedAuditMixin, Base):
@@ -160,6 +173,117 @@ class ProductBomLine(TenantScopedAuditMixin, Base):
     component_product_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
     )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    unit: Mapped[BomUnit] = mapped_column(
+        Enum(
+            BomUnit,
+            native_enum=False,
+            length=10,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+        ),
+        default=BomUnit.PIECE,
+    )
+
+    @property
+    def pieces_required(self) -> int:
+        """Quantity converted to the unit stock is actually counted in."""
+        return self.quantity * PIECES_PER_UNIT[self.unit]
+
+
+class ConfigurableDefinition(TenantScopedAuditMixin, Base):
+    """What a CONFIGURABLE product can be configured with, and how a chosen
+    configuration is turned into a concrete recipe.
+
+    A configurable product ("Triangle Double 28/19 F2-F3-F4") is sold in one
+    line but holds no stock. The till walks the shop through picking a value
+    for every axis in `options` — support, motif, colour, and (via
+    `configurable_prices`) length — then the price comes from the chosen
+    length and the components come from the `configurable_recipe_lines`.
+
+    `color_key` names the axis that is applied to *every* recipe component:
+    colour is chosen once and one Support / Motif / Tube / Bouchon of that
+    colour is resolved for each line. `length_key` is the axis the chosen
+    length is injected under for lines marked `substitute_length` (the tube).
+
+    Option values here are convenience, not constraint — mirroring the
+    variant scheme's `allowed_values`, so staff can add a colour without a
+    migration — but the resolve endpoint does validate against them so a
+    typo at the till fails loudly instead of silently resolving nothing.
+    """
+
+    __tablename__ = "configurable_definitions"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "product_id", name="uq_configurable_definitions_product"),
+    )
+
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
+    )
+    color_key: Mapped[str] = mapped_column(String(50), nullable=False, default="color")
+    length_key: Mapped[str] = mapped_column(String(50), nullable=False, default="length")
+    # {"support": ["F1", "F2"], "motif": ["K19"], "color": ["GD", "CH"]} — the
+    # allowed values per non-length axis, in the order the till should offer them.
+    options: Mapped[dict[str, list[str]]] = mapped_column(JSONB, default=dict)
+
+
+class ConfigurablePrice(TenantScopedAuditMixin, Base):
+    """One length option's selling price.
+
+    `length` is the display value ("2m", "2.5m", "5m") and doubles as the
+    value injected into a `substitute_length` recipe line, so the length axis
+    is data, not code — adding a 6m triangle is one row, not a change.
+    """
+
+    __tablename__ = "configurable_prices"
+    __table_args__ = (
+        UniqueConstraint(
+            "configurable_product_id", "length", name="uq_configurable_prices_product_length"
+        ),
+    )
+
+    configurable_product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
+    )
+    length: Mapped[str] = mapped_column(String(50), nullable=False)
+    price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+
+
+class ConfigurableRecipeLine(TenantScopedAuditMixin, Base):
+    """One component pattern in a configurable product's recipe.
+
+    Unlike a kit's `ProductBomLine` (which points at one concrete product) a
+    configurable recipe line is a *pattern*: the category the part lives in
+    plus the attribute values that identify it ("Support Cristal" with
+    size=28/19 and model=F3). Attribute values written "@axis" are filled
+    from the configuration chosen at the till — {"model": "@support"},
+    {"length": "@length"}, {"color": "@color"} — so one recipe serves every
+    support model, colour and length instead of one kit per combination. The
+    definition's `color_key` simply names the axis applied to *every* line:
+    the shop picks colour once and gets a Support / Motif / Tube / Bouchon of
+    that colour.
+    """
+
+    __tablename__ = "configurable_recipe_lines"
+    __table_args__ = (
+        UniqueConstraint(
+            "configurable_product_id", "label", name="uq_configurable_recipe_product_label"
+        ),
+    )
+
+    configurable_product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
+    )
+    # "Support", "Motif", "Tube", "Bouchon" — shown on the till's composition
+    # list and used to refer to a line in the admin editor.
+    label: Mapped[str] = mapped_column(String(100), nullable=False)
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("categories.id"), index=True, default=None
+    )
+    # Fixed attribute matches, e.g. {"model": "F3", "size": "28/19"}. A value
+    # written "@axis" is filled from the configuration at resolve time
+    # ("@support", "@length", "@color", ...), so one recipe serves every
+    # support model, colour and length instead of one kit per combination.
+    attributes: Mapped[dict[str, str]] = mapped_column(JSONB, default=dict)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     unit: Mapped[BomUnit] = mapped_column(
         Enum(

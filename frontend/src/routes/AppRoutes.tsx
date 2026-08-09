@@ -56,6 +56,19 @@ const CategoriesPage = lazy(() =>
   import("@/pages/CategoriesPage").then((m) => ({ default: m.CategoriesPage })),
 );
 const SalesPage = lazy(() => import("@/pages/SalesPage").then((m) => ({ default: m.SalesPage })));
+const ConfigurableProductsPage = lazy(() =>
+  import("@/pages/ConfigurableProductsPage").then((m) => ({ default: m.ConfigurableProductsPage })),
+);
+const NewConfigurableProductPage = lazy(() =>
+  import("@/pages/NewConfigurableProductPage").then((m) => ({
+    default: m.NewConfigurableProductPage,
+  })),
+);
+const ConfigurableDefinitionPage = lazy(() =>
+  import("@/pages/ConfigurableDefinitionPage").then((m) => ({
+    default: m.ConfigurableDefinitionPage,
+  })),
+);
 const SettingsPage = lazy(() =>
   import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
 );
@@ -88,6 +101,9 @@ export function AppRoutes() {
             <Route path="/warehouses/:warehouseId" element={<WarehouseDetailPage />} />
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/sales" element={<SalesPage />} />
+            <Route path="/configurable" element={<ConfigurableProductsPage />} />
+            <Route path="/configurable/new" element={<NewConfigurableProductPage />} />
+            <Route path="/configurable/:productId" element={<ConfigurableDefinitionPage />} />
             <Route path="/transfers" element={<TransferListPage />} />
             <Route path="/transfers/new" element={<TransferFormPage />} />
             <Route path="/transfers/:transferId" element={<TransferDetailPage />} />

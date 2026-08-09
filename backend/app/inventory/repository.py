@@ -39,6 +39,7 @@ class InventoryRepository(SyncableRepository[InventoryMovement]):
             quantity_delta=data.quantity_delta,
             reference_id=data.reference_id,
             note=data.note,
+            config=data.config,
             version=1,
         )
         self._session.add(movement)

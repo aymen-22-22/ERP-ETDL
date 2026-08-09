@@ -5,8 +5,22 @@ from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, statu
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_permission
-from app.products import bom_service, image_service, import_service, service, variant_service
+from app.products import (
+    bom_service,
+    configurable_service,
+    image_service,
+    import_service,
+    service,
+    variant_service,
+)
 from app.products.bom_schemas import BomLineRead, BomReplaceRequest
+from app.products.configurable_schemas import (
+    ConfigurableDefinitionInput,
+    ConfigurableDefinitionRead,
+    ConfigurableListItem,
+    ConfigurableResolveRequest,
+    ConfigurableResolveResult,
+)
 from app.products.models import Product, ProductBomLine, ProductStatus
 from app.products.schemas import (
     BulkDeleteRequest,
@@ -155,6 +169,21 @@ async def list_sellable_kits(
     """
     return ResponseEnvelope(
         data=await bom_service.list_sellable_kits(session, tenant_id, warehouse_id)
+    )
+
+
+@router.get("/configurable", response_model=ResponseEnvelope[list[ConfigurableListItem]])
+async def list_configurable_products(
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+    __: Annotated[None, Depends(rate_limit("products:list", limit=120))],
+) -> ResponseEnvelope[list[ConfigurableListItem]]:
+    """Configurable products with their lowest length price, for the till and
+    the admin list. Registered before "/{product_id}" so the literal path wins
+    the match."""
+    return ResponseEnvelope(
+        data=await configurable_service.list_configurable_products(session, tenant_id)
     )
 
 
@@ -405,6 +434,74 @@ async def get_bom_buildable(
 ) -> ResponseEnvelope[dict[str, object]]:
     return ResponseEnvelope(
         data=await bom_service.buildable_quantity(session, tenant_id, product_id, warehouse_id)
+    )
+
+
+# --- configurable products --------------------------------------------------
+
+
+@router.get(
+    "/{product_id}/configurable", response_model=ResponseEnvelope[ConfigurableDefinitionRead]
+)
+async def get_configurable_definition(
+    product_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=120))],
+) -> ResponseEnvelope[ConfigurableDefinitionRead]:
+    return ResponseEnvelope(
+        data=await configurable_service.get_definition(session, tenant_id, product_id)
+    )
+
+
+@router.put(
+    "/{product_id}/configurable", response_model=ResponseEnvelope[ConfigurableDefinitionRead]
+)
+async def save_configurable_definition(
+    product_id: UUID,
+    data: ConfigurableDefinitionInput,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=60))],
+) -> ResponseEnvelope[ConfigurableDefinitionRead]:
+    return ResponseEnvelope(
+        data=await configurable_service.save_definition(session, tenant_id, product_id, data)
+    )
+
+
+@router.delete("/{product_id}/configurable", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_configurable_definition(
+    product_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=60))],
+) -> None:
+    await configurable_service.delete_definition(session, tenant_id, product_id)
+
+
+@router.post(
+    "/{product_id}/configurable/resolve",
+    response_model=ResponseEnvelope[ConfigurableResolveResult],
+)
+async def resolve_configurable(
+    product_id: UUID,
+    data: ConfigurableResolveRequest,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:read"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=120))],
+    warehouse_id: UUID | None = Query(default=None),
+) -> ResponseEnvelope[ConfigurableResolveResult]:
+    """Price and resolved components for one configuration, for the till's
+    wizard. Passing `warehouse_id` also reports per-component stock so the
+    cashier can see how many of this configuration are buildable right now."""
+    return ResponseEnvelope(
+        data=await configurable_service.resolve_configuration(
+            session, tenant_id, product_id, data, warehouse_id
+        )
     )
 
 

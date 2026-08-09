@@ -2,13 +2,39 @@ import { create } from "zustand";
 
 const STORAGE_KEY = "erp-pos-cart";
 
-export interface CartLine {
+export interface CartLineDraft {
   productId: string;
   name: string;
   sku: string;
   /** Unit price in integer cents, captured when the line was added. */
   unitPriceCents: number;
+  /** Only present for configurable products — the exact choices sold. */
+  configuration?: Record<string, string>;
+  /**
+   * Only present for configurable lines: how many the chosen configuration
+   * can build from stock, so the stepper can't exceed it (plain lines cap
+   * against the warehouse stock instead).
+   */
+  maxQuantity?: number;
+}
+
+export interface CartLine extends CartLineDraft {
+  /**
+   * Unique identity of the line. Plain products key on the product id; a
+   * configurable product has one line per distinct configuration, so two
+   * different "Triangle Double 28/19 F3 GD 4m" vs "…F2 WH 2m" both belong to
+   * the same product but must be separate sale lines.
+   */
+  key: string;
   quantity: number;
+}
+
+export function cartLineKey(productId: string, configuration?: Record<string, string>): string {
+  if (!configuration) return productId;
+  const parts = Object.keys(configuration)
+    .sort()
+    .map((key) => `${key}=${configuration[key]}`);
+  return `${productId}:${parts.join("|")}`;
 }
 
 interface PersistedCart {
@@ -19,9 +45,9 @@ interface PersistedCart {
 interface CartState extends PersistedCart {
   setStore: (storeId: string) => void;
   /** Adds one unit, or increments an existing line. */
-  addItem: (item: Omit<CartLine, "quantity">) => void;
-  setQuantity: (productId: string, quantity: number) => void;
-  removeLine: (productId: string) => void;
+  addItem: (item: CartLineDraft) => void;
+  setQuantity: (key: string, quantity: number) => void;
+  removeLine: (key: string) => void;
   clear: () => void;
 }
 
@@ -29,7 +55,15 @@ function load(): PersistedCart {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { storeId: null, lines: [] };
-    return JSON.parse(raw) as PersistedCart;
+    const parsed = JSON.parse(raw) as PersistedCart;
+    return {
+      storeId: parsed.storeId ?? null,
+      // Carts saved before configurable products existed have no `key`.
+      lines: (parsed.lines ?? []).map((line) => ({
+        ...line,
+        key: line.key ?? cartLineKey(line.productId, line.configuration),
+      })),
+    };
   } catch {
     return { storeId: null, lines: [] };
   }
@@ -71,28 +105,29 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   addItem: (item) => {
     const lines = [...get().lines];
-    const existing = lines.findIndex((l) => l.productId === item.productId);
+    const key = cartLineKey(item.productId, item.configuration);
+    const existing = lines.findIndex((l) => l.key === key);
     if (existing >= 0) {
       const current = lines[existing];
       if (current) lines[existing] = { ...current, quantity: current.quantity + 1 };
     } else {
-      lines.push({ ...item, quantity: 1 });
+      lines.push({ ...item, key, quantity: 1 });
     }
     set({ lines });
     persist({ ...get(), lines });
   },
 
-  setQuantity: (productId, quantity) => {
+  setQuantity: (key, quantity) => {
     const lines =
       quantity <= 0
-        ? get().lines.filter((l) => l.productId !== productId)
-        : get().lines.map((l) => (l.productId === productId ? { ...l, quantity } : l));
+        ? get().lines.filter((l) => l.key !== key)
+        : get().lines.map((l) => (l.key === key ? { ...l, quantity } : l));
     set({ lines });
     persist({ ...get(), lines });
   },
 
-  removeLine: (productId) => {
-    const lines = get().lines.filter((l) => l.productId !== productId);
+  removeLine: (key) => {
+    const lines = get().lines.filter((l) => l.key !== key);
     set({ lines });
     persist({ ...get(), lines });
   },
