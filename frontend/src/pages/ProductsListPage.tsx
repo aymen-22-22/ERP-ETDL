@@ -12,7 +12,6 @@ import {
   TableIcon,
   Trash2Icon,
   UploadIcon,
-  WandSparklesIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -25,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCategories } from "@/features/categories/hooks";
-import type { ImportSummary, Product, ProductSort, ProductSortDir } from "@/features/products/api";
+import type { ImportSummary, Product } from "@/features/products/api";
 import {
   downloadImportTemplate,
   exportProductsExcel,
@@ -60,9 +59,6 @@ const SEARCH_DEBOUNCE_MS = 300;
 const VIEW_MODE_KEY = "products-view-mode";
 type ViewMode = "table" | "cards";
 
-const selectClass =
-  "border-input bg-background ring-offset-background flex h-10 rounded-md border px-3 py-2 text-sm";
-
 const statusVariant: Record<string, "default" | "outline" | "secondary"> = {
   active: "default",
   draft: "secondary",
@@ -73,10 +69,7 @@ export function ProductsListPage() {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [sort, setSort] = useState<ProductSort>("name");
-  const [sortDir, setSortDir] = useState<ProductSortDir>("asc");
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null) ?? "table",
   );
@@ -94,7 +87,7 @@ export function ProductsListPage() {
     return () => clearTimeout(handle);
   }, [searchInput]);
 
-  const filterKey = `${search}|${status}|${categoryId}|${sort}|${sortDir}`;
+  const filterKey = `${search}|${categoryId}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   if (filterKey !== prevFilterKey) {
     setPrevFilterKey(filterKey);
@@ -109,9 +102,6 @@ export function ProductsListPage() {
   const showingOneCategory = categoryId !== null;
   const { data, isLoading } = useProducts(page, PAGE_SIZE, {
     search,
-    status,
-    sort,
-    sortDir,
     includeVariants: showingOneCategory || search !== "",
     ...(categoryId ? { categoryId } : {}),
   });
@@ -344,43 +334,20 @@ export function ProductsListPage() {
   };
 
   const filters = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-2">
       <Input
         placeholder="Search by name, SKU or colour..."
         value={searchInput}
         onChange={(e) => setSearchInput(e.target.value)}
-        className="max-w-xs"
+        className="w-full"
       />
       <SearchableSelect
         options={categoryOptions}
         value={categoryId ?? "__all__"}
         onChange={(val) => setCategoryId(val === "__all__" ? null : val)}
         placeholder="All categories"
-        className="w-48"
+        className="w-full sm:w-72"
       />
-      <select className={selectClass} value={status} onChange={(e) => setStatus(e.target.value)}>
-        <option value="">All statuses</option>
-        <option value="draft">Draft</option>
-        <option value="active">Active</option>
-        <option value="archived">Archived</option>
-      </select>
-      <select
-        className={selectClass}
-        value={sort}
-        onChange={(e) => setSort(e.target.value as ProductSort)}
-      >
-        <option value="name">Sort by name</option>
-        <option value="sku">Sort by SKU</option>
-        <option value="price">Sort by price</option>
-      </select>
-      <select
-        className={selectClass}
-        value={sortDir}
-        onChange={(e) => setSortDir(e.target.value as ProductSortDir)}
-      >
-        <option value="asc">Ascending</option>
-        <option value="desc">Descending</option>
-      </select>
     </div>
   );
 
@@ -411,34 +378,34 @@ export function ProductsListPage() {
               <LayoutGridIcon className="size-4" />
             </Button>
           </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/products/generate">
-              <WandSparklesIcon className="mr-1 size-4" />
-              Generate
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => void handleExportTemplate()}>
-            <DownloadIcon className="mr-1 size-4" />
-            Template
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Download Excel template"
+            title="Download Excel template"
+            onClick={() => void handleExportTemplate()}
+          >
+            <DownloadIcon className="size-4" />
           </Button>
           <Button
             variant="outline"
             size="sm"
             disabled={exporting}
-            title="Export all products to Excel"
+            aria-label="Export all products to Excel"
+            title={exporting ? "Exporting..." : "Export all products to Excel"}
             onClick={() => void handleExportProducts()}
           >
-            <FileSpreadsheetIcon className="mr-1 size-4" />
-            {exporting ? "Exporting..." : "Export"}
+            <FileSpreadsheetIcon className="size-4" />
           </Button>
           <Button
             variant="outline"
             size="sm"
             disabled={importing}
+            aria-label="Import products from Excel"
+            title={importing ? "Importing..." : "Import products from Excel"}
             onClick={() => fileInputRef.current?.click()}
           >
-            <UploadIcon className="mr-1 size-4" />
-            {importing ? "Importing..." : "Import"}
+            <UploadIcon className="size-4" />
           </Button>
           <input
             ref={fileInputRef}
