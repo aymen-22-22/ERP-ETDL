@@ -285,6 +285,12 @@ class ConfigurableRecipeLine(TenantScopedAuditMixin, Base):
     # support model, colour and length instead of one kit per combination.
     attributes: Mapped[dict[str, str]] = mapped_column(JSONB, default=dict)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # Length-specific quantities, e.g. {"4m": 3} — a triangle at 4m takes a
+    # third support piece while every other length takes two. Keyed by the
+    # *priced* length value ("4m", not "4"); effective quantity for a chosen
+    # length is the override if present, the base `quantity` otherwise. Empty
+    # means the base applies to every length.
+    quantity_by_length: Mapped[dict[str, int]] = mapped_column(JSONB, default=dict)
     unit: Mapped[BomUnit] = mapped_column(
         Enum(
             BomUnit,
@@ -299,6 +305,11 @@ class ConfigurableRecipeLine(TenantScopedAuditMixin, Base):
     def pieces_required(self) -> int:
         """Quantity converted to the unit stock is actually counted in."""
         return self.quantity * PIECES_PER_UNIT[self.unit]
+
+    def effective_quantity(self, length_value: str | None) -> int:
+        """The quantity that applies to one chosen length, override or base."""
+        override = (self.quantity_by_length or {}).get(length_value)
+        return int(override) if override is not None else self.quantity
 
 
 class Brand(TenantScopedAuditMixin, Base):

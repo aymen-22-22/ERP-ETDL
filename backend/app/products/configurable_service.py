@@ -37,6 +37,7 @@ from app.products.configurable_schemas import (
     ConfigurableResolveResult,
 )
 from app.products.models import (
+    PIECES_PER_UNIT,
     Category,
     ConfigurableDefinition,
     ConfigurablePrice,
@@ -202,6 +203,7 @@ async def get_definition(
                 category_name=category_names.get(line.category_id) if line.category_id else None,
                 attributes=line.attributes or {},
                 quantity=line.quantity,
+                quantity_by_length=line.quantity_by_length or {},
                 unit=line.unit,
                 pieces_required=line.pieces_required,
             )
@@ -245,12 +247,24 @@ async def save_definition(
         )
 
     known_axes = set(data.options) | {data.length_key}
+    priced_lengths = [price.length for price in data.prices]
     for line in data.recipe:
         for value in line.attributes.values():
             if value.startswith("@") and value[1:] not in known_axes:
                 raise AppError(
                     f'Recipe line "{line.label}" references unknown axis "{value[1:]}"',
                     error_code="configurable_unknown_axis",
+                )
+        for length, quantity in (line.quantity_by_length or {}).items():
+            if length not in priced_lengths:
+                raise AppError(
+                    f'Recipe line "{line.label}" overrides quantity for unknown length "{length}"',
+                    error_code="configurable_unknown_length_override",
+                )
+            if int(quantity) <= 0:
+                raise AppError(
+                    f'Recipe line "{line.label}" needs a quantity greater than zero at "{length}"',
+                    error_code="configurable_invalid_quantity_override",
                 )
         if line.category_id is not None:
             category = await session.get(Category, line.category_id)
@@ -297,6 +311,7 @@ async def save_definition(
                 category_id=line.category_id,
                 attributes=line.attributes,
                 quantity=line.quantity,
+                quantity_by_length=line.quantity_by_length,
                 unit=line.unit,
             )
         )
@@ -399,7 +414,11 @@ async def resolve_configuration(
     lines: list[ConfigurableResolvedLine] = []
     builds_per_line: list[int] = []
     for line, component in resolved:
-        pieces = line.pieces_required
+        # A length override can change the quantity (a triangle at 4m takes a
+        # third support), so both the pieces deducted and the build count use
+        # the effective quantity for the chosen length.
+        quantity = line.effective_quantity(length_value)
+        pieces = quantity * PIECES_PER_UNIT[line.unit]
         on_hand = available.get(component.id, 0) if warehouse_id is not None else 0
         builds = on_hand // pieces if pieces > 0 else 0
         builds_per_line.append(builds)
@@ -409,7 +428,7 @@ async def resolve_configuration(
                 component_product_id=component.id,
                 name=component.name,
                 sku=component.sku,
-                quantity=line.quantity,
+                quantity=quantity,
                 unit=line.unit,
                 pieces_required=pieces,
                 available=on_hand,

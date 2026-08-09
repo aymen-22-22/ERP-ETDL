@@ -35,6 +35,8 @@ interface RecipeRow {
   label: string;
   categoryId: string | null;
   attributes: string;
+  /** "4m=3" style text — length-specific quantities, comma-separated. */
+  quantityOverrides: string;
   quantity: number;
   unit: BomUnit;
 }
@@ -61,10 +63,34 @@ function formatAttributes(attributes: Record<string, string>): string {
     .join(", ");
 }
 
+/** "4m=3" text -> {"4m": 3}; null when any segment isn't a valid pair. */
+function parseQuantityOverrides(text: string): Record<string, number> | null {
+  const out: Record<string, number> = {};
+  for (const part of text.split(",")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 0) return null;
+    const length = trimmed.slice(0, eq).trim();
+    const quantity = Number(trimmed.slice(eq + 1).trim());
+    if (!length || !Number.isInteger(quantity) || quantity <= 0) return null;
+    out[length] = quantity;
+  }
+  return out;
+}
+
+function formatQuantityOverrides(overrides: Record<string, number>): string {
+  return Object.entries(overrides)
+    .map(([length, quantity]) => `${length}=${quantity}`)
+    .join(", ");
+}
+
 const EMPTY: { axisRows: AxisRow[]; priceRows: PriceRow[]; recipeRows: RecipeRow[] } = {
   axisRows: [{ axis: "", values: "" }],
   priceRows: [{ length: "", price: "" }],
-  recipeRows: [{ label: "", categoryId: null, attributes: "", quantity: 1, unit: "piece" }],
+  recipeRows: [
+    { label: "", categoryId: null, attributes: "", quantityOverrides: "", quantity: 1, unit: "piece" },
+  ],
 };
 
 /**
@@ -115,6 +141,7 @@ export function ConfigurableDefinitionPage() {
           label: line.label,
           categoryId: line.category_id,
           attributes: formatAttributes(line.attributes),
+          quantityOverrides: formatQuantityOverrides(line.quantity_by_length),
           quantity: line.quantity,
           unit: line.unit,
         })),
@@ -176,11 +203,22 @@ export function ConfigurableDefinitionPage() {
         });
         return;
       }
+      const quantityOverrides = parseQuantityOverrides(row.quantityOverrides);
+      if (quantityOverrides === null) {
+        setAttributesError(row.label);
+        toast({
+          title: "Cannot save",
+          description: `Length quantities for “${row.label}” must be "length=quantity" pairs (e.g. 4m=3).`,
+          variant: "destructive",
+        });
+        return;
+      }
       recipe.push({
         label: row.label.trim(),
         category_id: row.categoryId,
         attributes,
         quantity: Math.max(1, row.quantity),
+        quantity_by_length: quantityOverrides,
         unit: row.unit,
       });
     }
@@ -419,17 +457,26 @@ export function ConfigurableDefinitionPage() {
                     aria-label="Unit"
                     className="h-9 w-28"
                     value={row.unit}
-                    onChange={(e) => updateRecipe(index, { unit: e.target.value as BomUnit })}
+                    onChange={(e) =>
+                      updateRecipe(index, { unit: e.target.value as BomUnit })
+                    }
                   >
                     <option value="piece">piece</option>
                     <option value="pair">pair</option>
                   </NativeSelect>
-                  {attributesError === row.label && (
-                    <p className="text-destructive text-sm">
-                      Attributes must be "key=value" pairs, comma-separated.
-                    </p>
-                  )}
+                  <Input
+                    placeholder="Length quantities, e.g. 4m=3"
+                    className="h-9 flex-1"
+                    value={row.quantityOverrides}
+                    onChange={(e) => updateRecipe(index, { quantityOverrides: e.target.value })}
+                  />
                 </div>
+                {attributesError === row.label && (
+                  <p className="text-destructive text-sm">
+                    Check the attributes and length quantities — each must be a
+                    valid "key=value" pair.
+                  </p>
+                )}
               </div>
             ))}
             <Button
@@ -438,7 +485,14 @@ export function ConfigurableDefinitionPage() {
               onClick={() =>
                 setRecipeRows((rows) => [
                   ...rows,
-                  { label: "", categoryId: null, attributes: "", quantity: 1, unit: "piece" },
+                  {
+                    label: "",
+                    categoryId: null,
+                    attributes: "",
+                    quantityOverrides: "",
+                    quantity: 1,
+                    unit: "piece",
+                  },
                 ])
               }
             >

@@ -26,6 +26,10 @@ class ConfigurableRecipeLineInput(BaseModel):
     category_id: UUID | None = None
     attributes: dict[str, str] = Field(default_factory=dict)
     quantity: int = Field(gt=0)
+    # Length-specific quantities, e.g. {"4m": 3} — a triangle at 4m takes a
+    # third support piece. Keyed by priced length value; keys must be one of
+    # the definition's lengths and values greater than zero.
+    quantity_by_length: dict[str, int] = Field(default_factory=dict)
     unit: BomUnit = BomUnit.PIECE
 
 
@@ -57,6 +61,7 @@ class ConfigurableRecipeLineRead(BaseModel):
     category_name: str | None
     attributes: dict[str, str]
     quantity: int
+    quantity_by_length: dict[str, int]
     unit: BomUnit
     pieces_required: int
 

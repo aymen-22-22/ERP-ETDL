@@ -8,6 +8,8 @@ export interface ConfigurableRecipeLine {
   category_name: string | null;
   attributes: Record<string, string>;
   quantity: number;
+  /** Length -> quantity, e.g. {"4m": 3} for the third support at 4m. */
+  quantity_by_length: Record<string, number>;
   unit: BomUnit;
   pieces_required: number;
 }
@@ -45,6 +47,8 @@ export interface ConfigurableRecipeLineInput {
   category_id: string | null;
   attributes: Record<string, string>;
   quantity: number;
+  /** Length -> quantity, e.g. {"4m": 3}. */
+  quantity_by_length?: Record<string, number>;
   unit: BomUnit;
 }
 
