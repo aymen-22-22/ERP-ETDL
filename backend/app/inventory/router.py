@@ -104,6 +104,19 @@ async def list_movements(
 
 
 @router.get(
+    "/warehouses/summary",
+    response_model=ResponseEnvelope[list[dict[str, object]]],
+)
+async def list_warehouse_summaries(
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("inventory:read"))],
+) -> ResponseEnvelope[list[dict[str, object]]]:
+    summaries = await service.list_warehouse_summaries(session, tenant_id)
+    return ResponseEnvelope(data=summaries)
+
+
+@router.get(
     "/warehouses/{warehouse_id}/stock",
     response_model=ResponseEnvelope[list[dict[str, object]]],
 )

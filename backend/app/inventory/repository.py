@@ -223,3 +223,54 @@ class InventoryRepository(SyncableRepository[InventoryMovement]):
             )
         )
         return result or 0
+
+    async def summarize_warehouses(self, tenant_id: UUID) -> dict[UUID, dict[str, int]]:
+        """Per-warehouse totals in two grouped queries, not N scalar ones.
+
+        The single-warehouse path runs one query per metric; the bulk path
+        would multiply that by the number of warehouses, so collapse both
+        count-based metrics into grouped aggregates instead. Rows with
+        quantity_on_hand == 0 contribute nothing to the sum, so filtering to
+        `> 0` yields `total_quantity` and `total_products` at once.
+        """
+        result = await self._session.execute(
+            select(
+                ProductStockSnapshot.warehouse_id,
+                func.coalesce(func.sum(ProductStockSnapshot.quantity_on_hand), 0),
+                func.count(),
+            )
+            .where(
+                ProductStockSnapshot.tenant_id == tenant_id,
+                ProductStockSnapshot.quantity_on_hand > 0,
+            )
+            .group_by(ProductStockSnapshot.warehouse_id)
+        )
+        summaries: dict[UUID, dict[str, int]] = {}
+        for warehouse_id, total_quantity, total_products in result:
+            summaries[warehouse_id] = {
+                "total_products": total_products,
+                "total_quantity": int(total_quantity),
+            }
+
+        low_stock = await self._session.execute(
+            select(
+                ProductStockSnapshot.warehouse_id,
+                func.count(),
+            )
+            .where(
+                ProductStockSnapshot.tenant_id == tenant_id,
+                ProductStockSnapshot.min_quantity.isnot(None),
+                ProductStockSnapshot.quantity_on_hand < ProductStockSnapshot.min_quantity,
+            )
+            .group_by(ProductStockSnapshot.warehouse_id)
+        )
+        for warehouse_id, low_stock_count in low_stock:
+            entry = summaries.setdefault(
+                warehouse_id,
+                {"total_products": 0, "total_quantity": 0},
+            )
+            entry["low_stock_count"] = low_stock_count
+
+        for summary in summaries.values():
+            summary.setdefault("low_stock_count", 0)
+        return summaries

@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.inventory.models import InventoryMovement, ProductStockSnapshot
@@ -12,6 +13,7 @@ from app.shared.core.ids import generate_uuid7
 from app.shared.core.pagination import PageParams, PaginationMeta
 from app.sync.models import ChangeOperation
 from app.sync.schemas import MutationEnvelope
+from app.warehouses.models import Warehouse
 from app.warehouses.service import require_active_warehouse
 
 
@@ -124,3 +126,33 @@ async def get_warehouse_summary(
         "total_quantity": total_quantity,
         "low_stock_count": low_stock_count,
     }
+
+
+async def list_warehouse_summaries(
+    session: AsyncSession, tenant_id: UUID
+) -> list[dict[str, object]]:
+    """Summary for every warehouse in one call, one row per warehouse.
+
+    Deliberately skips the per-warehouse `require_active_warehouse` check:
+    the list page renders inactive warehouses too, and an inactive row still
+    needs its numbers (it just cannot move stock). Warehouses with no stock
+    snapshots come back as zeros rather than being dropped.
+    """
+    repo = InventoryRepository(session)
+    summaries = await repo.summarize_warehouses(tenant_id)
+
+    result = await session.execute(
+        select(Warehouse.id)
+        .where(Warehouse.tenant_id == tenant_id, Warehouse.deleted_at.is_(None))
+        .order_by(Warehouse.name)
+    )
+    return [
+        {
+            "warehouse_id": str(warehouse_id),
+            **summaries.get(
+                warehouse_id,
+                {"total_products": 0, "total_quantity": 0, "low_stock_count": 0},
+            ),
+        }
+        for (warehouse_id,) in result
+    ]
