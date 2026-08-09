@@ -89,7 +89,14 @@ const EMPTY: { axisRows: AxisRow[]; priceRows: PriceRow[]; recipeRows: RecipeRow
   axisRows: [{ axis: "", values: "" }],
   priceRows: [{ length: "", price: "" }],
   recipeRows: [
-    { label: "", categoryId: null, attributes: "", quantityOverrides: "", quantity: 1, unit: "piece" },
+    {
+      label: "",
+      categoryId: null,
+      attributes: "",
+      quantityOverrides: "",
+      quantity: 1,
+      unit: "piece",
+    },
   ],
 };
 
@@ -457,9 +464,7 @@ export function ConfigurableDefinitionPage() {
                     aria-label="Unit"
                     className="h-9 w-28"
                     value={row.unit}
-                    onChange={(e) =>
-                      updateRecipe(index, { unit: e.target.value as BomUnit })
-                    }
+                    onChange={(e) => updateRecipe(index, { unit: e.target.value as BomUnit })}
                   >
                     <option value="piece">piece</option>
                     <option value="pair">pair</option>
@@ -473,8 +478,8 @@ export function ConfigurableDefinitionPage() {
                 </div>
                 {attributesError === row.label && (
                   <p className="text-destructive text-sm">
-                    Check the attributes and length quantities — each must be a
-                    valid "key=value" pair.
+                    Check the attributes and length quantities — each must be a valid "key=value"
+                    pair.
                   </p>
                 )}
               </div>

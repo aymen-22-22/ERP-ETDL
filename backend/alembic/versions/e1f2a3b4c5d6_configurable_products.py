@@ -77,9 +77,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
         ),
-        sa.UniqueConstraint(
-            "tenant_id", "product_id", name="uq_configurable_definitions_product"
-        ),
+        sa.UniqueConstraint("tenant_id", "product_id", name="uq_configurable_definitions_product"),
     )
     op.create_index(
         "ix_configurable_definitions_tenant_id", "configurable_definitions", ["tenant_id"]
@@ -104,9 +102,7 @@ def upgrade() -> None:
             "configurable_product_id", "length", name="uq_configurable_prices_product_length"
         ),
     )
-    op.create_index(
-        "ix_configurable_prices_tenant_id", "configurable_prices", ["tenant_id"]
-    )
+    op.create_index("ix_configurable_prices_tenant_id", "configurable_prices", ["tenant_id"])
     op.create_index(
         "ix_configurable_prices_product_id",
         "configurable_prices",

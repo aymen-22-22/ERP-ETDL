@@ -308,8 +308,11 @@ class ConfigurableRecipeLine(TenantScopedAuditMixin, Base):
 
     def effective_quantity(self, length_value: str | None) -> int:
         """The quantity that applies to one chosen length, override or base."""
-        override = (self.quantity_by_length or {}).get(length_value)
-        return int(override) if override is not None else self.quantity
+        if length_value is not None:
+            override = (self.quantity_by_length or {}).get(length_value)
+            if override is not None:
+                return int(override)
+        return self.quantity
 
 
 class Brand(TenantScopedAuditMixin, Base):

@@ -39,6 +39,7 @@ async def record_sale(
     # app.inventory.models, so a top-level import closes the loop
     # inventory -> products -> inventory and fails at startup.
     from app.products.bom_service import list_bom_lines
+    from app.products.configurable_schemas import ConfigurableResolveRequest
     from app.products.configurable_service import resolve_configuration
 
     warehouse = await require_active_warehouse(session, tenant_id, data.warehouse_id)
@@ -99,7 +100,12 @@ async def record_sale(
                     error_code="configurable_missing_configuration",
                 )
             resolution = await resolve_configuration(
-                session, tenant_id, product.id, configuration=line.configuration
+                session,
+                tenant_id,
+                product.id,
+                ConfigurableResolveRequest(
+                    configuration={key: str(value) for key, value in line.configuration.items()}
+                ),
             )
             config_snapshot: dict[str, object] = {
                 "product_id": str(product.id),
@@ -132,9 +138,7 @@ async def record_sale(
         missing = [cid for cid in component_ids if cid not in products]
         if missing:
             found = await session.execute(
-                select(Product).where(
-                    Product.id.in_(missing), Product.tenant_id == tenant_id
-                )
+                select(Product).where(Product.id.in_(missing), Product.tenant_id == tenant_id)
             )
             products.update({product.id: product for product in found.scalars().all()})
             still_missing = [cid for cid in missing if cid not in products]

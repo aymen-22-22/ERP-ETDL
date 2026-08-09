@@ -181,9 +181,7 @@ async def get_definition(
         categories = await session.execute(
             select(Category).where(Category.id.in_(list(category_ids)))
         )
-        category_names = {
-            category.id: category.name for category in categories.scalars().all()
-        }
+        category_names = {category.id: category.name for category in categories.scalars().all()}
 
     return ConfigurableDefinitionRead(
         product_id=product.id,
@@ -193,8 +191,7 @@ async def get_definition(
         length_key=definition.length_key,
         options=definition.options or {},
         prices=[
-            ConfigurablePriceRead(length=price.length, price=str(price.price))
-            for price in prices
+            ConfigurablePriceRead(length=price.length, price=str(price.price)) for price in prices
         ],
         recipe=[
             ConfigurableRecipeLineRead(
@@ -232,9 +229,7 @@ async def save_definition(
         raise AppError("Each length can only have one price", error_code="configurable_dup_length")
     labels = [line.label for line in data.recipe]
     if len(set(labels)) != len(labels):
-        raise AppError(
-            "Recipe labels must be unique", error_code="configurable_dup_recipe_label"
-        )
+        raise AppError("Recipe labels must be unique", error_code="configurable_dup_recipe_label")
     if data.length_key in data.options:
         raise AppError(
             "The length axis is priced per length; it cannot also be an option",
@@ -289,30 +284,30 @@ async def save_definition(
     existing_prices = await _load_prices(session, tenant_id, product_id)
     for price in existing_prices:
         await session.delete(price)
-    for price in data.prices:
+    for input_price in data.prices:
         session.add(
             ConfigurablePrice(
                 tenant_id=tenant_id,
                 configurable_product_id=product_id,
-                length=price.length,
-                price=price.price,
+                length=input_price.length,
+                price=input_price.price,
             )
         )
 
     existing_recipe = await _load_recipe(session, tenant_id, product_id)
-    for line in existing_recipe:
-        await session.delete(line)
-    for line in data.recipe:
+    for existing_line in existing_recipe:
+        await session.delete(existing_line)
+    for recipe_line in data.recipe:
         session.add(
             ConfigurableRecipeLine(
                 tenant_id=tenant_id,
                 configurable_product_id=product_id,
-                label=line.label,
-                category_id=line.category_id,
-                attributes=line.attributes,
-                quantity=line.quantity,
-                quantity_by_length=line.quantity_by_length,
-                unit=line.unit,
+                label=recipe_line.label,
+                category_id=recipe_line.category_id,
+                attributes=recipe_line.attributes,
+                quantity=recipe_line.quantity,
+                quantity_by_length=recipe_line.quantity_by_length,
+                unit=recipe_line.unit,
             )
         )
 
@@ -350,9 +345,9 @@ async def resolve_configuration(
     length_value = configuration.get(definition.length_key)
     price = next((entry for entry in prices if entry.length == length_value), None)
     if price is None:
-        available = ", ".join(entry.length for entry in prices) or "none"
+        available_lengths = ", ".join(entry.length for entry in prices) or "none"
         raise AppError(
-            f'Unknown length "{length_value}" (available: {available})',
+            f'Unknown length "{length_value}" (available: {available_lengths})',
             error_code="configurable_unknown_length",
         )
 
@@ -449,9 +444,7 @@ async def resolve_configuration(
     )
 
 
-async def delete_definition(
-    session: AsyncSession, tenant_id: UUID, product_id: UUID
-) -> None:
+async def delete_definition(session: AsyncSession, tenant_id: UUID, product_id: UUID) -> None:
     """Remove the product's configuration (soft-delete the whole definition).
 
     The product stays a CONFIGURABLE row — this just makes it unconfigured,
@@ -522,9 +515,11 @@ async def list_configurable_products(
             name=product.name,
             sku=product.sku,
             category_id=product.category_id,
-            price_from=str(price_by_product[product.id])
-            if price_by_product.get(product.id) is not None
-            else None,
+            price_from=(
+                str(price_by_product[product.id])
+                if price_by_product.get(product.id) is not None
+                else None
+            ),
             has_definition=product.id in recipe_product_ids,
         )
         for product in products
