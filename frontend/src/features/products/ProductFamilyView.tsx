@@ -1,6 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftIcon, CameraIcon, PaletteIcon, PlusIcon } from "lucide-react";
-import { useState } from "react";
+import {
+  ArrowLeftIcon,
+  CameraIcon,
+  ImageOffIcon,
+  PaletteIcon,
+  PlusIcon,
+  SaveIcon,
+  TrashIcon,
+  UploadIcon,
+} from "lucide-react";
+import { useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -8,17 +17,27 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/lib/toast";
 import type { ProductFamily, ProductFamilyRow } from "@/features/products/api";
-import { ProductImageManager } from "@/features/products/ProductImageManager";
+import { resolveProductImageUrl } from "@/features/products/api";
+import {
+  useDeleteFamilyImageMutation,
+  useRenameFamilyMutation,
+  useUpdateProductFieldsMutation,
+  useUploadFamilyImageMutation,
+} from "@/features/products/hooks";
 import { submitStockAdjustment } from "@/features/products/inventoryMutations";
 import type { VariantScheme } from "@/features/variants/api";
 import { useSelectedWarehouseId, useWarehouses } from "@/features/warehouses/hooks";
 import { WarehouseSelector } from "@/features/warehouses/WarehouseSelector";
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 function colorLabel(row: ProductFamilyRow): string {
   return row.color_label || "Base";
 }
 
 interface ProductFamilyViewProps {
+  productId: string;
   family: ProductFamily;
   scheme: VariantScheme | undefined;
   onAddColor: () => void;
@@ -26,21 +45,34 @@ interface ProductFamilyViewProps {
 
 /**
  * One product as a colour family: "Support Cristal 28/19" is really several
- * Product rows (one per colour, each with its own stock). This is the card
- * view — the name, a Couleur / Dépôt / Store / Total table, and a way to add
- * another colour — so the shop reads and manages one product, not seven.
- * Every colour row can also be stocked in place: pick a warehouse and enter a
- * quantity change on the row, no need to open each colour's own page.
+ * Product rows (one per colour, each with its own stock). This is the one
+ * page that manages the whole product — the name, ONE photo that every
+ * colour card shares, a Couleur / Dépôt / Store / Total table, each colour's
+ * price, and in-place stock adjustment for any warehouse. No need to open
+ * each colour's own page just to tweak a number.
  */
-export function ProductFamilyView({ family, scheme, onAddColor }: ProductFamilyViewProps) {
+export function ProductFamilyView({
+  productId,
+  family,
+  scheme,
+  onAddColor,
+}: ProductFamilyViewProps) {
   const queryClient = useQueryClient();
   const { data: warehouses } = useWarehouses();
   const defaultWarehouseId = useSelectedWarehouseId();
 
   const [warehouseId, setWarehouseId] = useState<string | null>(null);
   const [deltas, setDeltas] = useState<Record<string, string>>({});
-  const [photoProduct, setPhotoProduct] = useState<ProductFamilyRow | null>(null);
+  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [nameDraft, setNameDraft] = useState(family.name);
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const targetWarehouseId = warehouseId ?? defaultWarehouseId;
+
+  const renameMutation = useRenameFamilyMutation();
+  const updateFieldsMutation = useUpdateProductFieldsMutation();
+  const uploadPhotoMutation = useUploadFamilyImageMutation(productId);
+  const deletePhotoMutation = useDeleteFamilyImageMutation(productId);
 
   const adjustMutation = useMutation({
     mutationFn: (vars: { productId: string; warehouseId: string; quantityDelta: number }) =>
@@ -62,6 +94,38 @@ export function ProductFamilyView({ family, scheme, onAddColor }: ProductFamilyV
         onSuccess: () => setDeltas((current) => ({ ...current, [row.product_id]: "" })),
       },
     );
+  };
+
+  const saveName = () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || trimmed === family.name) return;
+    renameMutation.mutate({ productId, name: trimmed });
+  };
+
+  const priceValue = (row: ProductFamilyRow) => prices[row.product_id] ?? row.price;
+
+  const applyPrice = (row: ProductFamilyRow) => {
+    const value = priceValue(row).trim();
+    const parsed = Number(value);
+    if (!value || !Number.isFinite(parsed) || parsed <= 0) {
+      setPrices((current) => ({ ...current, [row.product_id]: row.price }));
+      return;
+    }
+    if (value === row.price) return;
+    updateFieldsMutation.mutate({ productId: row.product_id, fields: { price: value } });
+  };
+
+  const handlePhotoFile = (file: File | undefined) => {
+    if (!file) return;
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      toast({ title: "Unsupported file type", variant: "destructive" });
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast({ title: "Image exceeds the 5 MB limit", variant: "destructive" });
+      return;
+    }
+    uploadPhotoMutation.mutate(file);
   };
 
   // Every active warehouse is a column even when no colour has stock there, so
@@ -93,24 +157,65 @@ export function ProductFamilyView({ family, scheme, onAddColor }: ProductFamilyV
     row.stock.find((entry) => entry.warehouse_id === warehouseId)?.quantity ?? 0;
 
   const first = family.rows[0];
-  const prices = family.rows.map((row) => Number(row.price));
-  const uniform = first && Math.min(...prices) === Math.max(...prices);
+  const pricesOf = family.rows.map((row) => Number(row.price));
+  const uniform = first && Math.min(...pricesOf) === Math.max(...pricesOf);
   const priceText = !first
     ? "—"
     : uniform
       ? first.price
-      : `${Math.min(...prices)}–${Math.max(...prices)}`;
+      : `${Math.min(...pricesOf)}–${Math.max(...pricesOf)}`;
   const costText = family.rows.find((row) => row.cost_price !== null)?.cost_price;
+  const familyImage = resolveProductImageUrl(family.image_url);
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex items-start gap-3">
+        <div className="relative shrink-0">
+          <div className="bg-muted flex size-20 items-center justify-center overflow-hidden rounded-md border">
+            {familyImage ? (
+              <img src={familyImage} alt={family.name} className="size-full object-cover" />
+            ) : (
+              <ImageOffIcon className="text-muted-foreground size-6" />
+            )}
+          </div>
+          <Button
+            size="icon"
+            className="absolute -right-2 -bottom-2 size-7"
+            aria-label="Change product photo"
+            title="Change product photo"
+            onClick={() => setPhotoOpen(true)}
+          >
+            <CameraIcon className="size-3.5" />
+          </Button>
+        </div>
+
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <Link to="/products" className="text-muted-foreground hover:text-foreground">
+            <Link to="/products" className="text-muted-foreground hover:text-foreground shrink-0">
               <ArrowLeftIcon className="size-4" />
             </Link>
-            <h1 className="text-2xl font-semibold">{family.name}</h1>
+            <Input
+              value={nameDraft}
+              onChange={(event) => setNameDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                saveName();
+              }}
+              aria-label="Product name"
+              className="h-8 text-lg font-semibold"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 shrink-0"
+              disabled={renameMutation.isPending || nameDraft.trim() === family.name}
+              onClick={saveName}
+              title="Rename the product and all its colours"
+            >
+              <SaveIcon className="size-4" />
+              <span className="hidden sm:inline">Rename</span>
+            </Button>
           </div>
           <p className="text-muted-foreground text-sm">
             {family.rows.length} colour{family.rows.length === 1 ? "" : "s"} · Prix: {priceText} DA
@@ -118,7 +223,7 @@ export function ProductFamilyView({ family, scheme, onAddColor }: ProductFamilyV
           </p>
         </div>
         {scheme?.color_key && (
-          <Button variant="outline" onClick={onAddColor}>
+          <Button variant="outline" className="shrink-0" onClick={onAddColor}>
             <PaletteIcon className="mr-1 size-4" />
             Add colour
           </Button>
@@ -145,6 +250,7 @@ export function ProductFamilyView({ family, scheme, onAddColor }: ProductFamilyV
                 </th>
               ))}
               <th className="px-4 py-2 text-right font-medium">Total</th>
+              <th className="px-4 py-2 text-right font-medium">Prix</th>
               <th className="px-4 py-2 text-right font-medium">Stock</th>
             </tr>
           </thead>
@@ -160,6 +266,26 @@ export function ProductFamilyView({ family, scheme, onAddColor }: ProductFamilyV
                 ))}
                 <td className="px-4 py-2 text-right font-medium tabular-nums">
                   {row.total_quantity}
+                </td>
+                <td className="px-4 py-2">
+                  <Input
+                    inputMode="decimal"
+                    aria-label={`Price for ${colorLabel(row)}`}
+                    className="h-8 w-24 text-right tabular-nums"
+                    value={priceValue(row)}
+                    onChange={(event) =>
+                      setPrices((current) => ({
+                        ...current,
+                        [row.product_id]: event.target.value,
+                      }))
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter") return;
+                      event.preventDefault();
+                      applyPrice(row);
+                    }}
+                    onBlur={() => applyPrice(row)}
+                  />
                 </td>
                 <td className="px-4 py-2">
                   <div className="flex flex-col items-end gap-1">
@@ -199,16 +325,6 @@ export function ProductFamilyView({ family, scheme, onAddColor }: ProductFamilyV
                     >
                       Details
                     </Link>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 px-2 text-xs"
-                      onClick={() => setPhotoProduct(row)}
-                      title={`Add or change the photo of ${colorLabel(row)}`}
-                    >
-                      <CameraIcon className="size-4" />
-                      Photo
-                    </Button>
                   </div>
                 </td>
               </tr>
@@ -225,6 +341,7 @@ export function ProductFamilyView({ family, scheme, onAddColor }: ProductFamilyV
                 {family.total_quantity}
               </td>
               <td />
+              <td />
             </tr>
           </tbody>
         </table>
@@ -233,14 +350,53 @@ export function ProductFamilyView({ family, scheme, onAddColor }: ProductFamilyV
       <p className="text-muted-foreground text-sm">
         This is one product with {family.rows.length} colour row
         {family.rows.length === 1 ? "" : "s"}; each colour keeps its own stock, so counts never mix.
+        Every colour shares the same photo and product name.
       </p>
 
-      <Dialog open={photoProduct !== null} onOpenChange={(open) => !open && setPhotoProduct(null)}>
+      <Dialog open={photoOpen} onOpenChange={setPhotoOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Photo — {photoProduct ? colorLabel(photoProduct) : ""}</DialogTitle>
+            <DialogTitle>Product photo</DialogTitle>
           </DialogHeader>
-          {photoProduct && <ProductImageManager productId={photoProduct.product_id} />}
+          <div className="flex flex-col gap-4">
+            <div className="bg-muted flex aspect-video items-center justify-center overflow-hidden rounded-md border">
+              {familyImage ? (
+                <img src={familyImage} alt={family.name} className="size-full object-cover" />
+              ) : (
+                <ImageOffIcon className="text-muted-foreground size-8" />
+              )}
+            </div>
+            <p className="text-muted-foreground text-sm">
+              One photo for the whole product — every colour card and the products list show the
+              same picture.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                <UploadIcon className="mr-1 size-4" />
+                Change photo
+              </Button>
+              {familyImage && (
+                <Button
+                  variant="destructive"
+                  disabled={deletePhotoMutation.isPending}
+                  onClick={() => deletePhotoMutation.mutate()}
+                >
+                  <TrashIcon className="mr-1 size-4" />
+                  Remove photo
+                </Button>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED_TYPES.join(",")}
+              className="hidden"
+              onChange={(e) => {
+                handlePhotoFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

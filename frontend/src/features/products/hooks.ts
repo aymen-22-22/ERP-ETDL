@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api/client";
@@ -8,6 +8,7 @@ import {
   addProductVariant,
   bulkDeleteProducts,
   createProduct,
+  deleteFamilyImage,
   deleteProduct,
   deleteProductImage,
   duplicateProduct,
@@ -17,8 +18,11 @@ import {
   listProductImages,
   listProducts,
   listVariantGroups,
+  renameFamily,
   setPrimaryProductImage,
   updateProduct,
+  updateProductFields,
+  uploadFamilyImage,
   uploadProductImage,
 } from "./api";
 import { submitStockAdjustment } from "./inventoryMutations";
@@ -172,6 +176,89 @@ export function useSetPrimaryProductImageMutation(productId: string) {
   });
 }
 
+function invalidateProductFamilies(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: ["product-family"] });
+  void queryClient.invalidateQueries({ queryKey: ["variant-groups"] });
+  void queryClient.invalidateQueries({ queryKey: ["grouped-variants"] });
+}
+
+export function useRenameFamilyMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { productId: string; name: string }) =>
+      renameFamily(vars.productId, vars.name),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      invalidateProductFamilies(queryClient);
+      toast({ title: "Product renamed" });
+    },
+    onError: (error) =>
+      toast({
+        title: "Rename failed",
+        description: errorMessage(error),
+        variant: "destructive",
+      }),
+  });
+}
+
+export function useUploadFamilyImageMutation(productId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => uploadFamilyImage(productId, file),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      invalidateProductFamilies(queryClient);
+      toast({ title: "Photo saved" });
+    },
+    onError: (error) =>
+      toast({
+        title: "Upload failed",
+        description: errorMessage(error),
+        variant: "destructive",
+      }),
+  });
+}
+
+export function useDeleteFamilyImageMutation(productId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => deleteFamilyImage(productId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      invalidateProductFamilies(queryClient);
+      toast({ title: "Photo removed" });
+    },
+    onError: (error) =>
+      toast({
+        title: "Delete failed",
+        description: errorMessage(error),
+        variant: "destructive",
+      }),
+  });
+}
+
+/** Patch a single product's fields (name, price) from the family view. */
+export function useUpdateProductFieldsMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      productId: string;
+      fields: { name?: string; price?: string; costPrice?: string };
+    }) => updateProductFields(vars.productId, vars.fields),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      invalidateProductFamilies(queryClient);
+      toast({ title: "Product updated" });
+    },
+    onError: (error) =>
+      toast({
+        title: "Update failed",
+        description: errorMessage(error),
+        variant: "destructive",
+      }),
+  });
+}
+
 export function useBulkDeleteProductsMutation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -219,8 +306,7 @@ export function useAddProductVariantMutation() {
       addProductVariant(vars.productId, vars.input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-      void queryClient.invalidateQueries({ queryKey: ["variant-groups"] });
-      void queryClient.invalidateQueries({ queryKey: ["grouped-variants"] });
+      invalidateProductFamilies(queryClient);
       toast({ title: "Variant added" });
     },
     onError: (error) =>

@@ -72,6 +72,12 @@ class BulkDeleteRequest(BaseModel):
     product_ids: list[UUID] = Field(min_length=1, max_length=200)
 
 
+class FamilyRenameRequest(BaseModel):
+    """New structural name for a product and every colour that shares it."""
+
+    name: str = Field(min_length=1, max_length=255)
+
+
 class BulkDeleteResult(BaseModel):
     deleted_count: int
 

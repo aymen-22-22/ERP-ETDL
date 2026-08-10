@@ -20,9 +20,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.inventory.models import MovementType
 from app.inventory.repository import InventoryRepository
 from app.inventory.schemas import MovementCreate
-from app.products.models import CategoryVariantScheme, Product, ProductStatus, ProductType
+from app.products.models import (
+    CategoryVariantScheme,
+    Product,
+    ProductImage,
+    ProductStatus,
+    ProductType,
+)
 from app.products.repository import ProductRepository
 from app.products.variant_schemas import VariantAddRequest, VariantGenerateItem
+from app.shared.core.cache import get_tenant_cache
 from app.shared.core.exceptions import ConflictError, NotFoundError
 from app.shared.core.ids import generate_uuid7
 from app.sync.models import ChangeOperation
@@ -111,6 +118,59 @@ async def get_scheme(
     if scheme is None:
         raise NotFoundError("This category has no variant scheme")
     return scheme
+
+
+async def family_rows(session: AsyncSession, tenant_id: UUID, product: Product) -> list[Product]:
+    """Every row of a product's colour family: same structural name and
+    category. This is the grouping rule the family view and the family image
+    endpoints share, so "which products belong to this product" never drifts
+    between them."""
+    if product.category_id is None:
+        return []
+    result = await session.execute(
+        select(Product)
+        .where(
+            Product.tenant_id == tenant_id,
+            Product.category_id == product.category_id,
+            Product.name == product.name,
+            Product.deleted_at.is_(None),
+        )
+        .order_by(Product.created_at)
+    )
+    return list(result.scalars().all())
+
+
+async def rename_family(
+    session: AsyncSession, tenant_id: UUID, product: Product, new_name: str
+) -> dict[str, object]:
+    """Rename the product and every colour that shares its structural name.
+
+    The family groups by `Product.name`, so a colour renamed on its own would
+    silently split off into a new family; renaming all of them together in one
+    transaction keeps the group intact. One mutation per row feeds the sync
+    queue exactly like the normal product update does.
+    """
+    rows = await family_rows(session, tenant_id, product)
+    repo = ProductRepository(session)
+    for row in rows:
+        mutation = MutationEnvelope(
+            client_mutation_id=generate_uuid7(),
+            entity_type="product",
+            entity_id=row.id,
+            operation=ChangeOperation.UPDATE,
+            base_version=row.version,
+            payload={"name": new_name},
+            client_timestamp=datetime.now(UTC),
+        )
+        await repo.apply_mutation(tenant_id, mutation)
+    await session.commit()
+    await get_tenant_cache().invalidate_pattern(tenant_id, "products")
+
+    base_result = await session.execute(
+        select(Product).where(Product.id == product.id, Product.tenant_id == tenant_id)
+    )
+    base = base_result.scalar_one()
+    return await get_product_family(session, tenant_id, base)
 
 
 async def existing_skus(session: AsyncSession, tenant_id: UUID, skus: list[str]) -> set[str]:
@@ -383,17 +443,7 @@ async def get_product_family(
     scheme = scheme_result.scalar_one_or_none()
     color_key = scheme.color_key if scheme else None
 
-    rows_result = await session.execute(
-        select(Product)
-        .where(
-            Product.tenant_id == tenant_id,
-            Product.category_id == product.category_id,
-            Product.name == product.name,
-            Product.deleted_at.is_(None),
-        )
-        .order_by(Product.created_at)
-    )
-    rows = list(rows_result.scalars().all())
+    rows = await family_rows(session, tenant_id, product)
     if not rows:
         return {
             "name": product.name,
@@ -402,6 +452,7 @@ async def get_product_family(
             "color_key": color_key,
             "rows": [],
             "total_quantity": 0,
+            "image_url": None,
         }
 
     snapshots_result = await session.execute(
@@ -424,6 +475,16 @@ async def get_product_family(
         )
         quantities_by_product.setdefault(snapshot.product_id, []).append(snapshot.quantity_on_hand)
 
+    images_result = await session.execute(
+        select(ProductImage.product_id, ProductImage.url).where(
+            ProductImage.tenant_id == tenant_id,
+            ProductImage.product_id.in_([row.id for row in rows]),
+            ProductImage.is_primary.is_(True),
+            ProductImage.deleted_at.is_(None),
+        )
+    )
+    image_by_product = {product_id: url for product_id, url in images_result.all()}
+
     color_rows: list[dict[str, object]] = []
     total_quantity = 0
     for row in rows:
@@ -440,12 +501,17 @@ async def get_product_family(
                 "cost_price": str(row.cost_price) if row.cost_price is not None else None,
                 "stock": stock_by_product.get(row.id, []),
                 "total_quantity": row_total,
+                "image_url": image_by_product.get(row.id),
             }
         )
 
     # A hand-typed base product carries no colour; keep it first, then the
     # colours alphabetically so the same family reads the same every visit.
     color_rows.sort(key=lambda entry: (str(entry["color_label"]) == "", str(entry["color_label"])))
+
+    # The family photo is whatever colour's primary image the user last set;
+    # because family photos are replicated to every colour row, they all agree.
+    family_image = next((entry["image_url"] for entry in color_rows if entry["image_url"]), None)
 
     return {
         "name": product.name,
@@ -454,4 +520,5 @@ async def get_product_family(
         "color_key": color_key,
         "rows": color_rows,
         "total_quantity": total_quantity,
+        "image_url": family_image,
     }

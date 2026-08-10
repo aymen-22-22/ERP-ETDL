@@ -25,6 +25,7 @@ from app.products.models import Product, ProductBomLine, ProductStatus
 from app.products.schemas import (
     BulkDeleteRequest,
     BulkDeleteResult,
+    FamilyRenameRequest,
     ImportSummary,
     ProductCreate,
     ProductImageRead,
@@ -353,6 +354,53 @@ async def get_product_family(
     return ResponseEnvelope(
         data=await variant_service.get_product_family(session, tenant_id, product)
     )
+
+
+@router.patch("/{product_id}/family", response_model=ResponseEnvelope[dict[str, object]])
+async def rename_product_family(
+    product_id: UUID,
+    data: FamilyRenameRequest,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=60))],
+) -> ResponseEnvelope[dict[str, object]]:
+    """Rename the product and every colour that shares its structural name, in
+    one transaction, so the family never splits on save."""
+    product = await service.get_product(session, tenant_id, product_id)
+    return ResponseEnvelope(
+        data=await variant_service.rename_family(session, tenant_id, product, data.name)
+    )
+
+
+@router.post(
+    "/{product_id}/family/images",
+    response_model=ResponseEnvelope[list[ProductImageRead]],
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_family_image(
+    product_id: UUID,
+    file: Annotated[UploadFile, File()],
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=30))],
+) -> ResponseEnvelope[list[ProductImageRead]]:
+    """One photo for the whole product: stored once and referenced from every
+    colour row, so all colour cards show the same picture."""
+    images = await image_service.add_family_image(session, tenant_id, product_id, file)
+    return ResponseEnvelope(data=[ProductImageRead.model_validate(img) for img in images])
+
+
+@router.delete("/{product_id}/family/images", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_family_image(
+    product_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+    __: Annotated[None, Depends(rate_limit("products", limit=30))],
+) -> None:
+    await image_service.delete_family_image(session, tenant_id, product_id)
 
 
 @router.post(

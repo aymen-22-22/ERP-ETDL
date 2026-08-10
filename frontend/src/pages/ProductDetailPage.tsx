@@ -62,6 +62,8 @@ export function ProductDetailPage() {
     return (
       <>
         <ProductFamilyView
+          key={productId}
+          productId={productId}
           family={family}
           scheme={scheme}
           onAddColor={() => setVariantDialogOpen(true)}

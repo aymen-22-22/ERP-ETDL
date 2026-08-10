@@ -141,6 +141,8 @@ export interface ProductFamilyRow {
   cost_price: string | null;
   stock: GroupedVariantStock[];
   total_quantity: number;
+  /** This colour's primary photo — the family photo when one is set. */
+  image_url: string | null;
 }
 
 export interface ProductFamily {
@@ -150,11 +152,59 @@ export interface ProductFamily {
   color_key: string | null;
   rows: ProductFamilyRow[];
   total_quantity: number;
+  /** The family photo: every colour shows the same one. */
+  image_url: string | null;
 }
 
 /** One product as a colour family: name plus Couleur / Dépôt / Store / Total. */
 export async function getProductFamily(productId: string): Promise<ProductFamily> {
   return apiFetch<ProductFamily>(`/v1/products/${productId}/family`);
+}
+
+/** Rename a product and every colour that shares its structural name. */
+export async function renameFamily(productId: string, name: string): Promise<ProductFamily> {
+  return apiFetch<ProductFamily>(`/v1/products/${productId}/family`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
+/** One photo for the whole product, applied to every colour row. */
+export async function uploadFamilyImage(productId: string, file: File): Promise<ProductImage[]> {
+  const token = useAuthStore.getState().accessToken;
+  const form = new FormData();
+  form.append("file", file);
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const resp = await fetch(`${API_BASE_URL}/v1/products/${productId}/family/images`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+  const body = (await resp.json()) as { data?: ProductImage[]; error?: { code?: string } };
+  if (!resp.ok) throw new ApiError(resp.status, body.error?.code ?? "unknown_error");
+  if (!body.data) throw new ApiError(resp.status, "unknown_error");
+  return body.data;
+}
+
+/** Remove the family photo from every colour row. */
+export async function deleteFamilyImage(productId: string): Promise<void> {
+  await apiFetch<void>(`/v1/products/${productId}/family/images`, { method: "DELETE" });
+}
+
+/** Patch one product's fields (name, price, …) without touching the rest. */
+export async function updateProductFields(
+  productId: string,
+  fields: { name?: string; price?: string; costPrice?: string },
+): Promise<Product> {
+  return apiFetch<Product>(`/v1/products/${productId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      ...(fields.name !== undefined ? { name: fields.name } : {}),
+      ...(fields.price !== undefined ? { price: fields.price } : {}),
+      ...(fields.costPrice !== undefined ? { cost_price: fields.costPrice } : {}),
+    }),
+  });
 }
 
 /** One category's variants grouped by structural name, colours nested. */
