@@ -95,6 +95,7 @@ async def list_products(
     product_status: ProductStatus | None = Query(default=None, alias="status"),
     sort: ProductSort = Query(default=ProductSort.NAME),
     include_variants: bool = Query(default=True),
+    include_configurable: bool = Query(default=True),
 ) -> PaginatedEnvelope[ProductRead]:
     params = PageParams(page=page, page_size=page_size)
     query = ProductQuery(
@@ -104,6 +105,7 @@ async def list_products(
         status=product_status,
         sort=sort,
         include_variants=include_variants,
+        include_configurable=include_configurable,
     )
     products, meta = await service.list_products(session, tenant_id, params, query)
     reads = await _with_images(

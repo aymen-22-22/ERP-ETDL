@@ -87,6 +87,12 @@ export interface ProductListParams {
    * editor need them and leave it alone.
    */
   includeVariants?: boolean | undefined;
+  /**
+   * Defaults to true server-side. The product list page passes false so
+   * configurable products only show on their own /configurable screen and in
+   * the POS; the POS and recipe editor need them and leave it alone.
+   */
+  includeConfigurable?: boolean | undefined;
 }
 
 export interface VariantGroup {
@@ -190,6 +196,7 @@ export async function listProducts(
   if (params.search) q.set("search", params.search);
   if (params.status) q.set("status", params.status);
   if (params.includeVariants === false) q.set("include_variants", "false");
+  if (params.includeConfigurable === false) q.set("include_configurable", "false");
   if (params.categoryId) q.set("category_id", params.categoryId);
   if (params.sort) q.set("sort", params.sort);
   if (params.sortDir) q.set("sort_dir", params.sortDir);

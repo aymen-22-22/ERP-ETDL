@@ -4,14 +4,13 @@ import { resolveProductImageUrl } from "@/features/products/api";
 import type { CategoryTreeNode } from "@/features/categories/api";
 import { cn } from "@/lib/utils";
 
-/** Soft pastel tints for category placeholders. Each category gets a stable
- * tint derived from its name, so a category looks the same across screens. */
+/** Soft grey placeholder tile for categories. Category images aren't on the
+ * API yet, so a neutral folder tile stands in until they are — kept
+ * monochrome so placeholder tints never compete with real photos. */
 const PASTELS = [
-  "bg-violet-100 text-violet-700",
-  "bg-sky-100 text-sky-700",
-  "bg-emerald-100 text-emerald-700",
-  "bg-amber-100 text-amber-700",
-  "bg-rose-100 text-rose-700",
+  "bg-muted text-muted-foreground",
+  "bg-secondary text-secondary-foreground",
+  "bg-accent text-muted-foreground",
 ] as const;
 
 function hashName(name: string): number {

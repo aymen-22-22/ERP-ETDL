@@ -94,15 +94,20 @@ export function ProductsListPage() {
     setPage(1);
   }
 
-  // Generated variants are hidden from the main list and surfaced as families
+  // Generated variants are hidden from the table view and surfaced as families
   // below — a dozen tubes would otherwise bury everything else. Filtering to a
   // specific category shows them, which is what clicking a family does. A
   // search also shows them: hiding variants from a search would make "tube
-  // liss" find nothing, since tubes only exist as variant rows.
+  // liss" find nothing, since tubes only exist as variant rows. The cards
+  // view is the exception: it renders every variant as its own card (the same
+  // way the POS tile picker does), so nothing is hidden there.
   const showingOneCategory = categoryId !== null;
   const { data, isLoading } = useProducts(page, PAGE_SIZE, {
     search,
-    includeVariants: showingOneCategory || search !== "",
+    includeVariants: showingOneCategory || search !== "" || viewMode === "cards",
+    // Configurable products live on their own /configurable screen (and in the
+    // POS): they never appear as a row here.
+    includeConfigurable: false,
     ...(categoryId ? { categoryId } : {}),
   });
   const { data: variantGroups } = useVariantGroups();
@@ -427,53 +432,57 @@ export function ProductsListPage() {
 
       {filters}
 
-      {!showingOneCategory && search === "" && variantGroups && variantGroups.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <h2 className="label-caps text-muted-foreground">Variant families</h2>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
-            {variantGroups.map((group) => {
-              const imageUrl = resolveProductImageUrl(group.image_url);
-              return (
-                <button
-                  key={group.category_id}
-                  type="button"
-                  onClick={() => setCategoryId(group.category_id)}
-                  className="bg-card hover:border-foreground/30 flex flex-col overflow-hidden rounded-md border text-left transition-colors"
-                >
-                  <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
-                    {imageUrl ? (
-                      <img
-                        src={imageUrl}
-                        alt={group.category_name}
-                        className="size-full object-cover"
-                      />
-                    ) : (
-                      <LayersIcon className="text-muted-foreground size-6" />
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-0.5 p-2">
-                    <p className="truncate text-xs font-medium">{group.category_name}</p>
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-muted-foreground text-xs tabular-nums">
-                        {group.min_price === group.max_price
-                          ? group.min_price
-                          : `${group.min_price}–${group.max_price}`}
-                      </span>
-                      <Badge variant="secondary" className="shrink-0 text-xs">
-                        {group.variant_count}
-                      </Badge>
+      {viewMode === "table" &&
+        !showingOneCategory &&
+        search === "" &&
+        variantGroups &&
+        variantGroups.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <h2 className="label-caps text-muted-foreground">Variant families</h2>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
+              {variantGroups.map((group) => {
+                const imageUrl = resolveProductImageUrl(group.image_url);
+                return (
+                  <button
+                    key={group.category_id}
+                    type="button"
+                    onClick={() => setCategoryId(group.category_id)}
+                    className="bg-card hover:border-foreground/30 flex flex-col overflow-hidden rounded-md border text-left transition-colors"
+                  >
+                    <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt={group.category_name}
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        <LayersIcon className="text-muted-foreground size-6" />
+                      )}
                     </div>
-                  </div>
-                </button>
-              );
-            })}
+                    <div className="flex flex-col gap-0.5 p-2">
+                      <p className="truncate text-xs font-medium">{group.category_name}</p>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          {group.min_price === group.max_price
+                            ? group.min_price
+                            : `${group.min_price}–${group.max_price}`}
+                        </span>
+                        <Badge variant="secondary" className="shrink-0 text-xs">
+                          {group.variant_count}
+                        </Badge>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Generated variants are grouped here instead of filling the list. Open a family to see
+              and edit its variants.
+            </p>
           </div>
-          <p className="text-muted-foreground text-xs">
-            Generated variants are grouped here instead of filling the list. Open a family to see
-            and edit its variants.
-          </p>
-        </div>
-      )}
+        )}
 
       {selected.size > 0 && (
         <StickyActionBar className="md:justify-between md:rounded-md md:border md:bg-muted/40 md:p-3">

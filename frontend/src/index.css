@@ -3,13 +3,16 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ---------------------------------------------------------------------------
-   Classic Pro — clean light ERP
-   White surfaces, near-black text, neutral grey structure.
+   Classic Pro — monochrome
+   White surfaces, black text, neutral grey structure. Every neutral is true
+   greyscale (chroma 0) so nothing tints the page.
 
-   Primary is a modern violet: primary buttons, the active nav tab, links and
-   icon chips. Colour is otherwise reserved for status — a small green dot for
-   active/stock, orange for warnings, red for destructive actions — so the
-   interface reads at a glance without looking decorative.
+   Colour is never used for text. It appears only as a small status dot or a
+   destructive action, which keeps status readable at a glance without the
+   interface looking decorative.
+
+   `--primary` is black: black buttons with white labels, the classic
+   high-contrast convention for professional software.
 --------------------------------------------------------------------------- */
 
 :root {
@@ -24,7 +27,7 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.15 0 0);
 
-  --primary: oklch(0.54 0.26 293);
+  --primary: oklch(0.15 0 0);
   --primary-foreground: oklch(1 0 0);
 
   --secondary: oklch(0.97 0 0);
@@ -48,7 +51,7 @@
 
   --border: oklch(0.9 0 0);
   --input: oklch(0.88 0 0);
-  --ring: oklch(0.54 0.26 293);
+  --ring: oklch(0.15 0 0);
 }
 
 .dark {
@@ -83,7 +86,7 @@
 
   --border: oklch(1 0 0 / 14%);
   --input: oklch(1 0 0 / 18%);
-  --ring: oklch(0.65 0.2 293);
+  --ring: oklch(0.98 0 0);
 }
 
 @theme inline {

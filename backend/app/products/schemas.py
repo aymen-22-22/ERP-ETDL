@@ -135,6 +135,11 @@ class ProductQuery(BaseModel):
     # components from it. The product *list page* opts out so a dozen tubes
     # don't bury everything else; it shows variant families instead.
     include_variants: bool = True
+    # Configurable products are managed and offered from their own screens —
+    # the /configurable admin list and the POS — so the product list page opts
+    # out and they never appear as a plain row there. The POS and the recipe
+    # editor keep the default.
+    include_configurable: bool = True
 
 
 class ImportRowError(BaseModel):

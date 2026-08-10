@@ -55,6 +55,8 @@ class ProductRepository(SyncableCRUDRepository[Product, ProductCreate, ProductUp
             base = base.where(Product.status == query.status)
         if not query.include_variants:
             base = base.where(Product.product_type != ProductType.VARIANT)
+        if not query.include_configurable:
+            base = base.where(Product.product_type != ProductType.CONFIGURABLE)
 
         total = await self._session.scalar(select(func.count()).select_from(base.subquery()))
         ordered = base.order_by(_SORT_COLUMNS[query.sort])
