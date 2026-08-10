@@ -172,7 +172,9 @@ export function ConfigurableDefinitionPage() {
 
   const save = () => {
     // Drop rows the admin left blank; let the server flag anything that is
-    // required but missing.
+    // required but missing. The motif axis stays even with no values: its
+    // values come from the catalogue, but the axis must exist for the
+    // recipe's "@motif" placeholder to resolve.
     const options: Record<string, string[]> = {};
     for (const row of axisRows) {
       const axis = row.axis.trim();
@@ -185,7 +187,7 @@ export function ConfigurableDefinitionPage() {
             .filter(Boolean),
         ),
       ];
-      if (values.length > 0) options[axis] = values;
+      if (values.length > 0 || axis === "motif") options[axis] = values;
     }
 
     if (!colorKey || !options[colorKey]) {
@@ -323,31 +325,50 @@ export function ConfigurableDefinitionPage() {
 
             <Separator />
 
-            {axisRows.map((row, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <Input
-                  placeholder="Axis (e.g. support)"
-                  className="h-9 w-44"
-                  value={row.axis}
-                  onChange={(e) => updateAxis(index, { axis: e.target.value })}
-                />
-                <Input
-                  placeholder="Values, comma-separated (e.g. F2, F3, F4)"
-                  className="h-9 flex-1"
-                  value={row.values}
-                  onChange={(e) => updateAxis(index, { values: e.target.value })}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-9 shrink-0"
-                  aria-label="Remove axis"
-                  onClick={() => setAxisRows((rows) => rows.filter((_, i) => i !== index))}
-                >
-                  <Trash2Icon />
-                </Button>
-              </div>
-            ))}
+            <p className="text-muted-foreground text-xs">
+              The <span className="font-medium">motif</span> axis is read from the catalogue — its
+              values are the motif products that exist, so the till can only sell a motif that is
+              really in stock. Add motif products to add options.
+            </p>
+
+            {axisRows.map((row, index) => {
+              const isMotifAxis = row.axis.trim().toLowerCase() === "motif";
+              return (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    placeholder="Axis (e.g. support)"
+                    className="h-9 w-44"
+                    value={row.axis}
+                    onChange={(e) => updateAxis(index, { axis: e.target.value })}
+                  />
+                  {isMotifAxis ? (
+                    <div className="bg-muted text-muted-foreground flex h-9 flex-1 items-center rounded-md border px-3 text-sm">
+                      <span className="truncate">
+                        {row.values
+                          ? `${row.values} — from the catalogue`
+                          : "No motif products in the catalogue yet"}
+                      </span>
+                    </div>
+                  ) : (
+                    <Input
+                      placeholder="Values, comma-separated (e.g. F2, F3, F4)"
+                      className="h-9 flex-1"
+                      value={row.values}
+                      onChange={(e) => updateAxis(index, { values: e.target.value })}
+                    />
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 shrink-0"
+                    aria-label="Remove axis"
+                    onClick={() => setAxisRows((rows) => rows.filter((_, i) => i !== index))}
+                  >
+                    <Trash2Icon />
+                  </Button>
+                </div>
+              );
+            })}
 
             <Button
               variant="outline"

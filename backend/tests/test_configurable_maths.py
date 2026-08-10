@@ -8,7 +8,11 @@ display name is what lands in the ledger as `sold_as` — a slip there names the
 sale wrong.
 """
 
-from app.products.configurable_service import build_display_name, substitute_attributes
+from app.products.configurable_service import (
+    build_display_name,
+    motif_binding,
+    substitute_attributes,
+)
 from app.products.models import BomUnit, ConfigurableRecipeLine
 
 
@@ -39,6 +43,26 @@ def test_unknown_placeholder_is_left_alone() -> None:
 
 def test_plain_values_survive_substitution() -> None:
     assert substitute_attributes({"model": "Cristal"}, {}) == {"model": "Cristal"}
+
+
+def _recipe_line(attributes: dict[str, str]) -> ConfigurableRecipeLine:
+    return ConfigurableRecipeLine(
+        label="Motif", attributes=attributes, quantity=1, unit=BomUnit.PIECE
+    )
+
+
+def test_motif_binding_finds_the_placeholder_and_fixed_attributes() -> None:
+    # "Motif 28 Cristal K19" lives as a variant whose `model` attribute holds
+    # the full value; the binding is the pair the catalogue derivation needs:
+    # which attribute to collect, and the fixed matches that scope it.
+    binding = motif_binding(_recipe_line({"color": "@color", "model": "@motif", "diameter": "28"}))
+    assert binding == ("model", {"diameter": "28"})
+
+
+def test_motif_binding_skips_lines_without_the_placeholder() -> None:
+    assert motif_binding(_recipe_line({"size": "28/19", "model": "@support"})) is None
+    assert motif_binding(_recipe_line({"model": "Cristal"})) is None
+    assert motif_binding(_recipe_line({})) is None
 
 
 def test_display_name_is_structure_then_colour_then_length() -> None:

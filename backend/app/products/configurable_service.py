@@ -50,6 +50,69 @@ from app.products.models import (
 from app.shared.core.exceptions import AppError, NotFoundError
 
 
+def motif_binding(line: ConfigurableRecipeLine) -> tuple[str, dict[str, str]] | None:
+    """Which product attribute a recipe line binds to the motif axis.
+
+    A line "Motif" with attributes {"model": "@motif", "diameter": "28"} binds
+    the till's motif choice to the product's ``model`` attribute. Returns
+    ``(attribute_key, fixed_attributes)`` — the two things needed to derive
+    which motifs actually exist on the shelf. ``None`` when the line does not
+    reference the motif at all.
+    """
+    attributes = line.attributes or {}
+    bound_key = next((key for key, value in attributes.items() if value == "@motif"), None)
+    if bound_key is None:
+        return None
+    fixed = {key: value for key, value in attributes.items() if not value.startswith("@")}
+    return bound_key, fixed
+
+
+async def _catalogue_motif_options(
+    session: AsyncSession, tenant_id: UUID, recipe: list[ConfigurableRecipeLine]
+) -> list[str] | None:
+    """The motif choices that actually exist in the catalogue.
+
+    The till's motif axis offers exactly the products the recipe's "@motif"
+    binding can resolve, so the cashier can never pick a motif whose product is
+    missing ("le produit motif 28 cristal k19 doit exister"). Returns ``None``
+    when no recipe line binds the motif (a fixed motif, or no motif axis), in
+    which case the stored options stand untouched.
+    """
+    values: set[str] = set()
+    bound_any = False
+    for line in recipe:
+        binding = motif_binding(line)
+        if binding is None:
+            continue
+        bound_any = True
+        bound_key, fixed = binding
+        query = select(Product).where(
+            Product.tenant_id == tenant_id,
+            Product.deleted_at.is_(None),
+            Product.status == ProductStatus.ACTIVE,
+            Product.product_type.in_([ProductType.VARIANT, ProductType.SIMPLE]),
+        )
+        if line.category_id is not None:
+            query = query.where(Product.category_id == line.category_id)
+        else:
+            # No category means the family is what the line is called: "Motif"
+            # matches "Motif 28 Cristal" but not a "Tube 28 …" or a support,
+            # whose models would otherwise leak into the motif picker.
+            prefix = (line.label or "").strip()
+            if prefix:
+                query = query.where(Product.name.ilike(f"{prefix}%"))
+        if fixed:
+            query = query.where(Product.attributes.contains(fixed))
+        products = (await session.execute(query)).scalars().all()
+        for product in products:
+            value = (product.attributes or {}).get(bound_key)
+            if value:
+                values.add(value)
+    if not bound_any:
+        return None
+    return sorted(values)
+
+
 def substitute_attributes(
     attributes: dict[str, str], configuration: dict[str, str]
 ) -> dict[str, str]:
@@ -184,13 +247,22 @@ async def get_definition(
         )
         category_names = {category.id: category.name for category in categories.scalars().all()}
 
+    # The motif axis is the catalogue: values are the motif products that
+    # exist, so the till offers exactly what can be resolved. Stored values
+    # are ignored for this axis (they were hand-typed and can drift from
+    # reality); every other axis still comes from the definition.
+    options = dict(definition.options or {})
+    motif_options = await _catalogue_motif_options(session, tenant_id, recipe)
+    if motif_options is not None:
+        options["motif"] = motif_options
+
     return ConfigurableDefinitionRead(
         product_id=product.id,
         name=product.name,
         sku=product.sku,
         color_key=definition.color_key,
         length_key=definition.length_key,
-        options=definition.options or {},
+        options=options,
         prices=[
             ConfigurablePriceRead(length=price.length, price=str(price.price)) for price in prices
         ],
@@ -332,7 +404,20 @@ async def resolve_configuration(
 ) -> ConfigurableResolveResult:
     product = await _require_configurable(session, tenant_id, product_id)
     definition = await _load_definition(session, tenant_id, product_id)
-    options = definition.options or {}
+    recipe = await _load_recipe(session, tenant_id, product_id)
+    if not recipe:
+        raise AppError(
+            f"{product.name} has no recipe, so it cannot be configured yet",
+            error_code="configurable_no_recipe",
+        )
+
+    # Validate against the same derived motif options the till was offered, so
+    # a motif that no longer exists on the shelf fails loudly here instead of
+    # resolving an empty recipe.
+    options = dict(definition.options or {})
+    motif_options = await _catalogue_motif_options(session, tenant_id, recipe)
+    if motif_options is not None:
+        options["motif"] = motif_options
     configuration = dict(data.configuration)
 
     missing = [key for key in options if key not in configuration]
@@ -357,13 +442,6 @@ async def resolve_configuration(
         raise AppError(
             f'Unknown length "{length_value}" (available: {available_lengths})',
             error_code="configurable_unknown_length",
-        )
-
-    recipe = await _load_recipe(session, tenant_id, product.id)
-    if not recipe:
-        raise AppError(
-            f"{product.name} has no recipe, so it cannot be configured yet",
-            error_code="configurable_no_recipe",
         )
 
     # Resolve every pattern to exactly one concrete product.
