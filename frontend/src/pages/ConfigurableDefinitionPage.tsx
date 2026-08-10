@@ -101,6 +101,13 @@ const EMPTY: { axisRows: AxisRow[]; priceRows: PriceRow[]; recipeRows: RecipeRow
 };
 
 /**
+ * Axes whose options come from the catalogue rather than from the editor: the
+ * till offers exactly the component products that exist, so nothing is
+ * hand-typed. Mirrors CATALOGUE_DERIVED_AXES in configurable_service.py.
+ */
+const CATALOGUE_AXES = new Set(["motif", "tube"]);
+
+/**
  * The definition editor: what a configurable product can be sold as.
  *
  * Three parts that mirror the backend shape — the option axes (support,
@@ -172,9 +179,9 @@ export function ConfigurableDefinitionPage() {
 
   const save = () => {
     // Drop rows the admin left blank; let the server flag anything that is
-    // required but missing. The motif axis stays even with no values: its
-    // values come from the catalogue, but the axis must exist for the
-    // recipe's "@motif" placeholder to resolve.
+    // required but missing. The motif and tube axes stay even with no values:
+    // their values come from the catalogue, but the axis must exist for the
+    // recipe's "@motif"/"@tube" placeholder to resolve.
     const options: Record<string, string[]> = {};
     for (const row of axisRows) {
       const axis = row.axis.trim();
@@ -187,7 +194,7 @@ export function ConfigurableDefinitionPage() {
             .filter(Boolean),
         ),
       ];
-      if (values.length > 0 || axis === "motif") options[axis] = values;
+      if (values.length > 0 || CATALOGUE_AXES.has(axis)) options[axis] = values;
     }
 
     if (!colorKey || !options[colorKey]) {
@@ -326,13 +333,14 @@ export function ConfigurableDefinitionPage() {
             <Separator />
 
             <p className="text-muted-foreground text-xs">
-              The <span className="font-medium">motif</span> axis is read from the catalogue — its
-              values are the motif products that exist, so the till can only sell a motif that is
-              really in stock. Add motif products to add options.
+              The <span className="font-medium">motif</span> and{" "}
+              <span className="font-medium">tube</span> axes are read from the catalogue — their
+              values are the component products that exist, so the till can only sell a component
+              that is really in stock. Add component products to add options.
             </p>
 
             {axisRows.map((row, index) => {
-              const isMotifAxis = row.axis.trim().toLowerCase() === "motif";
+              const isCatalogueAxis = CATALOGUE_AXES.has(row.axis.trim().toLowerCase());
               return (
                 <div key={index} className="flex items-center gap-2">
                   <Input
@@ -341,12 +349,12 @@ export function ConfigurableDefinitionPage() {
                     value={row.axis}
                     onChange={(e) => updateAxis(index, { axis: e.target.value })}
                   />
-                  {isMotifAxis ? (
+                  {isCatalogueAxis ? (
                     <div className="bg-muted text-muted-foreground flex h-9 flex-1 items-center rounded-md border px-3 text-sm">
                       <span className="truncate">
                         {row.values
                           ? `${row.values} — from the catalogue`
-                          : "No motif products in the catalogue yet"}
+                          : "No such component products in the catalogue yet"}
                       </span>
                     </div>
                   ) : (

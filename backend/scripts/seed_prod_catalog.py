@@ -65,6 +65,14 @@ from app.transfers.models import StockTransferLine  # noqa: E402
 COLORS = ["GD", "CH", "AC", "AB", "WH", "BK", "SN"]
 LENGTHS = ["2m", "2.5m", "3m", "4m", "5m"]
 
+# Tube models by rail diameter — the shop stocks 28mm tubes in every model but
+# 19mm tubes only as Liss. This drives both the generated parts and the recipe
+# "tube" axis (the till offers exactly these per diameter).
+TUBE_MODELS: dict[str, list[str]] = {
+    "28": ["Liss", "Torsadi", "Sculpté"],
+    "19": ["Liss"],
+}
+
 # Everything not explicitly priced is seeded at this placeholder; the shop
 # fills the real prices in via the UI (definition page / product form).
 PLACEHOLDER_PRICE = Decimal("1.00")
@@ -95,7 +103,7 @@ SCHEME_UPDATES: dict[tuple[str, ...], tuple[str, str, list[str], dict[str, list[
         {
             "diameter": ["28"],
             "length": LENGTHS,
-            "model": ["Torsadi", "Liss"],
+            "model": TUBE_MODELS["28"],
             "color": COLORS,
         },
     ),
@@ -106,7 +114,7 @@ SCHEME_UPDATES: dict[tuple[str, ...], tuple[str, str, list[str], dict[str, list[
         {
             "diameter": ["19"],
             "length": LENGTHS,
-            "model": ["Torsadi", "Liss"],
+            "model": TUBE_MODELS["19"],
             "color": COLORS,
         },
     ),
@@ -250,9 +258,9 @@ def _component_items() -> list[tuple[tuple[str, ...], dict[str, str]]]:
     """(category path, attributes) for every component part to create."""
     items: list[tuple[tuple[str, ...], dict[str, str]]] = []
 
-    for diameter in ("28", "19"):
+    for diameter, models in TUBE_MODELS.items():
         for length in LENGTHS:
-            for model in ("Torsadi", "Liss"):
+            for model in models:
                 for color in COLORS:
                     items.append(
                         (
@@ -452,12 +460,27 @@ async def _create_configurables(
         await session.flush()
         created.append(product)
 
+        # The one tube choice must resolve on every rail of the product, so
+        # only models stocked in all the product's diameters are offered. The
+        # stored list is a seed-time placeholder — at the till it is replaced
+        # by whatever the catalogue actually holds.
+        tube_models = sorted(
+            set.intersection(
+                *(set(TUBE_MODELS[diameter]) for diameter, _ in tubes if diameter in TUBE_MODELS)
+            )
+        )
+
         definition = ConfigurableDefinition(
             tenant_id=tenant_id,
             product_id=product.id,
             color_key="color",
             length_key="length",
-            options={"support": supports, "motif": motifs, "color": COLORS},
+            options={
+                "support": supports,
+                "tube": tube_models,
+                "motif": motifs,
+                "color": COLORS,
+            },
         )
         session.add(definition)
 
@@ -475,6 +498,9 @@ async def _create_configurables(
             )
 
         # Tube lines: one per distinct rail diameter, quantity = rail count.
+        # The model follows the till's "tube" choice, so a 28/19 triangle can
+        # take Torsadi 28 rails and only Liss 19 rails; the axis is derived
+        # from the catalogue (per diameter) at the till.
         for diameter, rail_count in tubes:
             session.add(
                 ConfigurableRecipeLine(
@@ -485,7 +511,7 @@ async def _create_configurables(
                     attributes={
                         "diameter": diameter,
                         "length": "@length",
-                        "model": "Liss",
+                        "model": "@tube",
                         "color": "@color",
                     },
                     quantity=rail_count,

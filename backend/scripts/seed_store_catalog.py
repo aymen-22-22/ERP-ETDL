@@ -98,7 +98,7 @@ VARIANT_SCHEMES: dict[tuple[str, ...], tuple[str, str, list[str], dict[str, list
         {
             "diameter": ["28"],
             "length": ["2m", "4m"],
-            "model": ["Torsadi", "Liss"],
+            "model": ["Liss", "Torsadi", "Sculpté"],
             "color": ["Argent", "Dorre"],
         },
     ),
@@ -109,7 +109,7 @@ VARIANT_SCHEMES: dict[tuple[str, ...], tuple[str, str, list[str], dict[str, list
         {
             "diameter": ["19"],
             "length": ["2m", "4m"],
-            "model": ["Torsadi", "Liss"],
+            "model": ["Liss"],
             "color": ["Argent", "Dorre"],
         },
     ),

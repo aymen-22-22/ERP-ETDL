@@ -27,6 +27,8 @@ export interface ConfigurableDefinition {
   length_key: string;
   /** Axis -> allowed values, in the order the till should offer them. */
   options: Record<string, string[]>;
+  /** Axes whose options come from the catalogue (motif, tube). */
+  catalogue_axes: string[];
   prices: ConfigurablePrice[];
   recipe: ConfigurableRecipeLine[];
 }

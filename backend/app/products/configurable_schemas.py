@@ -73,6 +73,9 @@ class ConfigurableDefinitionRead(BaseModel):
     color_key: str
     length_key: str
     options: dict[str, list[str]]
+    # Axes whose options come from the catalogue (motif, tube): the editor
+    # shows them read-only and keeps them even when the catalogue is empty.
+    catalogue_axes: list[str] = []
     prices: list[ConfigurablePriceRead]
     recipe: list[ConfigurableRecipeLineRead]
 

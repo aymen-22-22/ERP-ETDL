@@ -49,42 +49,61 @@ from app.products.models import (
 )
 from app.shared.core.exceptions import AppError, NotFoundError
 
+# Axes whose options always come from the catalogue rather than from what was
+# typed into the definition. The till can only sell a component that exists, so
+# these axes offer exactly the products the recipe can resolve to — nothing
+# hardcoded, nothing typed that could drift from the shelf. "tube" is per
+# diameter: whatever tube models exist in the catalogue are the choices.
+CATALOGUE_DERIVED_AXES: tuple[str, ...] = ("motif", "tube")
 
-def motif_binding(line: ConfigurableRecipeLine) -> tuple[str, dict[str, str]] | None:
-    """Which product attribute a recipe line binds to the motif axis.
 
-    A line "Motif" with attributes {"model": "@motif", "diameter": "28"} binds
-    the till's motif choice to the product's ``model`` attribute. Returns
+def axis_binding(line: ConfigurableRecipeLine, axis: str) -> tuple[str, dict[str, str]] | None:
+    """Which product attribute a recipe line binds to the given axis.
+
+    A line "Tube 28" with attributes {"diameter": "28", "model": "@tube"} binds
+    the till's tube choice to the product's ``model`` attribute. Returns
     ``(attribute_key, fixed_attributes)`` — the two things needed to derive
-    which motifs actually exist on the shelf. ``None`` when the line does not
-    reference the motif at all.
+    which choices actually exist on the shelf. ``None`` when the line does not
+    reference the axis at all.
     """
     attributes = line.attributes or {}
-    bound_key = next((key for key, value in attributes.items() if value == "@motif"), None)
+    placeholder = f"@{axis}"
+    bound_key = next((key for key, value in attributes.items() if value == placeholder), None)
     if bound_key is None:
         return None
     fixed = {key: value for key, value in attributes.items() if not value.startswith("@")}
     return bound_key, fixed
 
 
-async def _catalogue_motif_options(
-    session: AsyncSession, tenant_id: UUID, recipe: list[ConfigurableRecipeLine]
-) -> list[str] | None:
-    """The motif choices that actually exist in the catalogue.
+def bound_catalogue_axes(
+    recipe: list[ConfigurableRecipeLine], axes: tuple[str, ...] = CATALOGUE_DERIVED_AXES
+) -> list[str]:
+    """The catalogue-derived axes a recipe actually binds ("motif", "tube")."""
+    return [axis for axis in axes if any(axis_binding(line, axis) is not None for line in recipe)]
 
-    The till's motif axis offers exactly the products the recipe's "@motif"
-    binding can resolve, so the cashier can never pick a motif whose product is
-    missing ("le produit motif 28 cristal k19 doit exister"). Returns ``None``
-    when no recipe line binds the motif (a fixed motif, or no motif axis), in
-    which case the stored options stand untouched.
+
+async def _catalogue_axis_options(
+    session: AsyncSession,
+    tenant_id: UUID,
+    recipe: list[ConfigurableRecipeLine],
+    axis: str,
+) -> list[str] | None:
+    """The choices for an axis that actually exist in the catalogue.
+
+    The till's axis offers exactly the products the recipe's "@axis" binding
+    can resolve, so the cashier can never pick a value whose product is
+    missing ("le tube 28 sculpté doit exister"). A value is offered only when
+    EVERY line binding the axis can resolve it — one tube choice has to work
+    for every rail diameter a product has, so a triangle with a 19 rail is
+    limited to the models that exist at 19mm. Returns ``None`` when no recipe
+    line binds the axis (a fixed component, or no such axis), in which case
+    the stored options stand untouched.
     """
-    values: set[str] = set()
-    bound_any = False
+    per_line: list[set[str]] = []
     for line in recipe:
-        binding = motif_binding(line)
+        binding = axis_binding(line, axis)
         if binding is None:
             continue
-        bound_any = True
         bound_key, fixed = binding
         query = select(Product).where(
             Product.tenant_id == tenant_id,
@@ -104,13 +123,15 @@ async def _catalogue_motif_options(
         if fixed:
             query = query.where(Product.attributes.contains(fixed))
         products = (await session.execute(query)).scalars().all()
+        values: set[str] = set()
         for product in products:
             value = (product.attributes or {}).get(bound_key)
             if value:
                 values.add(value)
-    if not bound_any:
+        per_line.append(values)
+    if not per_line:
         return None
-    return sorted(values)
+    return sorted(set.intersection(*per_line))
 
 
 def substitute_attributes(
@@ -247,14 +268,16 @@ async def get_definition(
         )
         category_names = {category.id: category.name for category in categories.scalars().all()}
 
-    # The motif axis is the catalogue: values are the motif products that
-    # exist, so the till offers exactly what can be resolved. Stored values
-    # are ignored for this axis (they were hand-typed and can drift from
-    # reality); every other axis still comes from the definition.
+    # The motif and tube axes are the catalogue: values are the component
+    # products that exist, so the till offers exactly what can be resolved.
+    # Stored values are ignored for these axes (they were hand-typed and can
+    # drift from reality); every other axis still comes from the definition.
     options = dict(definition.options or {})
-    motif_options = await _catalogue_motif_options(session, tenant_id, recipe)
-    if motif_options is not None:
-        options["motif"] = motif_options
+    catalogue_axes = bound_catalogue_axes(recipe)
+    for axis in catalogue_axes:
+        axis_options = await _catalogue_axis_options(session, tenant_id, recipe, axis)
+        if axis_options is not None:
+            options[axis] = axis_options
 
     return ConfigurableDefinitionRead(
         product_id=product.id,
@@ -263,6 +286,7 @@ async def get_definition(
         color_key=definition.color_key,
         length_key=definition.length_key,
         options=options,
+        catalogue_axes=catalogue_axes,
         prices=[
             ConfigurablePriceRead(length=price.length, price=str(price.price)) for price in prices
         ],
@@ -411,13 +435,14 @@ async def resolve_configuration(
             error_code="configurable_no_recipe",
         )
 
-    # Validate against the same derived motif options the till was offered, so
-    # a motif that no longer exists on the shelf fails loudly here instead of
-    # resolving an empty recipe.
+    # Validate against the same derived motif/tube options the till was
+    # offered, so a component that no longer exists on the shelf fails loudly
+    # here instead of resolving an empty recipe.
     options = dict(definition.options or {})
-    motif_options = await _catalogue_motif_options(session, tenant_id, recipe)
-    if motif_options is not None:
-        options["motif"] = motif_options
+    for axis in bound_catalogue_axes(recipe):
+        axis_options = await _catalogue_axis_options(session, tenant_id, recipe, axis)
+        if axis_options is not None:
+            options[axis] = axis_options
     configuration = dict(data.configuration)
 
     missing = [key for key in options if key not in configuration]

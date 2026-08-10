@@ -9,8 +9,9 @@ sale wrong.
 """
 
 from app.products.configurable_service import (
+    axis_binding,
+    bound_catalogue_axes,
     build_display_name,
-    motif_binding,
     substitute_attributes,
 )
 from app.products.models import BomUnit, ConfigurableRecipeLine
@@ -51,18 +52,39 @@ def _recipe_line(attributes: dict[str, str]) -> ConfigurableRecipeLine:
     )
 
 
-def test_motif_binding_finds_the_placeholder_and_fixed_attributes() -> None:
+def test_axis_binding_finds_the_placeholder_and_fixed_attributes() -> None:
     # "Motif 28 Cristal K19" lives as a variant whose `model` attribute holds
     # the full value; the binding is the pair the catalogue derivation needs:
     # which attribute to collect, and the fixed matches that scope it.
-    binding = motif_binding(_recipe_line({"color": "@color", "model": "@motif", "diameter": "28"}))
+    binding = axis_binding(
+        _recipe_line({"color": "@color", "model": "@motif", "diameter": "28"}), "motif"
+    )
     assert binding == ("model", {"diameter": "28"})
 
 
-def test_motif_binding_skips_lines_without_the_placeholder() -> None:
-    assert motif_binding(_recipe_line({"size": "28/19", "model": "@support"})) is None
-    assert motif_binding(_recipe_line({"model": "Cristal"})) is None
-    assert motif_binding(_recipe_line({})) is None
+def test_axis_binding_skips_lines_without_the_placeholder() -> None:
+    assert axis_binding(_recipe_line({"size": "28/19", "model": "@support"}), "motif") is None
+    assert axis_binding(_recipe_line({"model": "Cristal"}), "motif") is None
+    assert axis_binding(_recipe_line({}), "motif") is None
+
+
+def test_axis_binding_matches_only_its_own_axis() -> None:
+    # The same "model" attribute can bind tube on one line and motif on
+    # another; each call must only see its own placeholder.
+    line = _recipe_line({"model": "@tube", "diameter": "28"})
+    assert axis_binding(line, "tube") == ("model", {"diameter": "28"})
+    assert axis_binding(line, "motif") is None
+
+
+def test_bound_catalogue_axes_lists_derived_axes_in_recipe() -> None:
+    recipe = [
+        _recipe_line({"model": "@tube", "diameter": "28"}),
+        _recipe_line({"model": "@tube", "diameter": "19"}),
+        _recipe_line({"model": "@motif", "diameter": "28"}),
+        _recipe_line({"model": "@support", "size": "28/19"}),
+        _recipe_line({"model": "Liss"}),
+    ]
+    assert bound_catalogue_axes(recipe) == ["motif", "tube"]
 
 
 def test_display_name_is_structure_then_colour_then_length() -> None:
