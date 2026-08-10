@@ -66,14 +66,9 @@ function MotifPicker({ values, selected, selectedType, onSelectType, onSelect }:
     byType.set(entry.type, list);
   }
   const types = [...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  const active = selectedType !== null ? byType.get(selectedType) ?? [] : [];
+  const active = selectedType !== null ? (byType.get(selectedType) ?? []) : [];
 
-  const chip = (
-    value: string,
-    label: string,
-    selectedNow: boolean,
-    onClick: () => void,
-  ) => (
+  const chip = (value: string, label: string, selectedNow: boolean, onClick: () => void) => (
     <button
       key={value}
       type="button"
@@ -82,9 +77,7 @@ function MotifPicker({ values, selected, selectedType, onSelectType, onSelect }:
       className={cn(
         "rounded-md border px-3 py-2 text-sm transition-colors",
         "focus-visible:ring-ring/50 outline-none focus-visible:ring-2",
-        selectedNow
-          ? "bg-primary text-primary-foreground border-transparent"
-          : "hover:bg-accent",
+        selectedNow ? "bg-primary text-primary-foreground border-transparent" : "hover:bg-accent",
       )}
     >
       {label}
@@ -243,9 +236,7 @@ export function ConfigurableWizard({
                               <span
                                 className={cn(
                                   "ml-2 text-xs tabular-nums",
-                                  selected
-                                    ? "text-primary-foreground/80"
-                                    : "text-muted-foreground",
+                                  selected ? "text-primary-foreground/80" : "text-muted-foreground",
                                 )}
                               >
                                 {formatMoney(toCents(price))}

@@ -72,9 +72,7 @@ export function SalesHistoryPage() {
                 </p>
               </div>
               <div className="shrink-0 text-right">
-                <p className="text-sm font-semibold tabular-nums">
-                  {sale.total_quantity} pce
-                </p>
+                <p className="text-sm font-semibold tabular-nums">{sale.total_quantity} pce</p>
                 <p className="text-muted-foreground text-xs">
                   {sale.line_count} line{sale.line_count === 1 ? "" : "s"}
                 </p>
@@ -84,7 +82,12 @@ export function SalesHistoryPage() {
 
           {meta && meta.pages > 1 && (
             <div className="flex items-center justify-between pt-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
                 Previous
               </Button>
               <span className="text-muted-foreground text-sm">

@@ -291,18 +291,16 @@ class InventoryRepository(SyncableRepository[InventoryMovement]):
                 func.min(InventoryMovement.created_at).label("sold_at"),
                 InventoryMovement.warehouse_id,
                 func.count().label("line_count"),
-                func.coalesce(
-                    func.sum(func.abs(InventoryMovement.quantity_delta)), 0
-                ).label("total_quantity"),
+                func.coalesce(func.sum(func.abs(InventoryMovement.quantity_delta)), 0).label(
+                    "total_quantity"
+                ),
             )
             .where(
                 InventoryMovement.tenant_id == tenant_id,
                 InventoryMovement.movement_type == MovementType.SALE,
                 InventoryMovement.reference_id.isnot(None),
             )
-            .group_by(
-                InventoryMovement.reference_id, InventoryMovement.warehouse_id
-            )
+            .group_by(InventoryMovement.reference_id, InventoryMovement.warehouse_id)
         )
         if warehouse_id is not None:
             base = base.where(InventoryMovement.warehouse_id == warehouse_id)

@@ -258,9 +258,7 @@ async def list_sales(
     return items, PaginationMeta.create(total=total, params=params)
 
 
-async def get_sale(
-    session: AsyncSession, tenant_id: UUID, reference_id: UUID
-) -> SaleDetail:
+async def get_sale(session: AsyncSession, tenant_id: UUID, reference_id: UUID) -> SaleDetail:
     """One sale's deductions — which products came off the shelf, and how much."""
     repo = InventoryRepository(session)
     movements = await repo.get_sale_movements(tenant_id, reference_id)

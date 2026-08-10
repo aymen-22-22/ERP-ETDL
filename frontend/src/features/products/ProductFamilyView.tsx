@@ -5,12 +5,7 @@ import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/lib/toast";
 import type { ProductFamily, ProductFamilyRow } from "@/features/products/api";
 import { ProductImageManager } from "@/features/products/ProductImageManager";

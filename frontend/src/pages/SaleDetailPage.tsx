@@ -48,7 +48,10 @@ export function SaleDetailPage() {
           </div>
 
           {data.lines.map((line) => (
-            <div key={line.product_id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <div
+              key={line.product_id}
+              className="flex items-center justify-between gap-3 rounded-lg border p-3"
+            >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{line.name}</p>
                 <p className="text-muted-foreground text-xs">
@@ -56,9 +59,7 @@ export function SaleDetailPage() {
                   {line.sold_as ? ` · sold as ${line.sold_as}` : ""}
                 </p>
               </div>
-              <span className="shrink-0 text-sm font-semibold tabular-nums">
-                -{line.quantity}
-              </span>
+              <span className="shrink-0 text-sm font-semibold tabular-nums">-{line.quantity}</span>
             </div>
           ))}
         </div>
