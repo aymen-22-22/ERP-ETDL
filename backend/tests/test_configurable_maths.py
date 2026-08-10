@@ -12,9 +12,19 @@ from app.products.configurable_service import (
     axis_binding,
     bound_catalogue_axes,
     build_display_name,
+    is_catalogue_axis,
     substitute_attributes,
 )
 from app.products.models import BomUnit, ConfigurableRecipeLine
+
+
+def test_is_catalogue_axis_covers_motif_and_per_rail_tube() -> None:
+    assert is_catalogue_axis("motif")
+    assert is_catalogue_axis("tube28")
+    assert is_catalogue_axis("tube19")
+    assert not is_catalogue_axis("support")
+    assert not is_catalogue_axis("color")
+    assert not is_catalogue_axis("length")
 
 
 def test_substitution_fills_till_axes_into_attributes() -> None:
@@ -70,21 +80,23 @@ def test_axis_binding_skips_lines_without_the_placeholder() -> None:
 
 def test_axis_binding_matches_only_its_own_axis() -> None:
     # The same "model" attribute can bind tube on one line and motif on
-    # another; each call must only see its own placeholder.
-    line = _recipe_line({"model": "@tube", "diameter": "28"})
-    assert axis_binding(line, "tube") == ("model", {"diameter": "28"})
+    # another; each call must only see its own placeholder. Tube is per rail —
+    # @tube28 on the 28mm line must not leak into @tube19's options.
+    line = _recipe_line({"model": "@tube28", "diameter": "28"})
+    assert axis_binding(line, "tube28") == ("model", {"diameter": "28"})
+    assert axis_binding(line, "tube19") is None
     assert axis_binding(line, "motif") is None
 
 
 def test_bound_catalogue_axes_lists_derived_axes_in_recipe() -> None:
     recipe = [
-        _recipe_line({"model": "@tube", "diameter": "28"}),
-        _recipe_line({"model": "@tube", "diameter": "19"}),
+        _recipe_line({"model": "@tube28", "diameter": "28"}),
+        _recipe_line({"model": "@tube19", "diameter": "19"}),
         _recipe_line({"model": "@motif", "diameter": "28"}),
         _recipe_line({"model": "@support", "size": "28/19"}),
         _recipe_line({"model": "Liss"}),
     ]
-    assert bound_catalogue_axes(recipe) == ["motif", "tube"]
+    assert bound_catalogue_axes(recipe) == ["tube28", "tube19", "motif"]
 
 
 def test_display_name_is_structure_then_colour_then_length() -> None:

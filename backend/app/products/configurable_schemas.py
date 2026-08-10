@@ -66,6 +66,19 @@ class ConfigurableRecipeLineRead(BaseModel):
     pieces_required: int
 
 
+class CatalogueAxisGroup(BaseModel):
+    """One group of a catalogue-derived axis, for the motif picker.
+
+    The motif is chosen in two steps on the till: first the *type* (where the
+    product lives — "Motif" or "Motif Cristal", from the catalogue category),
+    then the model inside that type. The flat ``options["motif"]`` list stays
+    the union of all groups, so resolution and validation are untouched.
+    """
+
+    label: str
+    values: list[str]
+
+
 class ConfigurableDefinitionRead(BaseModel):
     product_id: UUID
     name: str
@@ -76,6 +89,10 @@ class ConfigurableDefinitionRead(BaseModel):
     # Axes whose options come from the catalogue (motif, tube): the editor
     # shows them read-only and keeps them even when the catalogue is empty.
     catalogue_axes: list[str] = []
+    # Catalogue-derived axes that the till must pick in two steps (motif first
+    # — "type" then "model"). Keyed by axis; absent for axes the till picks in
+    # one step (the tubes, which are flat per-rail choices).
+    catalogue_groups: dict[str, list[CatalogueAxisGroup]] = {}
     prices: list[ConfigurablePriceRead]
     recipe: list[ConfigurableRecipeLineRead]
 

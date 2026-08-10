@@ -20,6 +20,7 @@ before the cashier commits.
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -27,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.inventory.models import ProductStockSnapshot
 from app.products.configurable_schemas import (
+    CatalogueAxisGroup,
     ConfigurableDefinitionInput,
     ConfigurableDefinitionRead,
     ConfigurableListItem,
@@ -49,12 +51,16 @@ from app.products.models import (
 )
 from app.shared.core.exceptions import AppError, NotFoundError
 
+
 # Axes whose options always come from the catalogue rather than from what was
 # typed into the definition. The till can only sell a component that exists, so
 # these axes offer exactly the products the recipe can resolve to — nothing
-# hardcoded, nothing typed that could drift from the shelf. "tube" is per
-# diameter: whatever tube models exist in the catalogue are the choices.
-CATALOGUE_DERIVED_AXES: tuple[str, ...] = ("motif", "tube")
+# hardcoded, nothing typed that could drift from the shelf. Tube is *per rail*:
+# every rail diameter is its own axis ("tube28", "tube19"), so a 28/19 triangle
+# offers its 28mm models and its 19mm models as two separate choices instead of
+# one shared choice collapsed to the models stocked at every diameter.
+def is_catalogue_axis(axis: str) -> bool:
+    return axis == "motif" or axis.startswith("tube")
 
 
 def axis_binding(line: ConfigurableRecipeLine, axis: str) -> tuple[str, dict[str, str]] | None:
@@ -76,10 +82,52 @@ def axis_binding(line: ConfigurableRecipeLine, axis: str) -> tuple[str, dict[str
 
 
 def bound_catalogue_axes(
-    recipe: list[ConfigurableRecipeLine], axes: tuple[str, ...] = CATALOGUE_DERIVED_AXES
+    recipe: list[ConfigurableRecipeLine],
 ) -> list[str]:
-    """The catalogue-derived axes a recipe actually binds ("motif", "tube")."""
-    return [axis for axis in axes if any(axis_binding(line, axis) is not None for line in recipe)]
+    """The catalogue-derived axes a recipe actually binds ("motif", "tube28", …).
+
+    The axis set is open-ended — every rail diameter is its own "tubeDD" axis —
+    so instead of matching against a fixed list this scans the recipe's "@axis"
+    placeholders for the ones the catalogue must feed.
+    """
+    bound: list[str] = []
+    for line in recipe:
+        for value in (line.attributes or {}).values():
+            if value.startswith("@") and is_catalogue_axis(value[1:]):
+                axis = value[1:]
+                if axis not in bound:
+                    bound.append(axis)
+    return bound
+
+
+def _catalogue_query(
+    tenant_id: UUID, line: ConfigurableRecipeLine, axis: str
+) -> tuple[str, dict[str, str], Any] | None:
+    """The query that finds every catalogue product a recipe line can resolve
+    a given axis to: ``(bound_key, fixed_attributes, query)``, or ``None``
+    when the line does not bind the axis."""
+    binding = axis_binding(line, axis)
+    if binding is None:
+        return None
+    bound_key, fixed = binding
+    query = select(Product).where(
+        Product.tenant_id == tenant_id,
+        Product.deleted_at.is_(None),
+        Product.status == ProductStatus.ACTIVE,
+        Product.product_type.in_([ProductType.VARIANT, ProductType.SIMPLE]),
+    )
+    if line.category_id is not None:
+        query = query.where(Product.category_id == line.category_id)
+    else:
+        # No category means the family is what the line is called: "Motif"
+        # matches "Motif 28 Cristal" but not a "Tube 28 …" or a support,
+        # whose models would otherwise leak into the motif picker.
+        prefix = (line.label or "").strip()
+        if prefix:
+            query = query.where(Product.name.ilike(f"{prefix}%"))
+    if fixed:
+        query = query.where(Product.attributes.contains(fixed))
+    return bound_key, fixed, query
 
 
 async def _catalogue_axis_options(
@@ -94,35 +142,19 @@ async def _catalogue_axis_options(
     can resolve, so the cashier can never pick a value whose product is
     missing ("le tube 28 sculpté doit exister"). A value is offered only when
     EVERY line binding the axis can resolve it — one tube choice has to work
-    for every rail diameter a product has, so a triangle with a 19 rail is
-    limited to the models that exist at 19mm. Returns ``None`` when no recipe
+    for every rail of a given diameter a product has. Because each rail is its
+    own axis (tube28, tube19), a value just has to exist for that diameter, not
+    for every diameter the product carries. Returns ``None`` when no recipe
     line binds the axis (a fixed component, or no such axis), in which case
     the stored options stand untouched.
     """
     per_line: list[set[str]] = []
     for line in recipe:
-        binding = axis_binding(line, axis)
-        if binding is None:
+        built = _catalogue_query(tenant_id, line, axis)
+        if built is None:
             continue
-        bound_key, fixed = binding
-        query = select(Product).where(
-            Product.tenant_id == tenant_id,
-            Product.deleted_at.is_(None),
-            Product.status == ProductStatus.ACTIVE,
-            Product.product_type.in_([ProductType.VARIANT, ProductType.SIMPLE]),
-        )
-        if line.category_id is not None:
-            query = query.where(Product.category_id == line.category_id)
-        else:
-            # No category means the family is what the line is called: "Motif"
-            # matches "Motif 28 Cristal" but not a "Tube 28 …" or a support,
-            # whose models would otherwise leak into the motif picker.
-            prefix = (line.label or "").strip()
-            if prefix:
-                query = query.where(Product.name.ilike(f"{prefix}%"))
-        if fixed:
-            query = query.where(Product.attributes.contains(fixed))
-        products = (await session.execute(query)).scalars().all()
+        bound_key, _, query = built
+        products = list((await session.execute(query)).scalars().all())
         values: set[str] = set()
         for product in products:
             value = (product.attributes or {}).get(bound_key)
@@ -132,6 +164,55 @@ async def _catalogue_axis_options(
     if not per_line:
         return None
     return sorted(set.intersection(*per_line))
+
+
+async def _catalogue_motif_groups(
+    session: AsyncSession,
+    tenant_id: UUID,
+    recipe: list[ConfigurableRecipeLine],
+) -> list[CatalogueAxisGroup] | None:
+    """The motif picker's two-step source: type (the catalogue category the
+    product lives in) then model, instead of parsing a flat value string.
+
+    A "Motif 28 Cristal" product in the "Motif Cristal" category offers its
+    models under the "Motif Cristal" type; a "Motif 19 Simple" under "Motif".
+    The group label is the category name, so whatever categories the catalogue
+    actually holds are exactly the types the till offers. ``None`` when no
+    recipe line binds the motif axis.
+    """
+    per_category: dict[str, set[str]] = {}
+    for line in recipe:
+        built = _catalogue_query(tenant_id, line, "motif")
+        if built is None:
+            continue
+        bound_key, _, query = built
+        products = list((await session.execute(query)).scalars().all())
+
+        # A recipe line without a category spans both motif categories, so the
+        # label comes from each product's own category, never the line's.
+        category_ids = {
+            product.category_id for product in products if product.category_id is not None
+        }
+        categories: dict[UUID, str] = {}
+        if category_ids:
+            rows = await session.execute(
+                select(Category).where(Category.id.in_(list(category_ids)))
+            )
+            categories = {category.id: category.name for category in rows.scalars().all()}
+
+        for product in products:
+            value = (product.attributes or {}).get(bound_key)
+            if not value:
+                continue
+            label = categories.get(product.category_id, "Motif") if product.category_id else "Motif"
+            per_category.setdefault(label, set()).add(value)
+
+    if not per_category:
+        return None
+    return [
+        CatalogueAxisGroup(label=label, values=sorted(values))
+        for label, values in per_category.items()
+    ]
 
 
 def substitute_attributes(
@@ -279,6 +360,15 @@ async def get_definition(
         if axis_options is not None:
             options[axis] = axis_options
 
+    # The motif is chosen in two steps (type first, then model) — the groups
+    # tell the till which models each type actually holds. Absent for products
+    # with no motif line, and for the tube axes (flat per-rail choices).
+    catalogue_groups: dict[str, list[CatalogueAxisGroup]] = {}
+    if "motif" in catalogue_axes:
+        groups = await _catalogue_motif_groups(session, tenant_id, recipe)
+        if groups is not None:
+            catalogue_groups["motif"] = groups
+
     return ConfigurableDefinitionRead(
         product_id=product.id,
         name=product.name,
@@ -287,6 +377,7 @@ async def get_definition(
         length_key=definition.length_key,
         options=options,
         catalogue_axes=catalogue_axes,
+        catalogue_groups=catalogue_groups,
         prices=[
             ConfigurablePriceRead(length=price.length, price=str(price.price)) for price in prices
         ],

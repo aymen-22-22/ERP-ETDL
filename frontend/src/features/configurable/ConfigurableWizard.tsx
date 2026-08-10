@@ -22,6 +22,8 @@ interface ConfigurableWizardProps {
 const AXIS_LABELS: Record<string, string> = {
   support: "Support",
   motif: "Motif",
+  tube28: "Tube 28",
+  tube19: "Tube 19",
   length: "Length",
   color: "Colour",
 };
@@ -30,43 +32,28 @@ function axisLabel(key: string): string {
   return AXIS_LABELS[key] ?? (key.length > 0 ? key[0]!.toUpperCase() + key.slice(1) : key);
 }
 
-/** "28 Cristal K19" -> type "28 Cristal", model "K19".
- *
- * The motif is chosen in two steps on the till (type first, then the model)
- * because one type — "28 Cristal" — has several models. The value sent to the
- * recipe is the original full string, so resolution is untouched; only the
- * picker groups the flat list.
- */
-function splitMotifValue(value: string): { type: string; model: string; value: string } {
-  const trimmed = value.trim();
-  const tokens = trimmed.split(/\s+/).filter(Boolean);
-  if (tokens.length <= 1) return { type: trimmed, model: "", value: trimmed };
-  return {
-    type: tokens.slice(0, -1).join(" "),
-    model: tokens[tokens.length - 1]!,
-    value: trimmed,
-  };
+interface MotifGroup {
+  label: string;
+  values: string[];
 }
 
 interface MotifPickerProps {
-  values: string[];
+  groups: MotifGroup[];
   selected: string | undefined;
   selectedType: string | null;
   onSelectType: (type: string) => void;
   onSelect: (value: string) => void;
 }
 
-/** Two-step motif choice: pick the type ("28 Cristal"), then the model ("K19"). */
-function MotifPicker({ values, selected, selectedType, onSelectType, onSelect }: MotifPickerProps) {
-  const byType = new Map<string, { model: string; value: string }[]>();
-  for (const value of values) {
-    const entry = splitMotifValue(value);
-    const list = byType.get(entry.type) ?? [];
-    list.push(entry);
-    byType.set(entry.type, list);
-  }
-  const types = [...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  const active = selectedType !== null ? (byType.get(selectedType) ?? []) : [];
+/**
+ * Two-step motif choice: pick the type ("Motif Cristal"), then the model.
+ * The type comes from the catalogue's categories — whatever categories the
+ * catalogue holds are exactly the types offered — never from parsing the
+ * model string, so a "K19" model needs no "Cristal" prefix to group right.
+ */
+function MotifPicker({ groups, selected, selectedType, onSelectType, onSelect }: MotifPickerProps) {
+  const active =
+    selectedType !== null ? (groups.find((g) => g.label === selectedType) ?? null) : null;
 
   const chip = (value: string, label: string, selectedNow: boolean, onClick: () => void) => (
     <button
@@ -87,9 +74,15 @@ function MotifPicker({ values, selected, selectedType, onSelectType, onSelect }:
   if (selectedType === null) {
     return (
       <div className="flex flex-wrap gap-2">
-        {types.map(([type]) => chip(type, type, false, () => onSelectType(type)))}
+        {groups.map((group) =>
+          chip(group.label, group.label, false, () => onSelectType(group.label)),
+        )}
       </div>
     );
+  }
+
+  if (active === null) {
+    return null;
   }
 
   return (
@@ -103,8 +96,8 @@ function MotifPicker({ values, selected, selectedType, onSelectType, onSelect }:
         {selectedType} — change type
       </button>
       <div className="flex flex-wrap gap-2">
-        {active.map(({ model, value }) =>
-          chip(value, model || value, selected === value, () => onSelect(value)),
+        {active.values.map((value) =>
+          chip(value, value, selected === value, () => onSelect(value)),
         )}
       </div>
     </div>
@@ -114,10 +107,11 @@ function MotifPicker({ values, selected, selectedType, onSelectType, onSelect }:
 /**
  * The configuration picker, opened from a configurable tile on the till.
  *
- * Each axis is one step (support → motif → length → colour, length priced per
- * choice). The resolution query follows the chosen values, so price,
- * composition and how many can be built update as choices are made. Nothing is
- * added to the sale until the cashier confirms a buildable combination.
+ * Each axis is one step (support → tube per rail → motif → length → colour,
+ * length priced per choice). The resolution query follows the chosen values,
+ * so price, composition and how many can be built update as choices are made.
+ * Nothing is added to the sale until the cashier confirms a buildable
+ * combination.
  */
 export function ConfigurableWizard({
   product,
@@ -137,7 +131,7 @@ export function ConfigurableWizard({
   const readyKey = open && definition ? product.productId : null;
   const [wizardKey, setWizardKey] = useState<string | null>(null);
   const [configuration, setConfiguration] = useState<Record<string, string>>({});
-  // For the two-step motif choice: which type ("28 Cristal") is currently open.
+  // For the two-step motif choice: which type ("Motif Cristal") is currently open.
   const [motifType, setMotifType] = useState<string | null>(null);
   if (readyKey !== wizardKey) {
     setWizardKey(readyKey);
@@ -207,7 +201,7 @@ export function ConfigurableWizard({
                   <span className="label-caps text-muted-foreground">{axisLabel(key)}</span>
                   {key === "motif" ? (
                     <MotifPicker
-                      values={valuesFor(key).map(({ value }) => value)}
+                      groups={definition.catalogue_groups[key] ?? []}
                       selected={configuration[key]}
                       selectedType={motifType}
                       onSelectType={(type) => setMotifType(type || null)}

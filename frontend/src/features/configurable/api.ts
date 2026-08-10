@@ -19,6 +19,11 @@ export interface ConfigurablePrice {
   price: string;
 }
 
+export interface CatalogueAxisGroup {
+  label: string;
+  values: string[];
+}
+
 export interface ConfigurableDefinition {
   product_id: string;
   name: string;
@@ -29,6 +34,8 @@ export interface ConfigurableDefinition {
   options: Record<string, string[]>;
   /** Axes whose options come from the catalogue (motif, tube). */
   catalogue_axes: string[];
+  /** Two-step catalogue axes (motif): type -> models. */
+  catalogue_groups: Record<string, CatalogueAxisGroup[]>;
   prices: ConfigurablePrice[];
   recipe: ConfigurableRecipeLine[];
 }

@@ -67,7 +67,7 @@ LENGTHS = ["2m", "2.5m", "3m", "4m", "5m"]
 
 # Tube models by rail diameter — the shop stocks 28mm tubes in every model but
 # 19mm tubes only as Liss. This drives both the generated parts and the recipe
-# "tube" axis (the till offers exactly these per diameter).
+# per-rail "tube" axes (the till offers exactly these, per diameter).
 TUBE_MODELS: dict[str, list[str]] = {
     "28": ["Liss", "Torsadi", "Sculpté"],
     "19": ["Liss"],
@@ -460,16 +460,12 @@ async def _create_configurables(
         await session.flush()
         created.append(product)
 
-        # The one tube choice must resolve on every rail of the product, so
-        # only models stocked in all the product's diameters are offered. The
-        # stored list is a seed-time placeholder — at the till it is replaced
-        # by whatever the catalogue actually holds.
-        tube_models = sorted(
-            set.intersection(
-                *(set(TUBE_MODELS[diameter]) for diameter, _ in tubes if diameter in TUBE_MODELS)
-            )
-        )
-
+        # Tube choices are per rail: each diameter is its own axis, so a 28/19
+        # triangle offers its 28mm models (Liss/Torsadi/Sculpté) and its 19mm
+        # models (Liss) as two separate till steps instead of one shared choice
+        # collapsed to the models stocked at every diameter. The stored lists
+        # are seed-time placeholders — at the till they are replaced by
+        # whatever the catalogue actually holds.
         definition = ConfigurableDefinition(
             tenant_id=tenant_id,
             product_id=product.id,
@@ -477,7 +473,11 @@ async def _create_configurables(
             length_key="length",
             options={
                 "support": supports,
-                "tube": tube_models,
+                **{
+                    f"tube{diameter}": list(TUBE_MODELS[diameter])
+                    for diameter, _ in tubes
+                    if diameter in TUBE_MODELS
+                },
                 "motif": motifs,
                 "color": COLORS,
             },
@@ -498,9 +498,9 @@ async def _create_configurables(
             )
 
         # Tube lines: one per distinct rail diameter, quantity = rail count.
-        # The model follows the till's "tube" choice, so a 28/19 triangle can
-        # take Torsadi 28 rails and only Liss 19 rails; the axis is derived
-        # from the catalogue (per diameter) at the till.
+        # The model follows the till's per-rail choice (@tube28, @tube19), so
+        # a 28/19 triangle can take Torsadi 28 rails and only Liss 19 rails;
+        # each axis is derived from the catalogue at the till.
         for diameter, rail_count in tubes:
             session.add(
                 ConfigurableRecipeLine(
@@ -511,7 +511,7 @@ async def _create_configurables(
                     attributes={
                         "diameter": diameter,
                         "length": "@length",
-                        "model": "@tube",
+                        "model": f"@tube{diameter}",
                         "color": "@color",
                     },
                     quantity=rail_count,

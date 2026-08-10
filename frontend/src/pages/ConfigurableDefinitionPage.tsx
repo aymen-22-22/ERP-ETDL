@@ -103,9 +103,10 @@ const EMPTY: { axisRows: AxisRow[]; priceRows: PriceRow[]; recipeRows: RecipeRow
 /**
  * Axes whose options come from the catalogue rather than from the editor: the
  * till offers exactly the component products that exist, so nothing is
- * hand-typed. Mirrors CATALOGUE_DERIVED_AXES in configurable_service.py.
+ * hand-typed. Mirrors is_catalogue_axis in configurable_service.py — tube is
+ * per rail (tube28, tube19), so any tube-prefixed axis counts.
  */
-const CATALOGUE_AXES = new Set(["motif", "tube"]);
+const isCatalogueAxis = (axis: string) => axis === "motif" || axis.startsWith("tube");
 
 /**
  * The definition editor: what a configurable product can be sold as.
@@ -194,7 +195,7 @@ export function ConfigurableDefinitionPage() {
             .filter(Boolean),
         ),
       ];
-      if (values.length > 0 || CATALOGUE_AXES.has(axis)) options[axis] = values;
+      if (values.length > 0 || isCatalogueAxis(axis)) options[axis] = values;
     }
 
     if (!colorKey || !options[colorKey]) {
@@ -340,7 +341,7 @@ export function ConfigurableDefinitionPage() {
             </p>
 
             {axisRows.map((row, index) => {
-              const isCatalogueAxis = CATALOGUE_AXES.has(row.axis.trim().toLowerCase());
+              const catalogue = isCatalogueAxis(row.axis.trim().toLowerCase());
               return (
                 <div key={index} className="flex items-center gap-2">
                   <Input
@@ -349,7 +350,7 @@ export function ConfigurableDefinitionPage() {
                     value={row.axis}
                     onChange={(e) => updateAxis(index, { axis: e.target.value })}
                   />
-                  {isCatalogueAxis ? (
+                  {catalogue ? (
                     <div className="bg-muted text-muted-foreground flex h-9 flex-1 items-center rounded-md border px-3 text-sm">
                       <span className="truncate">
                         {row.values
