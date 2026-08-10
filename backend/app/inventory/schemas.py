@@ -11,11 +11,17 @@ class SaleLineInput(BaseModel):
     server expands it into components. For a CONFIGURABLE product the chosen
     configuration (support/motif/length/colour) is carried here so the server
     can re-resolve it against the current catalog — it never trusts a price
-    or a component list sent from the browser."""
+    or a component list sent from the browser, except that the cashier may
+    explicitly discount a line, and that discounted unit price is what gets
+    recorded on the ledger."""
 
     product_id: UUID
     quantity: int = Field(gt=0)
     configuration: dict[str, str] | None = None
+    # What the customer was actually charged per unit — the cashier can
+    # override the catalog price to discount a line. Optional for
+    # compatibility, but the till always sends it.
+    unit_price_cents: int | None = Field(default=None, ge=0)
 
 
 class SaleRequest(BaseModel):
@@ -77,13 +83,15 @@ class SaleListItem(BaseModel):
 class SaleLineRead(BaseModel):
     """One product deducted by a sale. `quantity` is the positive count taken
     off the shelf; `sold_as` is the cart line that caused it (a kit's name for
-    an exploded component)."""
+    an exploded component). `unit_price_cents` is what the customer was charged
+    per unit, when one was recorded at the till."""
 
     product_id: UUID
     name: str
     sku: str
     quantity: int
     sold_as: str | None
+    unit_price_cents: int | None = None
 
 
 class SaleDetail(BaseModel):

@@ -40,6 +40,8 @@ export interface ConfigurableListItem {
   /** Lowest length price — the "from 4600" on a till tile. */
   price_from: string | null;
   has_definition: boolean;
+  /** Primary photo of the product, if one was uploaded. */
+  image_url: string | null;
 }
 
 export interface ConfigurableRecipeLineInput {

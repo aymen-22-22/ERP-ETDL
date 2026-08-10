@@ -1,4 +1,4 @@
-import { ArrowRightIcon, MinusIcon, PlusIcon, TruckIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, MinusIcon, PlusIcon, TruckIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -61,6 +61,15 @@ export function TransferFormPage() {
   if (!depot || !store) {
     return (
       <div className="mx-auto max-w-3xl p-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2 mb-3"
+          onClick={() => void navigate("/transfers")}
+        >
+          <ArrowLeftIcon />
+          Back to transfers
+        </Button>
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <TruckIcon className="mx-auto mb-4 size-10 opacity-40" />
@@ -76,6 +85,15 @@ export function TransferFormPage() {
 
   return (
     <div className="mx-auto max-w-3xl flex flex-col gap-6 p-6">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-ml-2 self-start"
+        onClick={() => void navigate("/transfers")}
+      >
+        <ArrowLeftIcon />
+        Back to transfers
+      </Button>
       <div>
         <h1 className="text-2xl font-semibold">Daily Restock</h1>
         <p className="text-muted-foreground mt-1 text-sm">

@@ -1,6 +1,6 @@
-import { ArrowLeftIcon, PlusIcon, WandSparklesIcon } from "lucide-react";
+import { PlusIcon, WandSparklesIcon } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/patterns/PageHeader";
@@ -152,14 +152,7 @@ export function VariantGeneratorPage() {
       <PageHeader
         title="Generate products"
         description="Create the parts whose names follow a formula, in bulk."
-        actions={
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/products">
-              <ArrowLeftIcon className="mr-1 size-4" />
-              Products
-            </Link>
-          </Button>
-        }
+        back="/products"
       />
 
       <div className="flex flex-col gap-1.5">

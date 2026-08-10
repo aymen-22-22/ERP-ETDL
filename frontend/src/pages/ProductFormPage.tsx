@@ -1,7 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowLeftIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { z } from "zod";
 
 import { PageLoader } from "@/components/PageLoader";
@@ -155,6 +156,12 @@ export function ProductFormPage() {
 
   return (
     <div className="mx-auto max-w-lg p-6">
+      <Button variant="ghost" size="sm" asChild className="-ml-2 mb-3">
+        <Link to={isEdit && productId ? `/products/${productId}` : "/products"}>
+          <ArrowLeftIcon />
+          Back to products
+        </Link>
+      </Button>
       <Card>
         <CardHeader>
           <CardTitle>{isEdit ? "Edit product" : "New product"}</CardTitle>

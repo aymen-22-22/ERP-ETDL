@@ -33,6 +33,9 @@ export async function submitSale(storeId: string, lines: CartLine[]): Promise<Sa
       lines: lines.map((line) => ({
         product_id: line.productId,
         quantity: line.quantity,
+        // What the customer is actually charged per unit — the cashier can
+        // discount a line before completing, and the server records it.
+        unit_price_cents: line.unitPriceCents,
         // Present on configurable lines only; the server re-resolves the
         // configuration into components itself rather than trusting a price.
         configuration: line.configuration,

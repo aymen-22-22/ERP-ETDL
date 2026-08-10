@@ -34,7 +34,8 @@ export function SalesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const stores = useSaleWarehouses();
-  const { storeId, lines, setStore, addItem, setQuantity, removeLine, clear } = useCartStore();
+  const { storeId, lines, setStore, addItem, setQuantity, setUnitPrice, removeLine, clear } =
+    useCartStore();
 
   // Fall back to the first sellable store until one is chosen.
   const activeStoreId = storeId ?? stores[0]?.id ?? null;
@@ -176,7 +177,7 @@ export function SalesPage() {
   if (stores.length === 0) {
     return (
       <PageShell size="wide">
-        <PageHeader title="New sale" />
+        <PageHeader title="New sale" back="/" />
         <EmptyState
           icon={StoreIcon}
           title="No store to sell from"
@@ -193,6 +194,7 @@ export function SalesPage() {
       subtotalCents={totals.subtotalCents}
       totalCents={totals.totalCents}
       onSetQuantity={setQuantity}
+      onSetUnitPrice={setUnitPrice}
       onRemove={removeLine}
       onComplete={complete}
       onClear={clear}
@@ -205,7 +207,8 @@ export function SalesPage() {
     <PageShell size="wide" className="pb-32 lg:pb-6">
       <PageHeader
         title="New sale"
-        description="Tap a product to add it to the sale."
+        description="Tap a product to add it to the sale. Unit prices can be changed to discount a line."
+        back="/"
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => void navigate("/sales/history")}>

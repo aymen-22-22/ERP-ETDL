@@ -111,7 +111,7 @@ export function useSellableProducts(storeId: string | null): {
             minQuantity: null,
             isKit: false,
             isConfigurable: true,
-            imageUrl: null,
+            imageUrl: resolveProductImageUrl(item.image_url),
           }) satisfies SellableProduct,
       );
 

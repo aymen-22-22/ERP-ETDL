@@ -65,7 +65,11 @@ export function KitFormPage() {
 
   return (
     <PageShell size="form">
-      <PageHeader title="New kit" description="Assembled from components; holds no stock itself." />
+      <PageHeader
+        title="New kit"
+        description="Assembled from components; holds no stock itself."
+        back="/products/new"
+      />
 
       <Card>
         <CardHeader>

@@ -92,6 +92,8 @@ class ConfigurableListItem(BaseModel):
     category_id: UUID | None
     price_from: str | None
     has_definition: bool
+    # Primary photo of the product, if one was uploaded — shown on the till tile.
+    image_url: str | None = None
 
 
 class ConfigurableResolveRequest(BaseModel):

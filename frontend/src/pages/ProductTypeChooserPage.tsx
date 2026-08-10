@@ -40,7 +40,7 @@ const TYPES = [
 export function ProductTypeChooserPage() {
   return (
     <PageShell size="content">
-      <PageHeader title="New product" description="What kind of product is it?" />
+      <PageHeader title="New product" description="What kind of product is it?" back="/products" />
 
       <ul className="flex list-none flex-col gap-3">
         {TYPES.map((type) => (

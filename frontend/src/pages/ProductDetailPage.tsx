@@ -1,4 +1,4 @@
-import { ArrowRightIcon, LayersIcon, PaletteIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, LayersIcon, PaletteIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
@@ -106,6 +106,12 @@ export function ProductDetailPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
+      <Button variant="ghost" size="sm" asChild className="-ml-2 self-start">
+        <Link to="/products">
+          <ArrowLeftIcon />
+          Back to products
+        </Link>
+      </Button>
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold">{product.name}</h1>

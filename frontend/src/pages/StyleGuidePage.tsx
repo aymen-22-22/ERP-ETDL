@@ -112,6 +112,7 @@ export function StyleGuidePage() {
       <PageHeader
         title="Style guide"
         description="Classic Pro — monochrome surfaces, black text, colour reserved for status."
+        back="/"
         actions={
           <Button>
             <PlusIcon />

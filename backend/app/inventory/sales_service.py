@@ -72,13 +72,20 @@ async def record_sale(
     # Expand every sold line into the things actually coming off the shelf.
     # `sold_as` is carried through so the ledger and any receipt can say which
     # cart line caused a deduction; `config` is the snapshot of a
-    # CONFIGURABLE line as sold, persisted on the movements it creates.
+    # CONFIGURABLE line as sold, persisted on the movements it creates, plus
+    # the unit price the cashier charged (it can differ from the catalog price
+    # when they discount a line for a client).
     # Configurable components are recorded by id here and resolved to full
     # products in one batched query after the loop.
     deductions: list[tuple[Product, int, str, dict[str, object] | None]] = []
     pending_configurable: list[tuple[UUID, int, str, dict[str, object] | None]] = []
     for line in data.lines:
         product = products[line.product_id]
+        line_config: dict[str, object] | None = (
+            {"unit_price_cents": line.unit_price_cents}
+            if line.unit_price_cents is not None
+            else None
+        )
 
         if product.product_type == ProductType.KIT:
             bom = await list_bom_lines(session, tenant_id, product.id)
@@ -95,7 +102,7 @@ async def record_sale(
                         component,
                         bom_line.pieces_required * line.quantity,
                         product.name,
-                        None,
+                        line_config,
                     )
                 )
             continue
@@ -127,6 +134,8 @@ async def record_sale(
                     for entry in resolution.lines
                 ],
             }
+            if line.unit_price_cents is not None:
+                config_snapshot["unit_price_cents"] = line.unit_price_cents
             for entry in resolution.lines:
                 pending_configurable.append(
                     (
@@ -138,7 +147,7 @@ async def record_sale(
                 )
             continue
 
-        deductions.append((product, line.quantity, product.name, None))
+        deductions.append((product, line.quantity, product.name, line_config))
 
     if pending_configurable:
         component_ids = {entry[0] for entry in pending_configurable}
@@ -280,6 +289,11 @@ async def get_sale(session: AsyncSession, tenant_id: UUID, reference_id: UUID) -
             sku=products.get(movement.product_id, ("", ""))[1],
             quantity=abs(movement.quantity_delta),
             sold_as=movement.note,
+            unit_price_cents=(
+                movement.config.get("unit_price_cents")
+                if movement.config and movement.config.get("unit_price_cents") is not None
+                else None
+            ),
         )
         for movement in movements
     ]

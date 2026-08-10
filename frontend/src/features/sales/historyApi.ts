@@ -18,6 +18,8 @@ export interface SaleLine {
   quantity: number;
   /** The cart line that caused it — a kit's name, for an exploded component. */
   sold_as: string | null;
+  /** What the customer was charged per unit, when one was recorded. */
+  unit_price_cents: number | null;
 }
 
 export interface SaleDetail {

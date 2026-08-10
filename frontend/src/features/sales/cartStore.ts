@@ -47,6 +47,8 @@ interface CartState extends PersistedCart {
   /** Adds one unit, or increments an existing line. */
   addItem: (item: CartLineDraft) => void;
   setQuantity: (key: string, quantity: number) => void;
+  /** Override the charged unit price — the cashier discounts a line for a client. */
+  setUnitPrice: (key: string, unitPriceCents: number) => void;
   removeLine: (key: string) => void;
   clear: () => void;
 }
@@ -126,6 +128,14 @@ export const useCartStore = create<CartState>((set, get) => ({
     persist({ ...get(), lines });
   },
 
+  setUnitPrice: (key, unitPriceCents) => {
+    const lines = get().lines.map((l) =>
+      l.key === key ? { ...l, unitPriceCents: Math.max(0, unitPriceCents) } : l,
+    );
+    set({ lines });
+    persist({ ...get(), lines });
+  },
+
   removeLine: (key) => {
     const lines = get().lines.filter((l) => l.key !== key);
     set({ lines });
@@ -138,9 +148,8 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 }));
 
-/** Subtotal and item count. No discount: nothing downstream persists a sale
- *  amount, so a discount here would only be cosmetic and mislead the cashier
- *  about what was actually recorded. */
+/** Subtotal and item count. Each line carries its own charged unit price (the
+ *  cashier can discount one), so totals are just quantity × that price. */
 export function computeTotals(lines: CartLine[]): {
   subtotalCents: number;
   totalCents: number;

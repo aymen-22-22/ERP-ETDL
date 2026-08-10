@@ -28,6 +28,7 @@ export function ConfigurableProductsPage() {
       <PageHeader
         title="Configurable products"
         description="Sold by options — support, motif, length and colour — with a price per length."
+        back="/"
         actions={
           <Button onClick={() => void navigate("/configurable/new")}>
             <PlusIcon />

@@ -36,6 +36,7 @@ from app.products.configurable_schemas import (
     ConfigurableResolveRequest,
     ConfigurableResolveResult,
 )
+from app.products.image_service import primary_image_map
 from app.products.models import (
     PIECES_PER_UNIT,
     Category,
@@ -516,6 +517,8 @@ async def list_configurable_products(
     )
     recipe_product_ids = {row[0] for row in recipe_result.all()}
 
+    images = await primary_image_map(session, tenant_id, [product.id for product in products])
+
     return [
         ConfigurableListItem(
             product_id=product.id,
@@ -528,6 +531,7 @@ async def list_configurable_products(
                 else None
             ),
             has_definition=product.id in recipe_product_ids,
+            image_url=images.get(product.id),
         )
         for product in products
     ]

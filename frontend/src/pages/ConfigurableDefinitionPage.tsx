@@ -291,6 +291,7 @@ export function ConfigurableDefinitionPage() {
             ? `${data.sku} — how the till offers and prices this product`
             : "Give this product its options, prices and recipe."
         }
+        back="/configurable"
       />
 
       <div className="flex flex-col gap-4">

@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { InfoIcon } from "lucide-react";
-import { useState } from "react";
+import { ImageOffIcon, InfoIcon, UploadIcon } from "lucide-react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { z } from "zod";
@@ -12,7 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CategorySelector } from "@/features/categories/CategorySelector";
+import { uploadProductImage } from "@/features/products/api";
 import { useCreateProductMutation } from "@/features/products/hooks";
+import { toast } from "@/lib/toast";
 
 const productSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -37,6 +39,23 @@ export function NewConfigurableProductPage() {
   const navigate = useNavigate();
   const createMutation = useCreateProductMutation();
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  // The product has no id until creation succeeds, so the photo is held here
+  // and uploaded right after — then the admin lands on the definition editor.
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const choosePhoto = (file: File | undefined) => {
+    if (!file) return;
+    setPhoto(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const clearPhoto = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPhoto(null);
+    setPreviewUrl(null);
+  };
 
   const {
     register,
@@ -53,7 +72,20 @@ export function NewConfigurableProductPage() {
         // No stock of its own — components carry the stock, like a kit.
         openingStock: [],
       },
-      { onSuccess: (product) => void navigate(`/configurable/${product.id}`) },
+      {
+        onSuccess: (product) => {
+          if (photo) {
+            void uploadProductImage(product.id, photo).catch(() => {
+              toast({
+                title: "Product created, but the photo didn't upload",
+                description: "You can add it later from the product's screen.",
+                variant: "destructive",
+              });
+            });
+          }
+          void navigate(`/configurable/${product.id}`);
+        },
+      },
     );
   });
 
@@ -62,6 +94,7 @@ export function NewConfigurableProductPage() {
       <PageHeader
         title="New configurable product"
         description="Sold by options — support, motif, length and colour."
+        back="/configurable"
       />
 
       <Card>
@@ -72,6 +105,41 @@ export function NewConfigurableProductPage() {
           <div className="flex flex-col gap-1.5">
             <Label>Category</Label>
             <CategorySelector value={categoryId} onChange={setCategoryId} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Photo (optional)</Label>
+            <div className="flex items-center gap-3">
+              <div className="bg-muted flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md border">
+                {previewUrl ? (
+                  <img src={previewUrl} alt="" className="size-full object-cover" />
+                ) : (
+                  <ImageOffIcon className="text-muted-foreground size-6" />
+                )}
+              </div>
+              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                <UploadIcon />
+                {photo ? "Change photo" : "Add photo"}
+              </Button>
+              {photo && (
+                <Button type="button" variant="ghost" onClick={clearPhoto}>
+                  Remove
+                </Button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  choosePhoto(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Shown on the sales screen once the product is saved.
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">
