@@ -103,6 +103,18 @@ class SaleDetail(BaseModel):
     lines: list[SaleLineRead]
 
 
+class SaleDayRow(BaseModel):
+    """One aggregated row of the "by day" sales view: a cart line and how many
+    units of it came off the shelf that day. Exploded components are folded
+    back into their parent, so a configurable sold twice shows as
+    `quantity: 2` on one row rather than several component rows."""
+
+    name: str
+    quantity: int
+    unit_price_cents: int | None = None
+    total_cents: int | None = None
+
+
 class StockSnapshotRead(BaseModel):
     product_id: UUID
     warehouse_id: UUID

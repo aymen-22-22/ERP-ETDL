@@ -26,6 +26,11 @@ class TransferLineRead(BaseModel):
     id: UUID
     product_id: UUID
     quantity: int
+    # Enriched from the catalogue by the service (the ORM line only knows the
+    # product_id) so the detail page can render product-style cards.
+    name: str = ""
+    sku: str = ""
+    image_url: str | None = None
 
     model_config = {"from_attributes": True}
 

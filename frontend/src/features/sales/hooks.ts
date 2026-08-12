@@ -5,7 +5,7 @@ import { useSellableKits } from "@/features/bom/hooks";
 import type { CategoryTreeNode } from "@/features/categories/api";
 import { useConfigurableProducts } from "@/features/configurable/hooks";
 import { useWarehouseStock } from "@/features/inventory/hooks";
-import { getSale, listSales } from "@/features/sales/historyApi";
+import { getDaySales, getSale, listSales } from "@/features/sales/historyApi";
 import { resolveProductImageUrl } from "@/features/products/api";
 import { useProducts } from "@/features/products/hooks";
 import { useWarehouses } from "@/features/warehouses/hooks";
@@ -142,5 +142,14 @@ export function useSale(referenceId: string | null) {
     queryKey: ["sales-history", "detail", referenceId],
     queryFn: () => getSale(referenceId!),
     enabled: !!referenceId,
+  });
+}
+
+/** All products sold in `[from, to)`, components folded into their parents. */
+export function useDaySales(from: string, to: string, enabled = true) {
+  return useQuery({
+    queryKey: ["sales-history", "day", from, to],
+    queryFn: () => getDaySales(from, to),
+    enabled,
   });
 }

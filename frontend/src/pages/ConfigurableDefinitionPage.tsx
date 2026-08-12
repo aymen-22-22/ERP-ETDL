@@ -17,6 +17,7 @@ import {
   useDeleteConfigurableDefinition,
   useSaveConfigurableDefinition,
 } from "@/features/configurable/hooks";
+import { ProductImageManager } from "@/features/products/ProductImageManager";
 import type { BomUnit, ConfigurableRecipeLineInput } from "@/features/configurable/api";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api/client";
@@ -305,6 +306,18 @@ export function ConfigurableDefinitionPage() {
       />
 
       <div className="flex flex-col gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Photo</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProductImageManager productId={productId} />
+            <p className="text-muted-foreground mt-2 text-xs">
+              Shown on the till tile and the product list. The first image is the primary photo.
+            </p>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Option axes</CardTitle>

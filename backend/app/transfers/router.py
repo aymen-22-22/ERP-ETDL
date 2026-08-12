@@ -29,7 +29,7 @@ async def create_transfer(
     data: TransferCreate, session: Session, tenant_id: TenantId, user: CurrentUser, _: CanWrite
 ) -> ResponseEnvelope[TransferRead]:
     transfer = await svc.create_transfer(session, tenant_id, data, user.id)
-    return ResponseEnvelope(data=TransferRead.model_validate(transfer))
+    return ResponseEnvelope(data=await svc.to_read(session, tenant_id, transfer))
 
 
 @router.get("", response_model=PaginatedEnvelope[TransferRead])
@@ -43,7 +43,7 @@ async def list_transfers(
 ) -> PaginatedEnvelope[TransferRead]:
     params = PageParams(page=page, page_size=page_size)
     transfers, meta = await svc.list_transfers(session, tenant_id, params, status_filter)
-    return PaginatedEnvelope(data=[TransferRead.model_validate(t) for t in transfers], meta=meta)
+    return PaginatedEnvelope(data=await svc.to_read_list(session, tenant_id, transfers), meta=meta)
 
 
 @router.get("/{transfer_id}", response_model=ResponseEnvelope[TransferRead])
@@ -51,7 +51,7 @@ async def get_transfer(
     transfer_id: UUID, session: Session, tenant_id: TenantId, _: CanRead
 ) -> ResponseEnvelope[TransferRead]:
     transfer = await svc.get_transfer(session, tenant_id, transfer_id)
-    return ResponseEnvelope(data=TransferRead.model_validate(transfer))
+    return ResponseEnvelope(data=await svc.to_read(session, tenant_id, transfer))
 
 
 @router.patch("/{transfer_id}/lines", response_model=ResponseEnvelope[TransferRead])
@@ -63,7 +63,7 @@ async def update_lines(
     _: CanWrite,
 ) -> ResponseEnvelope[TransferRead]:
     transfer = await svc.update_transfer_lines(session, tenant_id, transfer_id, data)
-    return ResponseEnvelope(data=TransferRead.model_validate(transfer))
+    return ResponseEnvelope(data=await svc.to_read(session, tenant_id, transfer))
 
 
 @router.post("/{transfer_id}/submit", response_model=ResponseEnvelope[TransferRead])
@@ -71,7 +71,7 @@ async def submit_transfer(
     transfer_id: UUID, session: Session, tenant_id: TenantId, _: CanWrite
 ) -> ResponseEnvelope[TransferRead]:
     transfer = await svc.submit_transfer(session, tenant_id, transfer_id)
-    return ResponseEnvelope(data=TransferRead.model_validate(transfer))
+    return ResponseEnvelope(data=await svc.to_read(session, tenant_id, transfer))
 
 
 @router.post("/{transfer_id}/approve", response_model=ResponseEnvelope[TransferRead])
@@ -79,7 +79,7 @@ async def approve_transfer(
     transfer_id: UUID, session: Session, tenant_id: TenantId, user: CurrentUser, _: CanApprove
 ) -> ResponseEnvelope[TransferRead]:
     transfer = await svc.approve_transfer(session, tenant_id, transfer_id, user.id)
-    return ResponseEnvelope(data=TransferRead.model_validate(transfer))
+    return ResponseEnvelope(data=await svc.to_read(session, tenant_id, transfer))
 
 
 @router.post("/{transfer_id}/complete", response_model=ResponseEnvelope[TransferRead])
@@ -87,7 +87,7 @@ async def complete_transfer(
     transfer_id: UUID, session: Session, tenant_id: TenantId, _: CanApprove
 ) -> ResponseEnvelope[TransferRead]:
     transfer = await svc.complete_transfer(session, tenant_id, transfer_id)
-    return ResponseEnvelope(data=TransferRead.model_validate(transfer))
+    return ResponseEnvelope(data=await svc.to_read(session, tenant_id, transfer))
 
 
 @router.post("/{transfer_id}/cancel", response_model=ResponseEnvelope[TransferRead])
@@ -95,4 +95,4 @@ async def cancel_transfer(
     transfer_id: UUID, session: Session, tenant_id: TenantId, _: CanWrite
 ) -> ResponseEnvelope[TransferRead]:
     transfer = await svc.cancel_transfer(session, tenant_id, transfer_id)
-    return ResponseEnvelope(data=TransferRead.model_validate(transfer))
+    return ResponseEnvelope(data=await svc.to_read(session, tenant_id, transfer))

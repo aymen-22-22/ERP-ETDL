@@ -21,10 +21,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.inventory.day_sales import MovementRow, aggregate_day
 from app.inventory.models import MovementType, ProductStockSnapshot
 from app.inventory.repository import InventoryRepository
 from app.inventory.schemas import (
     MovementCreate,
+    SaleDayRow,
     SaleDetail,
     SaleLineRead,
     SaleListItem,
@@ -82,9 +84,9 @@ async def record_sale(
     for line in data.lines:
         product = products[line.product_id]
         line_config: dict[str, object] | None = (
-            {"unit_price_cents": line.unit_price_cents}
+            {"unit_price_cents": line.unit_price_cents, "quantity": line.quantity}
             if line.unit_price_cents is not None
-            else None
+            else {"quantity": line.quantity}
         )
 
         if product.product_type == ProductType.KIT:
@@ -125,6 +127,7 @@ async def record_sale(
                 "product_id": str(product.id),
                 "configuration": dict(resolution.configuration),
                 "display_name": resolution.display_name,
+                "quantity": line.quantity,
                 "components": [
                     {
                         "product_id": str(entry.component_product_id),
@@ -305,3 +308,42 @@ async def get_sale(session: AsyncSession, tenant_id: UUID, reference_id: UUID) -
         total_quantity=sum(line.quantity for line in lines),
         lines=lines,
     )
+
+
+async def list_day_sales(
+    session: AsyncSession,
+    tenant_id: UUID,
+    date_from: datetime,
+    date_to: datetime,
+    warehouse_id: UUID | None = None,
+) -> list[SaleDayRow]:
+    """All products sold within `[date_from, date_to)`, aggregated per cart
+    line: components of kits and CONFIGURABLE products are folded back into
+    their parent, so the day's take reads like the till showed it.
+
+    The caller supplies an explicit half-open range so the "day" boundary is
+    decided by the browser (which knows the store's timezone), not guessed
+    here.
+    """
+    repo = InventoryRepository(session)
+    movements = await repo.list_sale_movements_in_range(tenant_id, date_from, date_to, warehouse_id)
+    if not movements:
+        return []
+
+    product_ids = {m.product_id for m in movements}
+    result = await session.execute(
+        select(Product.id, Product.name).where(Product.id.in_(product_ids))
+    )
+    names = {row.id: row.name for row in result}
+    rows = [
+        MovementRow(
+            reference_id=movement.reference_id,
+            product_id=movement.product_id,
+            product_name=names.get(movement.product_id, "Unknown product"),
+            quantity_delta=movement.quantity_delta,
+            note=movement.note,
+            config=movement.config,
+        )
+        for movement in movements
+    ]
+    return aggregate_day(rows)

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.inventory.models import MovementType
 from app.inventory.repository import InventoryRepository
 from app.inventory.schemas import MovementCreate
+from app.products.image_service import primary_image_map
 from app.products.models import Product
 from app.shared.core.exceptions import AppError, ConflictError, NotFoundError
 from app.shared.core.ids import generate_uuid7
@@ -15,7 +16,13 @@ from app.sync.models import ChangeOperation
 from app.sync.schemas import MutationEnvelope
 from app.transfers.models import StockTransfer, TransferStatus
 from app.transfers.repository import TransferRepository
-from app.transfers.schemas import TransferCreate, TransferLineCreate, TransferLinesUpdate
+from app.transfers.schemas import (
+    TransferCreate,
+    TransferLineCreate,
+    TransferLineRead,
+    TransferLinesUpdate,
+    TransferRead,
+)
 from app.warehouses.service import require_active_warehouse
 
 
@@ -260,3 +267,71 @@ async def list_transfers(
     repo = TransferRepository(session)
     items, total = await repo.list_transfers(tenant_id, params, status)
     return items, PaginationMeta.create(total=total, params=params)
+
+
+async def to_read(session: AsyncSession, tenant_id: UUID, transfer: StockTransfer) -> TransferRead:
+    """Enrich a transfer's lines with product names, SKUs and primary photos.
+
+    `StockTransfer.lines` only stores `product_id`; the detail page renders
+    product cards, so the catalogue info is joined in here. Unknown products
+    keep their blank fields (they were likely deleted) rather than 404ing the
+    whole transfer.
+    """
+    product_ids = [line.product_id for line in transfer.lines]
+    products: dict[UUID, tuple[str, str]] = {}
+    if product_ids:
+        result = await session.execute(
+            select(Product.id, Product.name, Product.sku).where(
+                Product.id.in_(product_ids), Product.tenant_id == tenant_id
+            )
+        )
+        products = {row.id: (row.name, row.sku) for row in result}
+    images = await primary_image_map(session, tenant_id, product_ids)
+
+    read = TransferRead.model_validate(transfer)
+    read.lines = [
+        TransferLineRead(
+            id=line.id,
+            product_id=line.product_id,
+            quantity=line.quantity,
+            name=products.get(line.product_id, ("", ""))[0],
+            sku=products.get(line.product_id, ("", ""))[1],
+            image_url=images.get(line.product_id),
+        )
+        for line in transfer.lines
+    ]
+    return read
+
+
+async def to_read_list(
+    session: AsyncSession, tenant_id: UUID, transfers: list[StockTransfer]
+) -> list[TransferRead]:
+    """Bulk version of `to_read`: one product query and one image map for the
+    whole page instead of one pair per transfer."""
+    product_ids = {line.product_id for t in transfers for line in t.lines}
+    products: dict[UUID, tuple[str, str]] = {}
+    if product_ids:
+        result = await session.execute(
+            select(Product.id, Product.name, Product.sku).where(
+                Product.id.in_(product_ids), Product.tenant_id == tenant_id
+            )
+        )
+        products = {row.id: (row.name, row.sku) for row in result}
+    images = await primary_image_map(session, tenant_id, list(product_ids))
+
+    reads: list[TransferRead] = []
+    for transfer in transfers:
+        read = TransferRead.model_validate(transfer)
+        read.lines = [
+            TransferLineRead(
+                id=line.id,
+                product_id=line.product_id,
+                quantity=line.quantity,
+                name=products.get(line.product_id, ("", ""))[0],
+                sku=products.get(line.product_id, ("", ""))[1],
+                image_url=images.get(line.product_id),
+            )
+            for line in transfer.lines
+        ]
+        reads.append(read)
+    return reads

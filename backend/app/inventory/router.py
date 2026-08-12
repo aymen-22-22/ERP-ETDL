@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from app.inventory import sales_service, service
 from app.inventory.schemas import (
     MovementCreate,
     MovementRead,
+    SaleDayRow,
     SaleDetail,
     SaleListItem,
     SaleRequest,
@@ -75,6 +77,24 @@ async def list_sales(
     params = PageParams(page=page, page_size=page_size)
     sales, meta = await sales_service.list_sales(session, tenant_id, params, warehouse_id)
     return PaginatedEnvelope(data=sales, meta=meta)
+
+
+@router.get(
+    "/sales/day",
+    response_model=ResponseEnvelope[list[SaleDayRow]],
+)
+async def list_day_sales(
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("inventory:read"))],
+    date_from: Annotated[datetime, Query(alias="from")],
+    date_to: Annotated[datetime, Query(alias="to")],
+    warehouse_id: UUID | None = Query(default=None),
+) -> ResponseEnvelope[list[SaleDayRow]]:
+    """All products sold inside the half-open range `[from, to)`, aggregated
+    per cart line with exploded components folded back into their parent."""
+    rows = await sales_service.list_day_sales(session, tenant_id, date_from, date_to, warehouse_id)
+    return ResponseEnvelope(data=rows)
 
 
 @router.get(

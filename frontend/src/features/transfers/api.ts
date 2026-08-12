@@ -6,6 +6,11 @@ export interface TransferLine {
   id: string;
   product_id: string;
   quantity: number;
+  /** Catalogue info enriched by the server so the detail page can render
+   * product-style cards. Blank when the product was deleted. */
+  name: string;
+  sku: string;
+  image_url: string | null;
 }
 
 export interface Transfer {

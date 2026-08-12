@@ -331,3 +331,24 @@ class InventoryRepository(SyncableRepository[InventoryMovement]):
             .order_by(InventoryMovement.created_at, InventoryMovement.product_id)
         )
         return list(result.scalars().all())
+
+    async def list_sale_movements_in_range(
+        self,
+        tenant_id: UUID,
+        date_from: datetime,
+        date_to: datetime,
+        warehouse_id: UUID | None = None,
+    ) -> list[InventoryMovement]:
+        """Every SALE movement written inside `[date_from, date_to)`, for the
+        "by day" sales view. The caller folds components back into their cart
+        lines; this only gathers the raw movements."""
+        query = select(InventoryMovement).where(
+            InventoryMovement.tenant_id == tenant_id,
+            InventoryMovement.movement_type == MovementType.SALE,
+            InventoryMovement.created_at >= date_from,
+            InventoryMovement.created_at < date_to,
+        )
+        if warehouse_id is not None:
+            query = query.where(InventoryMovement.warehouse_id == warehouse_id)
+        result = await self._session.execute(query.order_by(InventoryMovement.created_at))
+        return list(result.scalars().all())

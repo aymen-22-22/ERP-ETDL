@@ -31,6 +31,15 @@ export interface SaleDetail {
   lines: SaleLine[];
 }
 
+export interface SaleDayRow {
+  /** A cart line as rung up — a kit/configurable's name, or a product's. */
+  name: string;
+  /** Units of that cart line sold that day (components folded into the parent). */
+  quantity: number;
+  unit_price_cents: number | null;
+  total_cents: number | null;
+}
+
 export async function listSales(
   page = 1,
   pageSize = 25,
@@ -45,4 +54,22 @@ export async function listSales(
 
 export async function getSale(referenceId: string): Promise<SaleDetail> {
   return apiFetch<SaleDetail>(`/v1/inventory/sales/${referenceId}`);
+}
+
+/**
+ * All products sold inside the half-open range `[from, to)` (ISO strings),
+ * aggregated per cart line with exploded components folded into their parent.
+ * The caller supplies the range so the "day" boundary uses the browser's local
+ * timezone.
+ */
+export async function getDaySales(
+  from: string,
+  to: string,
+  warehouseId?: string,
+): Promise<SaleDayRow[]> {
+  const q = new URLSearchParams();
+  q.set("from", from);
+  q.set("to", to);
+  if (warehouseId) q.set("warehouse_id", warehouseId);
+  return apiFetch<SaleDayRow[]>(`/v1/inventory/sales/day?${q.toString()}`);
 }
