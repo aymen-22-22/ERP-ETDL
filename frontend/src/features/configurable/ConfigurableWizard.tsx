@@ -295,7 +295,17 @@ export function ConfigurableWizard({
                   ) : (
                     <p className="text-warning flex items-start gap-1.5 text-xs">
                       <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />
-                      <span>Components are short — this configuration cannot be sold yet.</span>
+                      <span>
+                        {(() => {
+                          const short = resolved.lines
+                            .filter((line) => line.available < line.pieces_required)
+                            .map((line) => line.name);
+                          if (short.length === 0)
+                            return "Components are short — this configuration cannot be sold yet.";
+                          const joined = short.join(" + ");
+                          return `${joined} ${short.length === 1 ? "is" : "are"} not available, please add quantity.`;
+                        })()}
+                      </span>
                     </p>
                   )}
                 </div>
