@@ -14,6 +14,14 @@ export interface VariantScheme {
   color_key?: string | null;
 }
 
+export interface VariantSchemeInput {
+  base_name: string;
+  sku_prefix: string;
+  attribute_keys: string[];
+  allowed_values: Record<string, string[]>;
+  color_key?: string | null;
+}
+
 export interface VariantPreviewItem {
   name: string;
   sku: string;
@@ -29,6 +37,16 @@ export interface VariantGenerateResult {
 
 export async function getVariantScheme(categoryId: string): Promise<VariantScheme> {
   return apiFetch<VariantScheme>(`/v1/products/variants/scheme/${categoryId}`);
+}
+
+export async function upsertVariantScheme(
+  categoryId: string,
+  data: VariantSchemeInput,
+): Promise<VariantScheme> {
+  return apiFetch<VariantScheme>(`/v1/products/variants/scheme/${categoryId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
 }
 
 export async function previewVariants(

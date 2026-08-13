@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/toast";
 import { ApiError } from "@/services/api/client";
 
-import type { VariantGenerateItemInput } from "./api";
-import { generateVariants, getVariantScheme, previewVariants } from "./api";
+import type { VariantGenerateItemInput, VariantSchemeInput } from "./api";
+import { generateVariants, getVariantScheme, previewVariants, upsertVariantScheme } from "./api";
 
 export function useVariantScheme(categoryId: string | null) {
   return useQuery({
@@ -53,6 +53,28 @@ export function useGenerateVariantsMutation() {
           error instanceof ApiError
             ? (error.detail ?? "Please check the values and try again.")
             : "Please check the values and try again.",
+        variant: "destructive",
+      }),
+  });
+}
+
+export function useUpsertVariantSchemeMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { categoryId: string; data: VariantSchemeInput }) =>
+      upsertVariantScheme(vars.categoryId, vars.data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["variant-scheme"] });
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast({ title: "Formula saved" });
+    },
+    onError: (error) =>
+      toast({
+        title: "Could not save formula",
+        description:
+          error instanceof ApiError
+            ? (error.detail ?? "Please check the formula and try again.")
+            : "Please check the formula and try again.",
         variant: "destructive",
       }),
   });

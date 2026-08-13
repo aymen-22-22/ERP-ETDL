@@ -1,9 +1,41 @@
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from app.products.schemas import OpeningStock
+
+
+class VariantSchemeUpsert(BaseModel):
+    """Create or update a category's variant generation formula."""
+
+    base_name: str = Field(min_length=1, max_length=150)
+    sku_prefix: str = Field(min_length=1, max_length=20)
+    attribute_keys: list[str] = Field(min_length=1)
+    allowed_values: dict[str, list[str]] = Field(default_factory=dict)
+    color_key: str | None = Field(default=None, max_length=50)
+
+    @field_validator("attribute_keys", mode="before")
+    @classmethod
+    def _strip_keys(cls, v: list[str]) -> list[str]:
+        return [k.strip() for k in v if k.strip()]
+
+    @field_validator("attribute_keys")
+    @classmethod
+    def _unique_keys(cls, v: list[str]) -> list[str]:
+        if len(set(v)) != len(v):
+            raise ValueError("attribute_keys must be unique")
+        return v
+
+    @field_validator("color_key")
+    @classmethod
+    def _color_key_in_keys(cls, v: str | None, info: ValidationInfo) -> str | None:
+        if v is None:
+            return None
+        keys = info.data.get("attribute_keys")
+        if keys is not None and v not in keys:
+            raise ValueError("color_key must be one of attribute_keys")
+        return v
 
 
 class VariantSchemeRead(BaseModel):

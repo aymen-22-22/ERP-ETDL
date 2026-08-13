@@ -157,6 +157,17 @@ SCHEME_UPDATES: dict[tuple[str, ...], tuple[str, str, list[str], dict[str, list[
         ["color", "size"],
         {"color": COLORS, "size": ["19mm", "28mm"]},
     ),
+    # Lustres (from store seed: "Lucter" > "Trois / Cinq lampes")
+    ("Lucter", "Trois / Cinq lampes"): (
+        "Lustre",
+        "LUS",
+        ["model", "lampes", "color"],
+        {
+            "model": ["3060"],
+            "lampes": ["3", "5"],
+            "color": COLORS,
+        },
+    ),
 }
 
 # (model, size) support combinations the catalogue actually sells. Not the

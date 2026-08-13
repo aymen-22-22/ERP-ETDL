@@ -41,6 +41,7 @@ from app.products.variant_schemas import (
     VariantPreviewItem,
     VariantPreviewRequest,
     VariantSchemeRead,
+    VariantSchemeUpsert,
 )
 from app.shared.core.envelope import PaginatedEnvelope, ResponseEnvelope
 from app.shared.core.pagination import PageParams
@@ -251,6 +252,22 @@ async def get_variant_scheme(
     _: Annotated[None, Depends(require_permission("products:read"))],
 ) -> ResponseEnvelope[VariantSchemeRead]:
     scheme = await variant_service.get_scheme(session, tenant_id, category_id)
+    return ResponseEnvelope(data=VariantSchemeRead.model_validate(scheme))
+
+
+@router.put(
+    "/variants/scheme/{category_id}",
+    response_model=ResponseEnvelope[VariantSchemeRead],
+)
+async def upsert_variant_scheme(
+    category_id: UUID,
+    data: VariantSchemeUpsert,
+    session: Annotated[AsyncSession, Depends(get_tenant_db)],
+    tenant_id: Annotated[UUID, Depends(get_current_tenant_id)],
+    _: Annotated[None, Depends(require_permission("products:write"))],
+) -> ResponseEnvelope[VariantSchemeRead]:
+    """Create or update the variant generation formula for a category."""
+    scheme = await variant_service.upsert_scheme(session, tenant_id, category_id, data)
     return ResponseEnvelope(data=VariantSchemeRead.model_validate(scheme))
 
 

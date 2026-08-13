@@ -28,7 +28,7 @@ from app.products.models import (
     ProductType,
 )
 from app.products.repository import ProductRepository
-from app.products.variant_schemas import VariantAddRequest, VariantGenerateItem
+from app.products.variant_schemas import VariantAddRequest, VariantGenerateItem, VariantSchemeUpsert
 from app.shared.core.cache import get_tenant_cache
 from app.shared.core.exceptions import ConflictError, NotFoundError
 from app.shared.core.ids import generate_uuid7
@@ -117,6 +117,48 @@ async def get_scheme(
     scheme = result.scalar_one_or_none()
     if scheme is None:
         raise NotFoundError("This category has no variant scheme")
+    return scheme
+
+
+async def upsert_scheme(
+    session: AsyncSession,
+    tenant_id: UUID,
+    category_id: UUID,
+    data: VariantSchemeUpsert,
+) -> CategoryVariantScheme:
+    """Create or update the variant generation formula for a category.
+
+    The category must exist and belong to the tenant.
+    """
+    from app.products.models import Category
+
+    cat_result = await session.execute(
+        select(Category).where(
+            Category.id == category_id,
+            Category.tenant_id == tenant_id,
+            Category.deleted_at.is_(None),
+        )
+    )
+    if cat_result.scalar_one_or_none() is None:
+        raise NotFoundError("Category not found")
+
+    result = await session.execute(
+        select(CategoryVariantScheme).where(
+            CategoryVariantScheme.tenant_id == tenant_id,
+            CategoryVariantScheme.category_id == category_id,
+            CategoryVariantScheme.deleted_at.is_(None),
+        )
+    )
+    scheme = result.scalar_one_or_none()
+    if scheme is None:
+        scheme = CategoryVariantScheme(tenant_id=tenant_id, category_id=category_id)
+        session.add(scheme)
+    scheme.base_name = data.base_name
+    scheme.sku_prefix = data.sku_prefix
+    scheme.attribute_keys = data.attribute_keys
+    scheme.allowed_values = data.allowed_values
+    scheme.color_key = data.color_key
+    await session.flush()
     return scheme
 
 
