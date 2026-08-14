@@ -1,5 +1,7 @@
-import { EmptyState } from "@/components/EmptyState";
 import { LayoutDashboardIcon } from "lucide-react";
+
+import { EmptyState } from "@/components/EmptyState";
+import { PageShell } from "@/components/patterns/PageShell";
 
 import { useDashboardData } from "../useDashboardData";
 import { DashboardSkeleton } from "./DashboardSkeleton";
@@ -14,32 +16,32 @@ import { WarehouseOverview } from "./WarehouseOverview";
 export function DashboardPage() {
   const { data, isLoading } = useDashboardData();
 
-  const shell = "flex w-full flex-col gap-5 px-4 py-4 pb-nav md:pb-6";
+  const shell = "gap-5";
 
   if (isLoading && !data) {
     return (
-      <div className={shell}>
+      <PageShell size="wide" className={shell}>
         <GreetingSection />
         <DashboardSkeleton />
-      </div>
+      </PageShell>
     );
   }
 
   if (!data) {
     return (
-      <div className={shell}>
+      <PageShell size="wide" className={shell}>
         <GreetingSection />
         <EmptyState
           icon={LayoutDashboardIcon}
           title="Couldn't load the dashboard"
           description="Something went wrong fetching your numbers. Pull to refresh or try again."
         />
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className={shell}>
+    <PageShell size="wide" className={shell}>
       <GreetingSection />
       <KpiGrid kpis={data.kpis} />
       <QuickActions />
@@ -47,6 +49,6 @@ export function DashboardPage() {
       <LowStockSection items={data.lowStockItems} />
       <RecentSalesSection sales={data.recentSales} />
       <TopCategories categories={data.topCategories} />
-    </div>
+    </PageShell>
   );
 }

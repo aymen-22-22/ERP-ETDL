@@ -13,7 +13,7 @@ export function DashboardSkeleton() {
         <Skeleton className="h-9 w-28" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
           <div
             key={index}
@@ -32,8 +32,8 @@ export function DashboardSkeleton() {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        {Array.from({ length: 2 }, (_, index) => (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
           <Skeleton key={index} className="aspect-[16/9] rounded-2xl" />
         ))}
       </div>

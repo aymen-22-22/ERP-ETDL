@@ -24,7 +24,7 @@ export function WarehouseOverview({ warehouses }: WarehouseOverviewProps) {
   return (
     <section className="flex flex-col gap-2">
       <SectionHeader title="Warehouses Overview" seeAllTo="/warehouses" />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {warehouses.slice(0, 4).map((warehouse) => (
           <WarehouseCard key={warehouse.id} {...warehouse} />
         ))}
