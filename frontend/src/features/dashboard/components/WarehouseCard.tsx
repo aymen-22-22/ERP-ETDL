@@ -30,7 +30,7 @@ export function WarehouseCard({
   return (
     <Link to={`/warehouses/${id}`} className="group block h-full">
       <div className="bg-card relative h-full overflow-hidden rounded-2xl border shadow-sm">
-        <div className="relative aspect-[16/9] overflow-hidden">
+        <div className="relative aspect-[4/3] overflow-hidden sm:aspect-[16/9]">
           {imageUrl ? (
             <img src={imageUrl} alt={name} loading="lazy" className="size-full object-cover" />
           ) : (

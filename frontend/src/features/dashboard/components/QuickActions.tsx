@@ -14,15 +14,17 @@ export function QuickActions() {
   return (
     <section className="flex flex-col gap-2">
       <SectionHeader title="Quick Actions" />
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
         {ACTIONS.map(({ label, to, icon: Icon }) => (
           <Link
             key={label}
             to={to}
-            className="bg-card flex h-20 flex-col items-center justify-center gap-1.5 rounded-xl border shadow-sm transition-colors hover:bg-accent/50"
+            className="bg-card flex h-16 flex-col items-center justify-center gap-1 rounded-xl border shadow-sm transition-colors hover:bg-accent/50 sm:h-20 sm:gap-1.5"
           >
-            <Icon className="text-primary size-5" />
-            <span className="text-center text-xs leading-4 font-medium">{label}</span>
+            <Icon className="text-primary size-4 sm:size-5" />
+            <span className="text-center text-[11px] leading-3 font-medium sm:text-xs sm:leading-4">
+              {label}
+            </span>
           </Link>
         ))}
       </div>

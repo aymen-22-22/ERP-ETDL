@@ -13,28 +13,28 @@ export function DashboardSkeleton() {
         <Skeleton className="h-9 w-28" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         {Array.from({ length: 4 }, (_, index) => (
           <div
             key={index}
-            className="bg-card flex h-28 flex-col justify-between rounded-2xl border p-3"
+            className="bg-card flex h-24 flex-col justify-between rounded-xl border p-2.5 sm:h-28 sm:rounded-2xl sm:p-3"
           >
             <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-6 w-16" />
+            <Skeleton className="h-5 w-16" />
             <Skeleton className="h-3 w-24" />
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
         {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton key={index} className="h-20 rounded-xl" />
+          <Skeleton key={index} className="h-16 rounded-xl sm:h-20" />
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton key={index} className="aspect-[16/9] rounded-2xl" />
+          <Skeleton key={index} className="aspect-[16/9] rounded-xl sm:rounded-2xl" />
         ))}
       </div>
 

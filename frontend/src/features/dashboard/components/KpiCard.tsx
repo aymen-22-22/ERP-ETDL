@@ -13,14 +13,14 @@ interface KpiCardProps {
 
 export function KpiCard({ label, value, trend, trendDirection }: KpiCardProps) {
   return (
-    <div className="bg-card flex min-h-28 flex-col justify-between rounded-2xl border p-3 shadow-sm">
-      <p className="text-muted-foreground truncate text-xs font-medium">{label}</p>
-      <p className="text-xl leading-6 font-semibold tracking-tight break-words tabular-nums sm:text-2xl sm:leading-8">
+    <div className="bg-card flex min-h-24 flex-col justify-between rounded-xl border p-2.5 shadow-sm sm:min-h-28 sm:rounded-2xl sm:p-3">
+      <p className="text-muted-foreground truncate text-[11px] font-medium sm:text-xs">{label}</p>
+      <p className="text-base leading-5 font-semibold tracking-tight break-words tabular-nums sm:text-xl sm:leading-6">
         {value}
       </p>
       <p
         className={cn(
-          "flex min-w-0 items-center gap-1 text-xs font-medium",
+          "flex min-w-0 items-center gap-1 text-[11px] font-medium sm:text-xs",
           trendDirection === "up" && "text-green-600",
           trendDirection === "down" && "text-red-500",
           trendDirection === "neutral" && "text-muted-foreground",
