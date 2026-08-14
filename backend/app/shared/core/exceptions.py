@@ -71,9 +71,7 @@ def _error_envelope(*, error_code: str, message: str, details: object = None) ->
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
-        await _persist_error(
-            request, level="error", code=exc.error_code, message=exc.message
-        )
+        await _persist_error(request, level="error", code=exc.error_code, message=exc.message)
         return JSONResponse(
             status_code=exc.status_code,
             content=_error_envelope(error_code=exc.error_code, message=exc.message),
@@ -102,9 +100,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         if exc.status_code >= 500:
-            await _persist_error(
-                request, level="error", code="http_error", message=str(exc.detail)
-            )
+            await _persist_error(request, level="error", code="http_error", message=str(exc.detail))
         return JSONResponse(
             status_code=exc.status_code,
             content=_error_envelope(error_code="http_error", message=str(exc.detail)),
