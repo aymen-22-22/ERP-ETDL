@@ -23,11 +23,11 @@ export function TransferDetailPage() {
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-6">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => void navigate("/transfers")}>
           <ArrowLeftIcon className="size-4" />
         </Button>
-        <h1 className="text-2xl font-semibold">
+        <h1 className="min-w-0 flex-1 truncate text-2xl font-semibold">
           {warehouseName(transfer.source_warehouse_id)} →{" "}
           {warehouseName(transfer.dest_warehouse_id)}
         </h1>

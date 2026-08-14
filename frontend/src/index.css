@@ -136,9 +136,15 @@
     -webkit-text-size-adjust: 100%;
   }
 
-  /* Don't let a long SKU or UUID force the whole page to scroll sideways. */
+  /* Keep the page pinned to the viewport width: on iOS a single overflowing
+     row (e.g. a long product-name header with action buttons) used to make
+     Safari zoom the whole page out, so that page rendered at a different
+     resolution to the rest of the app. `clip` (not `hidden`) is used so the
+     sticky TopBar keeps working — `hidden` would turn <html> into a scroll
+     container and break `position: sticky`. */
+  html,
   body {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 }
 

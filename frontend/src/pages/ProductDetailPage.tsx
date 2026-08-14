@@ -112,14 +112,14 @@ export function ProductDetailPage() {
           Back to products
         </Link>
       </Button>
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold">{product.name}</h1>
           <p className="text-muted-foreground text-sm">
             SKU {product.sku} · {product.price}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           {isFamilyMember && (
             <Button variant="outline" onClick={backToFamily}>
               <LayersIcon className="mr-1 size-4" />
