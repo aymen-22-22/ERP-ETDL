@@ -15,4 +15,6 @@ from app.inventory import models as inventory_models  # noqa: F401
 from app.products import models as product_models  # noqa: F401
 from app.sync import models as sync_models  # noqa: F401
 from app.tenants import models as tenant_models  # noqa: F401
+from app.transfers import models as transfer_models  # noqa: F401
 from app.users import models as user_models  # noqa: F401
+from app.warehouses import models as warehouse_models  # noqa: F401

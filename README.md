@@ -2,7 +2,7 @@
 
 Multi-tenant ERP for small and medium businesses. Mobile-first PWA frontend, modular-monolith FastAPI backend, PostgreSQL with row-level tenant isolation.
 
-Architecture and milestone roadmap: see the plan this repo was scaffolded from. Current status: core business modules are implemented and in active iteration — auth, multi-tenancy (row-level isolation), users, products, warehouses, inventory, stock transfers, and a super-admin platform API are all live, alongside offline sync support in the PWA frontend.
+Architecture and milestone roadmap: see the plan this repo was scaffolded from. Current status: all core business modules are live — auth, multi-tenancy (row-level isolation), users & permissions, products, configurable products (recipe-driven till builds), variant products (auto-generated from category schemes), warehouses, inventory, stock transfers, sales, a super-admin platform API, and offline sync support in the PWA frontend.
 
 ## Repository layout
 
@@ -14,7 +14,7 @@ frontend/   React 19 + Vite + TypeScript PWA
 
 ## Local development
 
-Requires Docker Desktop, or Python 3.13+ and Node 22+ if running natively.
+Requires Docker Desktop, or Python 3.14+ and Node 22+ if running natively.
 
 ```bash
 cp .env.example .env
@@ -72,4 +72,15 @@ npm run lhci                # after build — Lighthouse CI, informational only,
 
 ## Notes
 
-- Multi-tenancy and auth are implemented; RBAC/permission granularity beyond the `is_superuser` flag is still evolving.
+- Multi-tenancy and auth are implemented; RBAC/permission granularity is implemented via scoped permissions (e.g. `products:read`, `inventory:write`) checked in each router.
+
+## Known hardcoded business values
+
+These are business-specific values baked into code rather than database configuration. They are deliberate short-hands for the decorator's catalogue; changing them affects the till/catalogue unless the surrounding code is updated too.
+
+- `frontend/src/features/configurable/ConfigurableWizard.tsx` — `AXIS_LABELS` (lines ~22-29) hardcodes display names for the per-rail tube axes: `tube28: "Tube 28"`, `tube19: "Tube 19"`. The keys are axis names stored on configurable definitions; the labels are UI only. If new rail axes are added, add a label here.
+- `backend/scripts/seed_prod_catalog.py` — one-time production seed: `TUBE_MODELS`, `COLORS`, `LENGTHS`, `FLAGSHIP_PRICES` encode the decorator's tube catalogue (Liss/Torsadi/Sculpté, motif types). Used only when seeding an empty production DB; not read at runtime.
+- `backend/app/auth/repository.py` (~line 105) and the alembic backfill — a per-tenant `"Main Warehouse"` is created by default when a tenant is provisioned. A tenant without explicit warehouse setup always has this one.
+- `backend/.env` (untracked, gitignored) holds the live Neon `DATABASE_URL` and `JWT_SECRET_KEY`. Do not commit; rotate the secret if it ever leaks.
+
+Anything not listed here should come from the database (categories, variant schemes, warehouse config, catalogue attributes).

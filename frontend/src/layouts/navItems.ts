@@ -7,8 +7,6 @@ import {
   Settings2Icon,
   SettingsIcon,
   ShoppingCartIcon,
-  TruckIcon,
-  UsersIcon,
   WarehouseIcon,
 } from "lucide-react";
 
@@ -29,8 +27,6 @@ export const navItems: NavItem[] = [
   { label: "Warehouses", path: "/warehouses", icon: WarehouseIcon },
   { label: "Transfers", path: "/transfers", icon: ArrowLeftRightIcon },
   { label: "Sales", path: "/sales", icon: ShoppingCartIcon },
-  { label: "Purchases", path: "/purchases", icon: TruckIcon },
-  { label: "Customers", path: "/customers", icon: UsersIcon },
   { label: "Settings", path: "/settings", icon: SettingsIcon },
 ];
 

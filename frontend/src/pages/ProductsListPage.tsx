@@ -133,7 +133,7 @@ export function ProductsListPage() {
   const products = data?.data;
   const total = data?.meta.total ?? 0;
   const pages = data?.meta.pages ?? 1;
-  const isFiltered = search !== "" || status !== "" || categoryId !== null;
+  const isFiltered = search !== "" || categoryId !== null;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
 

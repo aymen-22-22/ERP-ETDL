@@ -45,7 +45,7 @@ export async function listWarehouseStock(warehouseId: string): Promise<Warehouse
 }
 
 export async function listWarehouseSummaries(): Promise<WarehouseSummary[]> {
-  return apiFetch<WarehouseSummary[]>("/v1/inventory/warehouses/summaries");
+  return apiFetch<WarehouseSummary[]>("/v1/inventory/warehouses/summary");
 }
 
 export async function getWarehouseSummary(warehouseId: string): Promise<WarehouseSummary> {
