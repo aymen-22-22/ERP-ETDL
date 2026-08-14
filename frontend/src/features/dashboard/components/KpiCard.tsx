@@ -13,20 +13,22 @@ interface KpiCardProps {
 
 export function KpiCard({ label, value, trend, trendDirection }: KpiCardProps) {
   return (
-    <div className="bg-card flex h-28 flex-col justify-between rounded-2xl border p-3 shadow-sm">
-      <p className="text-muted-foreground text-xs font-medium">{label}</p>
-      <p className="text-2xl leading-8 font-semibold tracking-tight tabular-nums">{value}</p>
+    <div className="bg-card flex min-h-28 flex-col justify-between rounded-2xl border p-3 shadow-sm">
+      <p className="text-muted-foreground truncate text-xs font-medium">{label}</p>
+      <p className="text-xl leading-6 font-semibold tracking-tight break-words tabular-nums sm:text-2xl sm:leading-8">
+        {value}
+      </p>
       <p
         className={cn(
-          "flex items-center gap-1 text-xs font-medium",
+          "flex min-w-0 items-center gap-1 text-xs font-medium",
           trendDirection === "up" && "text-green-600",
           trendDirection === "down" && "text-red-500",
           trendDirection === "neutral" && "text-muted-foreground",
         )}
       >
-        {trendDirection === "up" && <ArrowUpRightIcon className="size-3.5" />}
-        {trendDirection === "down" && <ArrowDownRightIcon className="size-3.5" />}
-        {trend}
+        {trendDirection === "up" && <ArrowUpRightIcon className="size-3.5 shrink-0" />}
+        {trendDirection === "down" && <ArrowDownRightIcon className="size-3.5 shrink-0" />}
+        <span className="truncate">{trend}</span>
       </p>
     </div>
   );

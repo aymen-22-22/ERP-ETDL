@@ -219,7 +219,7 @@ export function SalesPage() {
               aria-label="Store"
               value={activeStoreId ?? ""}
               onChange={(e) => setStore(e.target.value)}
-              className="w-48"
+              className="w-40 sm:w-48"
             >
               {stores.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -317,12 +317,12 @@ export function SalesPage() {
       {/* Mobile: summary bar that opens the cart */}
       {lines.length > 0 && (
         <div className="bottom-nav-offset bg-background/95 fixed inset-x-0 z-20 border-t p-3 backdrop-blur lg:hidden">
-          <Button className="h-12 w-full justify-between" onClick={() => setCartOpen(true)}>
-            <span className="flex items-center gap-2">
-              <ShoppingCartIcon />
+          <Button className="h-12 w-full justify-between gap-2" onClick={() => setCartOpen(true)}>
+            <span className="flex min-w-0 items-center gap-2">
+              <ShoppingCartIcon className="shrink-0" />
               {totals.itemCount} item{totals.itemCount === 1 ? "" : "s"}
             </span>
-            <span className="tabular-nums">{formatMoney(totals.totalCents)}</span>
+            <span className="truncate tabular-nums">{formatMoney(totals.totalCents)}</span>
           </Button>
         </div>
       )}

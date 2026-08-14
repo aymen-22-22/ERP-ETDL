@@ -96,7 +96,7 @@ export function TransferListPage() {
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Stock Transfers</h1>
         <Button asChild>
           <Link to="/transfers/new">

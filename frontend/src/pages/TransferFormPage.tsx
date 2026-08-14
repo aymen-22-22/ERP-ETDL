@@ -101,12 +101,12 @@ export function TransferFormPage() {
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Badge variant="secondary" className="text-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge variant="secondary" className="text-sm max-w-full truncate">
           {depot.name}
         </Badge>
         <ArrowRightIcon className="size-4 text-muted-foreground" />
-        <Badge variant="secondary" className="text-sm">
+        <Badge variant="secondary" className="text-sm max-w-full truncate">
           {store.name}
         </Badge>
       </div>
@@ -185,11 +185,11 @@ export function TransferFormPage() {
             </CardContent>
           </Card>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-muted-foreground text-sm">
               {lines.length} product{lines.length !== 1 ? "s" : ""} selected
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => void navigate("/transfers")}>
                 Cancel
               </Button>

@@ -68,7 +68,7 @@ export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
         </div>
 
         <div className="flex items-end justify-between gap-2">
-          <span className="text-lg font-semibold tabular-nums">
+          <span className="min-w-0 truncate text-lg font-semibold tabular-nums">
             {product.isConfigurable && (
               <span className="text-muted-foreground text-xs font-normal">from </span>
             )}

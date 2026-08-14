@@ -104,7 +104,7 @@ export function CartPanel({
                 </span>
               </div>
 
-              <div className="mt-2 flex items-center gap-1">
+              <div className="mt-2 flex flex-wrap items-center gap-1">
                 <Button
                   variant="outline"
                   size="icon"
