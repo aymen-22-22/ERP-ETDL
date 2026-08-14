@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import String, cast, func, or_, select
 
+from app.products.catalog_service import category_ids_with_descendants
 from app.products.models import Product, ProductType
 from app.products.schemas import ProductCreate, ProductQuery, ProductSort, ProductUpdate
 from app.shared.core.pagination import PageParams
@@ -48,7 +49,10 @@ class ProductRepository(SyncableCRUDRepository[Product, ProductCreate, ProductUp
                     )
                 )
         if query.category_id is not None:
-            base = base.where(Product.category_id == query.category_id)
+            category_ids = await category_ids_with_descendants(
+                self._session, tenant_id, query.category_id
+            )
+            base = base.where(Product.category_id.in_(category_ids))
         if query.brand_id is not None:
             base = base.where(Product.brand_id == query.brand_id)
         if query.status is not None:

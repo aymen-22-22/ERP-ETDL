@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -167,3 +168,43 @@ async def list_category_tree(session: AsyncSession, tenant_id: UUID) -> list[dic
 
     await cache.set(tenant_id, "categories", "tree", value=roots)
     return roots
+
+
+def _descendant_ids(rows: Iterable[tuple[object, object]], root: UUID) -> list[UUID]:
+    """`root` plus every descendant category id, walking a parent_id forest.
+
+    Works on any nesting depth — the tree walk never goes below the category
+    rows fetched for this tenant, so a cycle (a category whose ancestor is
+    itself) would surface as missing rows, not an infinite loop.
+    """
+    children: dict[UUID, list[UUID]] = {}
+    for raw_child, raw_parent in rows:
+        if raw_child is None or raw_parent is None:
+            continue
+        parent_uuid = UUID(str(raw_parent))
+        children.setdefault(parent_uuid, []).append(UUID(str(raw_child)))
+
+    expanded: list[UUID] = [root]
+    frontier = [root]
+    while frontier:
+        parent = frontier.pop()
+        for child in children.get(parent, []):
+            expanded.append(child)
+            frontier.append(child)
+    return expanded
+
+
+async def category_ids_with_descendants(
+    session: AsyncSession, tenant_id: UUID, category_id: UUID
+) -> list[UUID]:
+    """A category and every category under it, so filtering on a top-level
+    category also matches products in its subcategories."""
+    from app.products.models import Category
+
+    result = await session.execute(
+        select(Category.id, Category.parent_id).where(
+            Category.tenant_id == tenant_id, Category.deleted_at.is_(None)
+        )
+    )
+    rows = [(row[0], row[1]) for row in result.all()]
+    return _descendant_ids(rows, category_id)

@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.inventory.models import MovementType
 from app.inventory.repository import InventoryRepository
 from app.inventory.schemas import MovementCreate
+from app.products.catalog_service import category_ids_with_descendants
 from app.products.models import (
     CategoryVariantScheme,
     Product,
@@ -245,11 +246,12 @@ async def list_grouped_variants(
     from app.inventory.models import ProductStockSnapshot
     from app.warehouses.models import Warehouse
 
+    category_ids = await category_ids_with_descendants(session, tenant_id, category_id)
     products_result = await session.execute(
         select(Product)
         .where(
             Product.tenant_id == tenant_id,
-            Product.category_id == category_id,
+            Product.category_id.in_(category_ids),
             Product.product_type == ProductType.VARIANT,
             Product.deleted_at.is_(None),
         )
