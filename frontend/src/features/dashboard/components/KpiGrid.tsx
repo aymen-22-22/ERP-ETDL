@@ -9,7 +9,7 @@ interface KpiGridProps {
 
 export function KpiGrid({ kpis }: KpiGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+    <div className="mx-auto grid w-full max-w-3xl gap-2 sm:gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,8.5rem),1fr))]">
       <KpiCard
         label="Total Products"
         value={kpis.totalProducts.toLocaleString()}
