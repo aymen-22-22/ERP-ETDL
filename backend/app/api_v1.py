@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.auth.router import router as auth_router
 from app.inventory.router import router as inventory_router
+from app.monitoring.router import logs_router, notifications_router
 from app.platform.router import router as platform_router
 from app.products.catalog_router import catalog_router
 from app.products.router import router as products_router
@@ -20,3 +21,5 @@ api_v1_router.include_router(warehouses_router)
 api_v1_router.include_router(transfers_router)
 api_v1_router.include_router(users_router)
 api_v1_router.include_router(sync_router)
+api_v1_router.include_router(logs_router)
+api_v1_router.include_router(notifications_router)

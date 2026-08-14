@@ -1,6 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BuildingIcon, LayersIcon, PlusIcon, ShieldIcon, UserIcon } from "lucide-react";
+import {
+  BuildingIcon,
+  LayersIcon,
+  PlusIcon,
+  ScrollTextIcon,
+  ShieldIcon,
+  UserIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { NavLink } from "react-router";
@@ -13,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useActivityLog, useErrorLog } from "@/features/logs/hooks";
 import {
   createPlatformUser,
   fetchPlatformTenants,
@@ -22,7 +30,7 @@ import {
 import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/store/authStore";
 
-const tabs = ["Profile", "Preferences", "Super Admin"] as const;
+const tabs = ["Profile", "Preferences", "Logs", "Super Admin"] as const;
 type Tab = (typeof tabs)[number];
 
 const userSchema = z.object({
@@ -90,6 +98,7 @@ export function SettingsPage() {
             }`}
           >
             {tab === "Profile" && <UserIcon className="size-4" />}
+            {tab === "Logs" && <ScrollTextIcon className="size-4" />}
             {tab === "Super Admin" && <ShieldIcon className="size-4" />}
             {tab}
           </button>
@@ -127,6 +136,8 @@ export function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {activeTab === "Logs" && <LogsPanel />}
 
       {activeTab === "Super Admin" && isSuperuser && (
         <div className="flex flex-col gap-6">
@@ -259,5 +270,136 @@ export function SettingsPage() {
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+function LogsPanel() {
+  const [view, setView] = useState<"activity" | "errors">("activity");
+  const activity = useActivityLog();
+  const errors = useErrorLog();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Logs</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex gap-1 rounded-md border p-1">
+          {(["activity", "errors"] as const).map((viewName) => (
+            <button
+              key={viewName}
+              type="button"
+              onClick={() => setView(viewName)}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-sm px-3 py-2 text-sm font-medium transition-colors ${
+                view === viewName ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+              }`}
+            >
+              {viewName === "activity" ? "Activity" : "Errors"}
+            </button>
+          ))}
+        </div>
+
+        {view === "activity" ? (
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-muted-foreground text-left">
+                <tr>
+                  <th className="px-4 py-2 font-medium">What happened</th>
+                  <th className="px-4 py-2 font-medium">Type</th>
+                  <th className="px-4 py-2 font-medium">When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activity.isLoading ? (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-4">
+                      <TableLoader rows={4} columns={3} />
+                    </td>
+                  </tr>
+                ) : (activity.data?.data.length ?? 0) === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="text-muted-foreground px-4 py-4 text-center">
+                      No activity yet
+                    </td>
+                  </tr>
+                ) : (
+                  activity.data?.data.map((entry) => (
+                    <tr key={entry.id} className="hover:bg-accent/50 border-t">
+                      <td className="px-4 py-2">
+                        <span className="block">{entry.message}</span>
+                        <span className="text-muted-foreground block text-xs">
+                          {entry.entity_type} · {entry.operation}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">
+                        <Badge variant="outline">{entry.entity_type}</Badge>
+                      </td>
+                      <td className="text-muted-foreground px-4 py-2">
+                        {new Date(entry.created_at).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-muted-foreground text-left">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Message</th>
+                  <th className="px-4 py-2 font-medium">Code</th>
+                  <th className="px-4 py-2 font-medium">When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {errors.isLoading ? (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-4">
+                      <TableLoader rows={4} columns={3} />
+                    </td>
+                  </tr>
+                ) : (errors.data?.data.length ?? 0) === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="text-muted-foreground px-4 py-4 text-center">
+                      No errors recorded
+                    </td>
+                  </tr>
+                ) : (
+                  errors.data?.data.map((entry) => (
+                    <tr key={entry.id} className="hover:bg-accent/50 border-t">
+                      <td className="px-4 py-2">
+                        <span className="block">
+                          {entry.level === "error" ? (
+                            <Badge variant="destructive" className="mr-2">
+                              error
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="mr-2">
+                              {entry.level}
+                            </Badge>
+                          )}
+                          {entry.message}
+                        </span>
+                        <span className="text-muted-foreground block text-xs">
+                          {entry.method} {entry.path}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">
+                        <code className="text-xs">{entry.code}</code>
+                      </td>
+                      <td className="text-muted-foreground px-4 py-2">
+                        {new Date(entry.created_at).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

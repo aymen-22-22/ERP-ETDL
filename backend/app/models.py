@@ -12,6 +12,7 @@ Import this module wherever the full schema must be present: the app startup
 
 from app.auth import models as auth_models  # noqa: F401
 from app.inventory import models as inventory_models  # noqa: F401
+from app.monitoring import models as monitoring_models  # noqa: F401
 from app.products import models as product_models  # noqa: F401
 from app.sync import models as sync_models  # noqa: F401
 from app.tenants import models as tenant_models  # noqa: F401

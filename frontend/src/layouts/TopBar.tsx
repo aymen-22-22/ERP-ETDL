@@ -1,8 +1,10 @@
 import { LayoutDashboardIcon, SettingsIcon } from "lucide-react";
 import { NavLink } from "react-router";
 
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
+import { NotificationsBell } from "./NotificationsBell";
 import { SyncStatusIndicator } from "./SyncStatusIndicator";
 
 interface TopBarProps {
@@ -24,32 +26,34 @@ export function TopBar({ showBusinessName = false, showMobileNav = false }: TopB
       <div className="flex items-center gap-1">
         {showMobileNav && (
           <>
-            <NavLink to="/" end>
-              {({ isActive }) => (
-                <Button
-                  variant={isActive ? "default" : "ghost"}
-                  size="icon"
-                  className="size-9"
-                  aria-label="Dashboard"
-                >
-                  <LayoutDashboardIcon className="size-5" />
-                </Button>
-              )}
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                cn(
+                  buttonVariants({ variant: isActive ? "default" : "ghost", size: "icon" }),
+                  "size-9",
+                )
+              }
+              aria-label="Dashboard"
+            >
+              <LayoutDashboardIcon className="size-5" />
             </NavLink>
-            <NavLink to="/settings">
-              {({ isActive }) => (
-                <Button
-                  variant={isActive ? "default" : "ghost"}
-                  size="icon"
-                  className="size-9"
-                  aria-label="Settings"
-                >
-                  <SettingsIcon className="size-5" />
-                </Button>
-              )}
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                cn(
+                  buttonVariants({ variant: isActive ? "default" : "ghost", size: "icon" }),
+                  "size-9",
+                )
+              }
+              aria-label="Settings"
+            >
+              <SettingsIcon className="size-5" />
             </NavLink>
           </>
         )}
+        <NotificationsBell />
         <SyncStatusIndicator />
       </div>
     </header>

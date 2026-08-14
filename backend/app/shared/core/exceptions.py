@@ -1,3 +1,5 @@
+from traceback import format_exc
+
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -68,14 +70,26 @@ def _error_envelope(*, error_code: str, message: str, details: object = None) ->
 
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
-    async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
+    async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+        await _persist_error(
+            request, level="error", code=exc.error_code, message=exc.message
+        )
         return JSONResponse(
             status_code=exc.status_code,
             content=_error_envelope(error_code=exc.error_code, message=exc.message),
         )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_error_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+    async def validation_error_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        await _persist_error(
+            request,
+            level="warning",
+            code="validation_error",
+            message="Request validation failed",
+            details=exc.errors(),
+        )
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content=_error_envelope(
@@ -86,18 +100,56 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(StarletteHTTPException)
-    async def http_exception_handler(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        if exc.status_code >= 500:
+            await _persist_error(
+                request, level="error", code="http_error", message=str(exc.detail)
+            )
         return JSONResponse(
             status_code=exc.status_code,
             content=_error_envelope(error_code="http_error", message=str(exc.detail)),
         )
 
     @app.exception_handler(Exception)
-    async def unhandled_exception_handler(_: Request, exc: Exception) -> JSONResponse:
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.exception("unhandled_exception", error=str(exc))
+        await _persist_error(
+            request,
+            level="error",
+            code="internal_error",
+            message=str(exc) or exc.__class__.__name__,
+            traceback=format_exc(),
+        )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=_error_envelope(
                 error_code="internal_error", message="An unexpected error occurred"
             ),
         )
+
+
+async def _persist_error(
+    request: Request,
+    *,
+    level: str,
+    code: str,
+    message: str,
+    traceback: str | None = None,
+    details: object = None,
+) -> None:
+    """Best-effort write to the error log. Never raises — the exception
+    handlers are on the response path and a logging failure must not replace
+    the response the client is about to get."""
+    try:
+        from app.monitoring.recorder import record_error
+
+        await record_error(
+            request,
+            level=level,
+            code=code,
+            message=message,
+            traceback=traceback,
+            details=details,
+        )
+    except Exception:
+        pass
