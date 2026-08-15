@@ -9,24 +9,20 @@ interface KpiCardProps {
   value: string;
   trend: string;
   trendDirection: TrendDirection;
-  className?: string;
 }
 
-export function KpiCard({ label, value, trend, trendDirection, className }: KpiCardProps) {
+export function KpiCard({ label, value, trend, trendDirection }: KpiCardProps) {
   return (
-    <div
-      className={cn(
-        "bg-card flex min-h-24 flex-col justify-between gap-1.5 rounded-xl border p-2.5 shadow-sm",
-        className,
-      )}
-    >
-      <p className="text-muted-foreground truncate text-[11px] font-medium">{label}</p>
-      <p className="text-lg leading-6 font-semibold tracking-tight break-words tabular-nums">
+    <div className="bg-card flex min-h-20 flex-col justify-between gap-1.5 rounded-xl border p-2 shadow-sm">
+      <p className="text-muted-foreground truncate text-[10px] font-medium sm:text-[11px]">
+        {label}
+      </p>
+      <p className="text-base leading-5 font-semibold tracking-tight break-words tabular-nums sm:text-lg sm:leading-6">
         {value}
       </p>
       <p
         className={cn(
-          "flex min-w-0 items-center gap-1 text-[11px] leading-3 font-medium",
+          "flex min-w-0 items-center gap-1 text-[10px] leading-3 font-medium sm:text-[11px]",
           trendDirection === "up" && "text-green-600",
           trendDirection === "down" && "text-red-500",
           trendDirection === "neutral" && "text-muted-foreground",

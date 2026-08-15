@@ -20,10 +20,12 @@ export function QuickActions() {
             key={label}
             to={to}
             aria-label={label}
-            className="bg-card flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border py-3 shadow-sm transition-colors select-none active:bg-accent active:scale-[0.98] hover:bg-accent/50 focus-visible:ring-ring/50 outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            className="bg-card flex min-h-14 flex-col items-center justify-center gap-1.5 rounded-xl border py-2.5 shadow-sm transition-colors select-none active:bg-accent active:scale-[0.98] hover:bg-accent/50 focus-visible:ring-ring/50 outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
           >
-            <Icon className="text-primary size-5 shrink-0" aria-hidden="true" />
-            <span className="text-center text-[11px] leading-3 font-medium">{label}</span>
+            <Icon className="text-primary size-4 shrink-0 sm:size-5" aria-hidden="true" />
+            <span className="text-center text-[10px] leading-3 font-medium sm:text-[11px]">
+              {label}
+            </span>
           </Link>
         ))}
       </div>

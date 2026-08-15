@@ -21,9 +21,9 @@ export function TopCategories({ categories }: TopCategoriesProps) {
   return (
     <section className="flex flex-col gap-2">
       <SectionHeader title="Top Categories" seeAllTo="/categories" />
-      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+      <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:mx-auto lg:max-w-3xl lg:grid-cols-4">
         {categories.map((category) => (
-          <div key={category.id} className="w-32 shrink-0">
+          <div key={category.id} className="w-full">
             <div className="bg-card relative overflow-hidden rounded-xl border shadow-sm">
               <div className="relative aspect-video overflow-hidden">
                 {category.imageUrl ? (
