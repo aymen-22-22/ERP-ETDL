@@ -46,5 +46,3 @@ npm run lhci              # Lighthouse CI, informational, never fails the build
 
 See repo-root `README.md` for the full list of known hardcoded business values.
 
-
--- ci-test --
