@@ -35,9 +35,9 @@ export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
       disabled={disabled}
       aria-label={`Add ${product.name} to sale`}
       className={cn(
-        // Same card language as the Products page: a bordered, flat surface
+        // Same card language as the dashboard: a bordered, flat surface
         // with the photo as a full-width banner rather than a small thumbnail.
-        "bg-card relative flex flex-col overflow-hidden rounded-md border text-left transition-colors",
+        "bg-card relative flex flex-col overflow-hidden rounded-xl border shadow-sm text-left transition-colors",
         "focus-visible:ring-ring/50 outline-none focus-visible:ring-2",
         disabled
           ? "cursor-not-allowed opacity-50"

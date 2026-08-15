@@ -207,7 +207,6 @@ export function SalesPage() {
     <PageShell size="wide" className="pb-32 lg:pb-6">
       <PageHeader
         title="New sale"
-        description="Tap a product to add it to the sale. Unit prices can be changed to discount a line."
         back="/"
         actions={
           <>
@@ -254,7 +253,7 @@ export function SalesPage() {
           />
 
           {categoryTree && categoryTree.length > 0 && (
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+            <div className="flex w-full gap-2 overflow-x-auto pb-1">
               <CategoryChip
                 label="All"
                 active={categoryId === null}
@@ -272,9 +271,9 @@ export function SalesPage() {
           )}
 
           {isLoading && (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
               {Array.from({ length: 8 }, (_, i) => (
-                <Skeleton key={i} className="h-28 rounded-md" />
+                <Skeleton key={i} className="h-28 rounded-xl" />
               ))}
             </div>
           )}
@@ -292,7 +291,7 @@ export function SalesPage() {
           )}
 
           {!isLoading && visible && visible.length > 0 && (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
               {visible.map((product) => (
                 <ProductTile
                   key={product.productId}
