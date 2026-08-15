@@ -51,6 +51,7 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          passphrase: ${{ secrets.DEPLOY_SSH_PASSPHRASE }}
           source: "frontend/dist.zip"
           target: "~"
           strip_components: 1
@@ -62,6 +63,7 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          passphrase: ${{ secrets.DEPLOY_SSH_PASSPHRASE }}
           script: |
             set -e
             cd ~/stock.etdledger.com
