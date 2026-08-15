@@ -45,4 +45,3 @@ npm run lhci              # Lighthouse CI, informational, never fails the build
 - `src/features/configurable/ConfigurableWizard.tsx` — `AXIS_LABELS` hardcodes the per-rail tube labels (`tube28: "Tube 28"`, `tube19: "Tube 19"`); add a label here when new rail axes are introduced.
 
 See repo-root `README.md` for the full list of known hardcoded business values.
-
