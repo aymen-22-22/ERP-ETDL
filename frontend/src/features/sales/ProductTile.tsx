@@ -1,5 +1,3 @@
-import { StockBadge } from "@/components/patterns/StatusBadge";
-import { Badge } from "@/components/ui/badge";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -15,9 +13,10 @@ interface ProductTileProps {
 /**
  * One sellable product in the grid.
  *
- * A card rather than a table row: a till is tap-driven, and the whole tile
- * being the target makes it usable at speed on a phone. Price is the most
- * prominent element because it's what gets read aloud.
+ * A compact, image-dominant card built for tapping quickly at a till: the
+ * photo is the largest surface, name/type/price stay small, and the whole tile
+ * is the tap target. `min-w-0` lets the card shrink inside its grid column so
+ * a long label can never push a column (or the page) past the viewport.
  */
 export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
   // A configurable tile is never "sold out": how many can be built depends on
@@ -28,6 +27,14 @@ export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
   const exhausted = !product.isConfigurable && inCart >= product.available;
   const disabled = soldOut || exhausted;
 
+  const actionLabel = product.isConfigurable
+    ? "Configure"
+    : soldOut
+      ? "Out"
+      : exhausted
+        ? "In cart"
+        : "Add";
+
   return (
     <button
       type="button"
@@ -35,57 +42,57 @@ export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
       disabled={disabled}
       aria-label={`Add ${product.name} to sale`}
       className={cn(
-        // Same card language as the dashboard: a bordered, flat surface
-        // with the photo as a full-width banner rather than a small thumbnail.
-        "bg-card relative flex flex-col overflow-hidden rounded-xl border shadow-sm text-left transition-colors",
+        "bg-card relative flex min-w-0 flex-col overflow-hidden rounded-xl border shadow-sm text-left transition-colors",
         "focus-visible:ring-ring/50 outline-none focus-visible:ring-2",
         disabled
-          ? "cursor-not-allowed opacity-50"
+          ? "cursor-not-allowed opacity-60"
           : "hover:border-foreground/30 active:bg-accent cursor-pointer",
       )}
     >
       {inCart > 0 && (
         <span
           aria-label={`${inCart} in sale`}
-          className="bg-primary text-primary-foreground absolute top-2 right-2 z-10 flex size-6 items-center justify-center rounded-full text-xs font-semibold tabular-nums"
+          className="bg-primary text-primary-foreground absolute top-1.5 right-1.5 z-10 flex size-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-semibold tabular-nums"
         >
           {inCart}
         </span>
       )}
 
-      <div className="bg-muted flex aspect-video items-center justify-center overflow-hidden">
+      <div className="bg-muted flex h-30 w-full shrink-0 items-center justify-center overflow-hidden">
         {product.imageUrl && (
-          <img src={product.imageUrl} alt="" className="size-full object-cover" />
+          <img
+            src={product.imageUrl}
+            alt=""
+            loading="lazy"
+            className="size-full object-contain p-1.5"
+          />
         )}
       </div>
 
-      <div className="flex flex-1 flex-col justify-between gap-3 p-3">
+      <div className="flex min-w-0 flex-col gap-1 p-2">
         <div className="min-w-0">
-          <p className="line-clamp-2 text-sm font-medium">{product.name}</p>
-          <p className="text-muted-foreground mt-0.5 truncate text-xs">
+          <p className="line-clamp-2 text-sm leading-4 font-medium">{product.name}</p>
+          <p className="text-muted-foreground truncate text-xs">
             {product.isConfigurable ? "Configurable" : product.isKit ? "Kit" : product.sku}
           </p>
         </div>
 
-        <div className="flex items-end justify-between gap-2">
-          <span className="min-w-0 truncate text-lg font-semibold tabular-nums">
+        <div className="mt-auto flex min-w-0 items-center justify-between gap-1.5">
+          <span className="min-w-0 truncate text-[17px] leading-6 font-semibold tabular-nums">
             {product.isConfigurable && (
               <span className="text-muted-foreground text-xs font-normal">from </span>
             )}
             {formatMoney(product.unitPriceCents)}
           </span>
-          {product.isConfigurable ? (
-            <Badge variant="secondary">Configure</Badge>
-          ) : product.isKit ? (
-            // A kit's number is how many its components can build, which is not
-            // the same claim as "we have N on the shelf" — labelled so nobody
-            // reads it as a physical count.
-            <Badge variant={product.available > 0 ? "secondary" : "outline"}>
-              {product.available > 0 ? `${product.available} buildable` : "Components short"}
-            </Badge>
-          ) : (
-            <StockBadge quantity={product.available} minQuantity={product.minQuantity} />
-          )}
+          <span
+            aria-hidden
+            className={cn(
+              "inline-flex h-8 shrink-0 items-center justify-center rounded-md px-2.5 text-xs font-medium",
+              disabled ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground",
+            )}
+          >
+            {actionLabel}
+          </span>
         </div>
       </div>
     </button>

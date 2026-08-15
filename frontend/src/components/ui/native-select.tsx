@@ -14,7 +14,10 @@ import { cn } from "@/lib/utils";
  */
 function NativeSelect({ className, children, ...props }: React.ComponentProps<"select">) {
   return (
-    <div className="relative w-full">
+    // No `w-full` here: in a form this wrapper is a block element that fills
+    // the row anyway, while in a flex row (e.g. a page header) `width:100%`
+    // would demand the whole row width and push the page past the viewport.
+    <div className="relative">
       <select
         data-slot="native-select"
         className={cn(

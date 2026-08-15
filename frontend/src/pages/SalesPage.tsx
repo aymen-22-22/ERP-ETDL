@@ -210,15 +210,20 @@ export function SalesPage() {
         back="/"
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={() => void navigate("/sales/history")}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="px-2.5 sm:px-3"
+              onClick={() => void navigate("/sales/history")}
+            >
               <HistoryIcon />
-              History
+              <span className="hidden sm:inline">History</span>
             </Button>
             <NativeSelect
               aria-label="Store"
               value={activeStoreId ?? ""}
               onChange={(e) => setStore(e.target.value)}
-              className="w-40 sm:w-48"
+              className="w-36 sm:w-44"
             >
               {stores.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -247,6 +252,7 @@ export function SalesPage() {
         <div className="flex min-w-0 flex-col gap-4">
           <Input
             placeholder="Search or scan name, SKU, barcode…"
+            className="h-12"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={onSearchKeyDown}
