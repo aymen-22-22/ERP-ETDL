@@ -37,14 +37,15 @@ jobs:
         run: npm run build
 
       # Package the built dist so the archive extracts straight into the doc
-      # root (same layout as the manual `unzip -o dist.zip` flow). A plain
-      # `dist/`-prefixed archive is the trap that silently deployed into a
-      # subfolder on the last manual upload.
+      # root (same layout as the manual upload flow). GNU tar compresses with
+      # -z; `tar -cf *.zip` would produce a tar masquerading as a zip on the
+      # Ubuntu runner, which unzip would reject on the server. Use tar.gz on
+      # both ends — GNU tar exists on every cPanel host.
       - name: Package dist
         working-directory: frontend
-        run: tar -a -cf dist.zip -C dist .
+        run: tar -czf dist.tar.gz -C dist .
 
-      - name: Upload dist.zip to host
+      - name: Upload dist.tar.gz to host
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -52,7 +53,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           passphrase: ${{ secrets.DEPLOY_SSH_PASSPHRASE }}
-          source: "frontend/dist.zip"
+          source: "frontend/dist.tar.gz"
           target: "~"
           strip_components: 1
 
@@ -67,6 +68,6 @@ jobs:
           script: |
             set -e
             cd ~/stock.etdledger.com
-            unzip -o ~/dist.zip
-            rm -f ~/dist.zip
+            tar -xzf ~/dist.tar.gz
+            rm -f ~/dist.tar.gz
             grep -o 'index-[A-Za-z0-9_-]*\.js' index.html
