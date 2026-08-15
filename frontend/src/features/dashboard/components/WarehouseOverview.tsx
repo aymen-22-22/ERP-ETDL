@@ -24,9 +24,11 @@ export function WarehouseOverview({ warehouses }: WarehouseOverviewProps) {
   return (
     <section className="flex flex-col gap-2">
       <SectionHeader title="Warehouses Overview" seeAllTo="/warehouses" />
-      <div className="mx-auto grid w-full max-w-3xl gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,9rem),1fr))]">
+      <div className="flex w-full snap-x snap-mandatory gap-3 overflow-x-auto pb-1 sm:grid sm:grid-cols-2 sm:gap-3 sm:overflow-visible sm:pb-0 lg:mx-auto lg:max-w-3xl lg:grid-cols-4">
         {warehouses.slice(0, 4).map((warehouse) => (
-          <WarehouseCard key={warehouse.id} {...warehouse} />
+          <div key={warehouse.id} className="w-64 shrink-0 snap-start sm:w-auto">
+            <WarehouseCard {...warehouse} />
+          </div>
         ))}
       </div>
     </section>

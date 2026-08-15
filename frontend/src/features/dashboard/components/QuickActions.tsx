@@ -14,7 +14,7 @@ export function QuickActions() {
   return (
     <section className="flex flex-col gap-2">
       <SectionHeader title="Quick Actions" />
-      <div className="mx-auto grid w-full max-w-3xl gap-2 sm:gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,6.5rem),1fr))]">
+      <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 lg:mx-auto lg:max-w-3xl">
         {ACTIONS.map(({ label, to, icon: Icon }) => (
           <Link
             key={label}
