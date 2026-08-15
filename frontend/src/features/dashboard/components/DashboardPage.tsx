@@ -16,7 +16,7 @@ import { WarehouseOverview } from "./WarehouseOverview";
 export function DashboardPage() {
   const { data, isLoading } = useDashboardData();
 
-  const shell = "gap-5";
+  const shell = "gap-4 sm:gap-6";
 
   if (isLoading && !data) {
     return (

@@ -4,37 +4,37 @@ import { Skeleton } from "@/components/ui/skeleton";
  * layout's dimensions so nothing jumps when data arrives. */
 export function DashboardSkeleton() {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4 sm:gap-6">
       <div className="flex items-end justify-between gap-3">
         <div className="flex flex-col gap-1.5">
           <Skeleton className="h-6 w-44" />
-          <Skeleton className="h-4 w-56" />
+          <Skeleton className="h-3 w-40" />
         </div>
-        <Skeleton className="h-9 w-28" />
+        <Skeleton className="h-4 w-28" />
       </div>
 
       <div className="mx-auto grid w-full max-w-3xl gap-2 sm:gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,8.5rem),1fr))]">
         {Array.from({ length: 4 }, (_, index) => (
           <div
             key={index}
-            className="bg-card flex h-24 flex-col justify-between rounded-xl border p-2.5 sm:h-28 sm:rounded-2xl sm:p-3"
+            className="bg-card flex h-24 flex-col justify-between gap-1.5 rounded-xl border p-2.5"
           >
             <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-5 w-16" />
+            <Skeleton className="h-6 w-16" />
             <Skeleton className="h-3 w-24" />
           </div>
         ))}
       </div>
 
-      <div className="mx-auto grid w-full max-w-3xl gap-1.5 sm:gap-2 [grid-template-columns:repeat(4,minmax(0,1fr))]">
+      <div className="mx-auto grid w-full max-w-3xl gap-2 sm:gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,6.5rem),1fr))]">
         {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton key={index} className="h-16 rounded-xl sm:h-20" />
+          <Skeleton key={index} className="h-16 rounded-xl" />
         ))}
       </div>
 
       <div className="mx-auto grid w-full max-w-3xl gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,9rem),1fr))]">
         {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton key={index} className="aspect-[16/9] rounded-xl sm:rounded-2xl" />
+          <Skeleton key={index} className="aspect-[4/3] rounded-xl sm:aspect-[16/9]" />
         ))}
       </div>
 

@@ -1,4 +1,4 @@
-import { BoxesIcon, PackagePlusIcon, ShoppingCartIcon, ArrowLeftRightIcon } from "lucide-react";
+import { ArrowLeftRightIcon, BoxesIcon, PackagePlusIcon, ShoppingCartIcon } from "lucide-react";
 import { Link } from "react-router";
 
 import { SectionHeader } from "./SectionHeader";
@@ -14,17 +14,16 @@ export function QuickActions() {
   return (
     <section className="flex flex-col gap-2">
       <SectionHeader title="Quick Actions" />
-      <div className="mx-auto grid w-full max-w-3xl gap-1.5 sm:gap-2 [grid-template-columns:repeat(4,minmax(0,1fr))]">
+      <div className="mx-auto grid w-full max-w-3xl gap-2 sm:gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,6.5rem),1fr))]">
         {ACTIONS.map(({ label, to, icon: Icon }) => (
           <Link
             key={label}
             to={to}
-            className="bg-card flex h-16 flex-col items-center justify-center gap-1 rounded-xl border shadow-sm transition-colors hover:bg-accent/50 sm:h-20 sm:gap-1.5"
+            aria-label={label}
+            className="bg-card flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border py-3 shadow-sm transition-colors select-none active:bg-accent active:scale-[0.98] hover:bg-accent/50 focus-visible:ring-ring/50 outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
           >
-            <Icon className="text-primary size-4 sm:size-5" />
-            <span className="text-center text-[11px] leading-3 font-medium sm:text-xs sm:leading-4">
-              {label}
-            </span>
+            <Icon className="text-primary size-5 shrink-0" aria-hidden="true" />
+            <span className="text-center text-[11px] leading-3 font-medium">{label}</span>
           </Link>
         ))}
       </div>

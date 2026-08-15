@@ -136,6 +136,22 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  /* Remove the ~300ms tap delay on touch devices for interactive elements. */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Native momentum scrolling for the app's scroll container. */
+  main {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
   /* Keep the page pinned to the viewport width: on iOS a single overflowing
      row (e.g. a long product-name header with action buttons) used to make
      Safari zoom the whole page out, so that page rendered at a different

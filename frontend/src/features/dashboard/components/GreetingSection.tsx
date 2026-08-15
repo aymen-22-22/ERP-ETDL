@@ -22,9 +22,9 @@ function shortDate(date: Date): string {
 
 function greeting(date: Date): string {
   const hour = date.getHours();
-  if (hour < 12) return "Good morning!";
-  if (hour < 18) return "Good afternoon!";
-  return "Good evening!";
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 }
 
 export function GreetingSection() {
@@ -33,12 +33,14 @@ export function GreetingSection() {
   return (
     <div className="flex items-end justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="text-[22px] leading-7 font-semibold tracking-tight">{greeting(today)} 👋</h1>
-        <p className="text-muted-foreground mt-0.5 text-sm">
+        <h1 className="truncate text-lg leading-6 font-semibold tracking-tight">
+          {greeting(today)}
+        </h1>
+        <p className="text-muted-foreground mt-0.5 truncate text-xs">
           Here&apos;s what&apos;s happening today
         </p>
       </div>
-      <div className="border-border bg-background flex h-9 shrink-0 items-center rounded-md border px-3 text-sm font-medium whitespace-nowrap">
+      <div className="text-muted-foreground shrink-0 text-xs font-medium whitespace-nowrap">
         {shortDate(today)}
       </div>
     </div>
