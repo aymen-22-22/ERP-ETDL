@@ -16,7 +16,7 @@ export function DashboardLayout() {
     <div className="flex min-h-svh">
       {isDesktop && <Sidebar />}
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <TopBar showBusinessName={!isDesktop} showMobileNav={!isDesktop} />
 
         <main className="flex-1 pb-16 md:pb-0">
