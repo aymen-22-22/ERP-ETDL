@@ -2,6 +2,7 @@ import { ChevronRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 
+import { ProductImage } from "@/components/ProductImage";
 import { cn } from "@/lib/utils";
 
 interface ListCardProps {
@@ -44,7 +45,7 @@ function ListCard({
   // for details underneath instead of the grid's mobile fallback.
   const banner = image !== undefined && (
     <div className="bg-muted flex aspect-video items-center justify-center overflow-hidden rounded-t-md">
-      {image && <img src={image} alt="" className="size-full object-cover" />}
+      {image && <ProductImage src={image} className="size-full object-cover" />}
     </div>
   );
 

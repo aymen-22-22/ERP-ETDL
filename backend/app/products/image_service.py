@@ -10,6 +10,7 @@ from app.products.variant_service import family_rows
 from app.shared.core.config import get_settings
 from app.shared.core.exceptions import AppError, NotFoundError
 from app.shared.core.ids import generate_uuid7
+from app.shared.core.images import delete_thumbnail, write_thumbnail
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
@@ -65,7 +66,9 @@ async def add_image(
     filename = f"{generate_uuid7()}{extension}"
     directory = settings.media_root_path / "products" / str(tenant_id) / str(product_id)
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / filename).write_bytes(body)
+    original = directory / filename
+    original.write_bytes(body)
+    write_thumbnail(original)
 
     existing = await session.scalar(
         select(ProductImage).where(
@@ -134,6 +137,7 @@ async def delete_image(
     file_path = settings.media_root_path / "products" / str(tenant_id) / str(product_id)
     file_path = file_path / image.url.rsplit("/", 1)[-1]
     file_path.unlink(missing_ok=True)
+    delete_thumbnail(file_path)
 
     await session.delete(image)
     await session.flush()
@@ -185,7 +189,9 @@ async def add_family_image(
     filename = f"{generate_uuid7()}{extension}"
     directory = settings.media_root_path / "products" / str(tenant_id) / str(product_id)
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / filename).write_bytes(body)
+    original = directory / filename
+    original.write_bytes(body)
+    write_thumbnail(original)
     url = _image_url(tenant_id, product_id, filename)
 
     old_images_result = await session.execute(
@@ -204,6 +210,7 @@ async def add_family_image(
             / image.url.rsplit("/", 1)[-1]
         )
         path.unlink(missing_ok=True)
+        delete_thumbnail(path)
         await session.delete(image)
 
     for row in targets:
@@ -253,6 +260,7 @@ async def delete_family_image(session: AsyncSession, tenant_id: UUID, product_id
             / image.url.rsplit("/", 1)[-1]
         )
         path.unlink(missing_ok=True)
+        delete_thumbnail(path)
         await session.delete(image)
     await session.commit()
 

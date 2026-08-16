@@ -9,6 +9,7 @@ from app.shared.core.cache import get_tenant_cache
 from app.shared.core.config import get_settings
 from app.shared.core.exceptions import AppError, NotFoundError
 from app.shared.core.ids import generate_uuid7
+from app.shared.core.images import delete_thumbnail, write_thumbnail
 from app.warehouses.models import Warehouse
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
@@ -99,11 +100,14 @@ async def set_warehouse_image(
     filename = f"{generate_uuid7()}{extension}"
     directory = settings.media_root_path / "warehouses" / str(tenant_id) / str(warehouse_id)
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / filename).write_bytes(body)
+    original = directory / filename
+    original.write_bytes(body)
+    write_thumbnail(original)
 
     if warehouse.image_url:
         old_path = directory / warehouse.image_url.rsplit("/", 1)[-1]
         old_path.unlink(missing_ok=True)
+        delete_thumbnail(old_path)
 
     warehouse.image_url = (
         f"{settings.media_url_prefix}/warehouses/{tenant_id}/{warehouse_id}/{filename}"
@@ -125,6 +129,7 @@ async def delete_warehouse_image(
     path = settings.media_root_path / "warehouses" / str(tenant_id) / str(warehouse_id)
     path = path / warehouse.image_url.rsplit("/", 1)[-1]
     path.unlink(missing_ok=True)
+    delete_thumbnail(path)
 
     warehouse.image_url = None
     await session.commit()

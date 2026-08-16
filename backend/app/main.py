@@ -39,10 +39,10 @@ def create_app() -> FastAPI:
     )
 
     @app.middleware("http")
-    async def no_store_cache_headers(
+    async def cache_headers(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        """Every response gets `Cache-Control: no-store`.
+        """API responses are `no-store`; media files are immutable and cached.
 
         The production host sits behind an nginx layer (cPanel's reverse-proxy
         cache in front of Passenger) that was observed caching GET API
@@ -54,9 +54,18 @@ def create_app() -> FastAPI:
         directive every HTTP cache (browser, CDN, or a reverse proxy like this)
         is required to honor, so it's the only thing that reliably stops that
         layer from caching authenticated, ever-changing API data.
+
+        Media files are the opposite case and must be excluded from that
+        blanket: they are public, never change after upload (each upload gets
+        a fresh uuid7 filename, so a URL is content-addressed), and sending
+        `no-store` for them makes every grid re-download full-resolution
+        originals on every visit. They are safe to cache forever.
         """
         response = await call_next(request)
-        response.headers["Cache-Control"] = "no-store"
+        if request.url.path.startswith(f"{settings.media_url_prefix}/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["Cache-Control"] = "no-store"
         return response
 
     register_exception_handlers(app)

@@ -36,6 +36,25 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api/, /^\/sync/],
+        runtimeCaching: [
+          {
+            // Uploaded media (product/category/warehouse photos and their
+            // webp thumbnails) is immutable: every upload gets a fresh uuid7
+            // filename, so a URL never changes meaning and the server already
+            // serves it with `Cache-Control: max-age=31536000, immutable`.
+            // A cache-first layer here is strictly additive — it serves
+            // instantly from Cache Storage and reuses the same file for every
+            // card on every page instead of re-reading the HTTP cache. The
+            // 500-entry cap keeps the storage footprint bounded.
+            urlPattern: /\/media\/.*/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "media",
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],

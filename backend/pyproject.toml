@@ -18,6 +18,8 @@ dependencies = [
     "python-multipart>=0.0.20",
     "openpyxl>=3.1",
     "structlog>=24.4",
+    # On-upload downscaling of media into webp thumbnails (shared/core/images.py).
+    "pillow>=11.0",
     # ASGI->WSGI bridge. Required only for Passenger/cPanel hosting, which
     # serves WSGI; see passenger_wsgi.py. Harmless elsewhere (uvicorn serves
     # the ASGI app directly and never imports this).

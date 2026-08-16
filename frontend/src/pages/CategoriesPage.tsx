@@ -15,6 +15,7 @@ import { z } from "zod";
 
 import { CategoryTree } from "@/components/CategoryTree";
 import { EmptyState } from "@/components/EmptyState";
+import { ProductImage } from "@/components/ProductImage";
 import { TableLoader } from "@/components/TableLoader";
 import { Button } from "@/components/ui/button";
 import {
@@ -267,7 +268,7 @@ export function CategoriesPage() {
             <div className="flex items-center gap-3">
               <div className="bg-muted text-muted-foreground flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border">
                 {resolvedCategoryImage ? (
-                  <img src={resolvedCategoryImage} alt="" className="size-full object-cover" />
+                  <ProductImage src={resolvedCategoryImage} className="size-full object-cover" />
                 ) : (
                   <FolderIcon className="size-6" />
                 )}

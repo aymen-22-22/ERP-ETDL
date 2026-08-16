@@ -1,3 +1,4 @@
+import { ProductImage } from "@/components/ProductImage";
 import { Badge } from "@/components/ui/badge";
 
 import type { DashboardProduct } from "../types";
@@ -28,10 +29,9 @@ export function LowStockSection({ items }: LowStockSectionProps) {
           <div key={item.id} className="flex h-14 items-center gap-3 px-3">
             <div className="bg-muted relative size-10 shrink-0 overflow-hidden rounded-lg">
               {item.imageUrl ? (
-                <img
+                <ProductImage
                   src={item.imageUrl}
                   alt={item.name}
-                  loading="lazy"
                   className="size-full object-cover"
                 />
               ) : null}

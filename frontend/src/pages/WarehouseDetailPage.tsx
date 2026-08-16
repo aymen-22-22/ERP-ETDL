@@ -8,6 +8,7 @@ import { CategoryGrid } from "@/components/category/CategoryGrid";
 import { CategoryCard } from "@/components/category/CategoryCard";
 import { EmptyState } from "@/components/EmptyState";
 import { PageLoader } from "@/components/PageLoader";
+import { ProductImage } from "@/components/ProductImage";
 import { WarehouseHeader } from "@/components/warehouse/WarehouseHeader";
 import { WarehouseStats } from "@/components/warehouse/WarehouseStats";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,12 @@ export function WarehouseDetailPage() {
 
       <div className="bg-primary/5 relative flex h-40 items-center justify-center overflow-hidden rounded-2xl border">
         {imageUrl ? (
-          <img src={imageUrl} alt={warehouse.name} className="size-full object-cover" />
+          <ProductImage
+            src={imageUrl}
+            alt={warehouse.name}
+            className="size-full object-cover"
+            fetchPriority="high"
+          />
         ) : (
           <TypeIcon className="text-primary/30 size-12" />
         )}

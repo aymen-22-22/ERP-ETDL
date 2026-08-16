@@ -305,6 +305,20 @@ export function resolveProductImageUrl(url: string | null | undefined): string |
   return `${API_BASE_URL}${url}`;
 }
 
+/**
+ * The ~512px webp thumbnail written next to every original at upload time
+ * (`thumb_<stem>.webp`). Grids and cards show this instead of the full
+ * resolution original — which is what makes photo pages fast — and fall back
+ * to the original when the thumbnail is missing (images uploaded before
+ * thumbnails existed, or an undecodable upload). If the URL is not a media
+ * file the full URL is returned unchanged.
+ */
+export function resolveProductThumbUrl(url: string | null | undefined): string | null {
+  const resolved = resolveProductImageUrl(url);
+  if (!resolved) return null;
+  return resolved.replace(/\/([^/]+)\.[A-Za-z0-9]+$/, "/thumb_$1.webp");
+}
+
 export async function listProductImages(productId: string): Promise<ProductImage[]> {
   const res = await apiFetch<ProductImage[]>(`/v1/products/${productId}/images`);
   return res;

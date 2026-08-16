@@ -1,3 +1,5 @@
+import { ProductImage } from "@/components/ProductImage";
+
 import type { DashboardCategory } from "../types";
 import { DashboardEmptyState } from "./DashboardEmptyState";
 import { SectionHeader } from "./SectionHeader";
@@ -27,10 +29,9 @@ export function TopCategories({ categories }: TopCategoriesProps) {
             <div className="bg-card relative overflow-hidden rounded-xl border shadow-sm">
               <div className="relative aspect-video overflow-hidden">
                 {category.imageUrl ? (
-                  <img
+                  <ProductImage
                     src={category.imageUrl}
                     alt={category.name}
-                    loading="lazy"
                     className="size-full object-cover"
                   />
                 ) : (

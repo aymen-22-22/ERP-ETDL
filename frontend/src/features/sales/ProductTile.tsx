@@ -1,3 +1,4 @@
+import { ProductImage } from "@/components/ProductImage";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -60,12 +61,7 @@ export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
 
       <div className="bg-muted flex h-30 w-full shrink-0 items-center justify-center overflow-hidden">
         {product.imageUrl && (
-          <img
-            src={product.imageUrl}
-            alt=""
-            loading="lazy"
-            className="size-full object-contain p-1.5"
-          />
+          <ProductImage src={product.imageUrl} className="size-full object-contain p-1.5" />
         )}
       </div>
 

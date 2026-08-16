@@ -2,6 +2,7 @@ import { StoreIcon, TruckIcon, Undo2Icon, WarehouseIcon } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router";
 
+import { ProductImage } from "@/components/ProductImage";
 import { resolveProductImageUrl } from "@/features/products/api";
 import type { Warehouse, WarehouseType } from "@/features/warehouses/api";
 import { cn } from "@/lib/utils";
@@ -37,7 +38,7 @@ export function WarehouseCard({ warehouse, productCount }: WarehouseCardProps) {
       <div className="bg-card overflow-hidden rounded-2xl border shadow-sm transition-shadow group-hover:shadow-md">
         <div className="relative aspect-[4/3] overflow-hidden">
           {imageUrl ? (
-            <img
+            <ProductImage
               src={imageUrl}
               alt={warehouse.name}
               className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"

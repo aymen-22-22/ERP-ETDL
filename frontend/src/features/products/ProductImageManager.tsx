@@ -1,11 +1,11 @@
 import { StarIcon, TrashIcon, UploadIcon } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { ProductImage } from "@/components/ProductImage";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
-import { resolveProductImageUrl } from "./api";
 import {
   useDeleteProductImageMutation,
   useProductImages,
@@ -89,11 +89,7 @@ export function ProductImageManager({ productId }: { productId: string }) {
               key={image.id}
               className="relative aspect-square overflow-hidden rounded-md border"
             >
-              <img
-                src={resolveProductImageUrl(image.url) ?? undefined}
-                alt=""
-                className="size-full object-cover"
-              />
+              <ProductImage src={image.url} thumb={false} className="size-full object-cover" />
               {image.is_primary && (
                 <span className="bg-primary text-primary-foreground absolute top-1 left-1 rounded px-1.5 py-0.5 text-xs font-medium">
                   Primary

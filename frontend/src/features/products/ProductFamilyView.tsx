@@ -12,6 +12,7 @@ import {
 import { useRef, useState } from "react";
 import { Link } from "react-router";
 
+import { ProductImage } from "@/components/ProductImage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -173,7 +174,11 @@ export function ProductFamilyView({
         <div className="relative shrink-0">
           <div className="bg-muted flex size-20 items-center justify-center overflow-hidden rounded-md border">
             {familyImage ? (
-              <img src={familyImage} alt={family.name} className="size-full object-cover" />
+              <ProductImage
+                src={familyImage}
+                alt={family.name}
+                className="size-full object-cover"
+              />
             ) : (
               <ImageOffIcon className="text-muted-foreground size-6" />
             )}
@@ -361,7 +366,11 @@ export function ProductFamilyView({
           <div className="flex flex-col gap-4">
             <div className="bg-muted flex aspect-video items-center justify-center overflow-hidden rounded-md border">
               {familyImage ? (
-                <img src={familyImage} alt={family.name} className="size-full object-cover" />
+                <ProductImage
+                  src={familyImage}
+                  alt={family.name}
+                  className="size-full object-cover"
+                />
               ) : (
                 <ImageOffIcon className="text-muted-foreground size-8" />
               )}

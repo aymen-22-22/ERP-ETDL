@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { EmptyState } from "@/components/EmptyState";
+import { ProductImage } from "@/components/ProductImage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Fab } from "@/components/ui/fab";
@@ -319,7 +320,7 @@ export function ProductsListPage() {
             >
               <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
                 {imageUrl ? (
-                  <img src={imageUrl} alt={p.name} className="size-full object-cover" />
+                  <ProductImage src={imageUrl} alt={p.name} className="size-full object-cover" />
                 ) : (
                   <ImageOffIcon className="text-muted-foreground size-6" />
                 )}
@@ -451,7 +452,7 @@ export function ProductsListPage() {
                   >
                     <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
                       {imageUrl ? (
-                        <img
+                        <ProductImage
                           src={imageUrl}
                           alt={group.category_name}
                           className="size-full object-cover"

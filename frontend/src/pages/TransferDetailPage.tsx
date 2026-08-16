@@ -2,6 +2,7 @@ import { ArrowLeftIcon, ImageOffIcon } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
 
 import { PageLoader } from "@/components/PageLoader";
+import { ProductImage } from "@/components/ProductImage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,7 +55,11 @@ export function TransferDetailPage() {
                 >
                   <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
                     {imageUrl ? (
-                      <img src={imageUrl} alt={line.name} className="size-full object-cover" />
+                      <ProductImage
+                        src={imageUrl}
+                        alt={line.name}
+                        className="size-full object-cover"
+                      />
                     ) : (
                       <ImageOffIcon className="text-muted-foreground size-6" />
                     )}

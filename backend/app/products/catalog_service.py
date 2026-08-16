@@ -15,6 +15,7 @@ from app.shared.core.cache import get_tenant_cache
 from app.shared.core.config import get_settings
 from app.shared.core.exceptions import AppError, ConflictError, NotFoundError
 from app.shared.core.ids import generate_uuid7
+from app.shared.core.images import delete_thumbnail, write_thumbnail
 from app.shared.core.pagination import PageParams, PaginationMeta
 from app.shared.database.mixins import TenantScopedAuditMixin
 
@@ -245,11 +246,14 @@ async def set_category_image(
     filename = f"{generate_uuid7()}{extension}"
     directory = settings.media_root_path / "categories" / str(tenant_id) / str(category_id)
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / filename).write_bytes(body)
+    original = directory / filename
+    original.write_bytes(body)
+    write_thumbnail(original)
 
     if category.image_url:
         old_path = directory / category.image_url.rsplit("/", 1)[-1]
         old_path.unlink(missing_ok=True)
+        delete_thumbnail(old_path)
 
     category.image_url = (
         f"{settings.media_url_prefix}/categories/{tenant_id}/{category_id}/{filename}"
@@ -271,6 +275,7 @@ async def delete_category_image(
     path = settings.media_root_path / "categories" / str(tenant_id) / str(category_id)
     path = path / category.image_url.rsplit("/", 1)[-1]
     path.unlink(missing_ok=True)
+    delete_thumbnail(path)
 
     category.image_url = None
     await session.commit()
