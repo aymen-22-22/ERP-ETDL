@@ -26,6 +26,7 @@ class CategoryRead(BaseModel):
     name: str
     description: str | None
     sort_order: int
+    image_url: str | None = None
     created_at: datetime
     updated_at: datetime
 

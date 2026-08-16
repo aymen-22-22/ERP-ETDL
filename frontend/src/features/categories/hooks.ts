@@ -7,9 +7,11 @@ import type { CategoryInput } from "./api";
 import {
   createCategory,
   deleteCategory,
+  deleteCategoryImage,
   getCategoryTree,
   listCategories,
   updateCategory,
+  uploadCategoryImage,
 } from "./api";
 
 const TREE_KEY = ["categories", "tree"] as const;
@@ -25,8 +27,12 @@ export function useCategoryTree() {
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
+    if (error.detail) return error.detail;
     if (error.code === "duplicate") return "A category with that name already exists.";
     if (error.code === "permission_denied") return "You don't have permission for that.";
+    if (error.code === "invalid_file_type")
+      return "Only JPEG, PNG, WEBP, or GIF images are allowed.";
+    if (error.code === "file_too_large") return "The image exceeds the 5 MB limit.";
   }
   return "Something went wrong. Please try again.";
 }
@@ -70,5 +76,34 @@ export function useDeleteCategoryMutation() {
     },
     onError: (error) =>
       toast({ title: "Delete failed", description: errorMessage(error), variant: "destructive" }),
+  });
+}
+
+export function useUploadCategoryImageMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ categoryId, file }: { categoryId: string; file: File }) =>
+      uploadCategoryImage(categoryId, file),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+      void queryClient.invalidateQueries({ queryKey: TREE_KEY });
+      toast({ title: "Photo updated" });
+    },
+    onError: (error) =>
+      toast({ title: "Upload failed", description: errorMessage(error), variant: "destructive" }),
+  });
+}
+
+export function useDeleteCategoryImageMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (categoryId: string) => deleteCategoryImage(categoryId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+      void queryClient.invalidateQueries({ queryKey: TREE_KEY });
+      toast({ title: "Photo removed" });
+    },
+    onError: (error) =>
+      toast({ title: "Remove failed", description: errorMessage(error), variant: "destructive" }),
   });
 }

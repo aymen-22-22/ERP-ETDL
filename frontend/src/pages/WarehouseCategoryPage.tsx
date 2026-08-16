@@ -75,6 +75,7 @@ export function WarehouseCategoryPage() {
               key={child.id}
               category={child}
               productCount={countProductsInCategory(child.id, tree, stock)}
+              imageUrl={child.image_url ?? null}
               onClick={() => void navigate(`/warehouses/${warehouseId}/categories/${child.id}`)}
             />
           ))}

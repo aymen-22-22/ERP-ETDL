@@ -1,16 +1,32 @@
+from __future__ import annotations
+
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from uuid import UUID
 
+from fastapi import UploadFile
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.products.models import Category
 from app.shared.core.cache import get_tenant_cache
-from app.shared.core.exceptions import ConflictError, NotFoundError
+from app.shared.core.config import get_settings
+from app.shared.core.exceptions import AppError, ConflictError, NotFoundError
+from app.shared.core.ids import generate_uuid7
 from app.shared.core.pagination import PageParams, PaginationMeta
 from app.shared.database.mixins import TenantScopedAuditMixin
+
+ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+_EXTENSION_BY_CONTENT_TYPE = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
 
 # Generic CRUD for tenant-scoped reference entities (categories, brands,
 # units, tags). They all share TenantScopedAuditMixin (id/tenant_id/name/
@@ -126,8 +142,6 @@ async def delete_ref[M: TenantScopedAuditMixin](
 
 async def list_category_tree(session: AsyncSession, tenant_id: UUID) -> list[dict[str, object]]:
     """Return all categories as a nested tree structure."""
-    from app.products.models import Category
-
     cache = get_tenant_cache()
     cached = await cache.get(tenant_id, "categories", "tree")
     if cached is not None:
@@ -149,6 +163,7 @@ async def list_category_tree(session: AsyncSession, tenant_id: UUID) -> list[dic
             "name": cat.name,
             "description": cat.description,
             "sort_order": cat.sort_order,
+            "image_url": cat.image_url,
             "created_at": cat.created_at.isoformat() if cat.created_at else None,
             "updated_at": cat.updated_at.isoformat() if cat.updated_at else None,
             "children": [],
@@ -199,8 +214,6 @@ async def category_ids_with_descendants(
 ) -> list[UUID]:
     """A category and every category under it, so filtering on a top-level
     category also matches products in its subcategories."""
-    from app.products.models import Category
-
     result = await session.execute(
         select(Category.id, Category.parent_id).where(
             Category.tenant_id == tenant_id, Category.deleted_at.is_(None)
@@ -208,3 +221,59 @@ async def category_ids_with_descendants(
     )
     rows = [(row[0], row[1]) for row in result.all()]
     return _descendant_ids(rows, category_id)
+
+
+async def set_category_image(
+    session: AsyncSession, tenant_id: UUID, category_id: UUID, file: UploadFile
+) -> Category:
+    """Set (or replace) a category's photo. The new file replaces whatever
+    image was stored before, so a category always shows one picture."""
+    category = await get_ref(session, Category, tenant_id, category_id)
+
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        raise AppError(
+            "Only JPEG, PNG, WEBP, or GIF images are allowed", error_code="invalid_file_type"
+        )
+
+    body = await file.read()
+    if len(body) > MAX_IMAGE_BYTES:
+        raise AppError("Image exceeds the 5 MB limit", error_code="file_too_large")
+
+    settings = get_settings()
+    extension = _EXTENSION_BY_CONTENT_TYPE[content_type]
+    filename = f"{generate_uuid7()}{extension}"
+    directory = settings.media_root_path / "categories" / str(tenant_id) / str(category_id)
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / filename).write_bytes(body)
+
+    if category.image_url:
+        old_path = directory / category.image_url.rsplit("/", 1)[-1]
+        old_path.unlink(missing_ok=True)
+
+    category.image_url = (
+        f"{settings.media_url_prefix}/categories/{tenant_id}/{category_id}/{filename}"
+    )
+    await session.commit()
+    await session.refresh(category)
+    await get_tenant_cache().invalidate_pattern(tenant_id, "categories")
+    return category
+
+
+async def delete_category_image(
+    session: AsyncSession, tenant_id: UUID, category_id: UUID
+) -> Category:
+    category = await get_ref(session, Category, tenant_id, category_id)
+    if not category.image_url:
+        return category
+
+    settings = get_settings()
+    path = settings.media_root_path / "categories" / str(tenant_id) / str(category_id)
+    path = path / category.image_url.rsplit("/", 1)[-1]
+    path.unlink(missing_ok=True)
+
+    category.image_url = None
+    await session.commit()
+    await session.refresh(category)
+    await get_tenant_cache().invalidate_pattern(tenant_id, "categories")
+    return category

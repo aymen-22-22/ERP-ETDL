@@ -81,6 +81,7 @@ class Category(TenantScopedAuditMixin, Base):
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     description: Mapped[str | None] = mapped_column(String(500), default=None)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    image_url: Mapped[str | None] = mapped_column(String(500), default=None)
 
 
 class CategoryVariantScheme(TenantScopedAuditMixin, Base):

@@ -1,4 +1,6 @@
-import { apiFetch, apiFetchPaginated } from "@/services/api/client";
+import { ApiError, apiFetch, apiFetchPaginated } from "@/services/api/client";
+import { API_BASE_URL } from "@/services/api/config";
+import { useAuthStore } from "@/store/authStore";
 
 export interface Category {
   id: string;
@@ -58,4 +60,32 @@ export async function updateCategory(id: string, input: Partial<CategoryInput>):
 
 export async function deleteCategory(id: string): Promise<void> {
   return apiFetch<void>(`/v1/categories/${id}`, { method: "DELETE" });
+}
+
+/** Upload (or replace) the category's photo. The new file replaces whatever
+ * image was stored before, so a category always shows one picture. */
+export async function uploadCategoryImage(categoryId: string, file: File): Promise<Category> {
+  const token = useAuthStore.getState().accessToken;
+  const form = new FormData();
+  form.append("file", file);
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const resp = await fetch(`${API_BASE_URL}/v1/categories/${categoryId}/image`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+  const body = (await resp.json()) as {
+    data?: Category;
+    error?: { code?: string; message?: string };
+  };
+  if (!resp.ok)
+    throw new ApiError(resp.status, body.error?.code ?? "unknown_error", body.error?.message);
+  if (!body.data) throw new ApiError(resp.status, "unknown_error");
+  return body.data;
+}
+
+/** Remove the category's photo, falling back to the placeholder tile. */
+export async function deleteCategoryImage(categoryId: string): Promise<Category> {
+  return apiFetch<Category>(`/v1/categories/${categoryId}/image`, { method: "DELETE" });
 }

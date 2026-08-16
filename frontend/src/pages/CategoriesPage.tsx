@@ -1,6 +1,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FolderPlusIcon, LayersIcon, PencilIcon, TagIcon, Trash2Icon } from "lucide-react";
-import { useState } from "react";
+import {
+  FolderIcon,
+  FolderPlusIcon,
+  ImageIcon,
+  ImageOffIcon,
+  LayersIcon,
+  PencilIcon,
+  TagIcon,
+  Trash2Icon,
+} from "lucide-react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -22,9 +31,12 @@ import {
   useCategories,
   useCategoryTree,
   useCreateCategoryMutation,
+  useDeleteCategoryImageMutation,
   useDeleteCategoryMutation,
   useUpdateCategoryMutation,
+  useUploadCategoryImageMutation,
 } from "@/features/categories/hooks";
+import { resolveProductImageUrl } from "@/features/products/api";
 
 const categorySchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -45,8 +57,22 @@ export function CategoriesPage() {
   const createMutation = useCreateCategoryMutation();
   const updateMutation = useUpdateCategoryMutation(selectedId ?? "");
   const deleteMutation = useDeleteCategoryMutation();
+  const uploadImageMutation = useUploadCategoryImageMutation();
+  const removeImageMutation = useDeleteCategoryImageMutation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedCategory = categories?.find((c) => c.id === selectedId);
+  const resolvedCategoryImage = resolveProductImageUrl(selectedCategory?.image_url);
+
+  const handleImageSelected = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && selectedId) uploadImageMutation.mutate({ categoryId: selectedId, file });
+    event.target.value = "";
+  };
+
+  const handleRemoveImage = () => {
+    if (selectedId) removeImageMutation.mutate(selectedId);
+  };
 
   const {
     register: registerCreate,
@@ -231,6 +257,50 @@ export function CategoriesPage() {
             <DialogDescription>Update category details.</DialogDescription>
           </DialogHeader>
           <form onSubmit={(e) => void onEditSubmit(e)} className="flex flex-col gap-4">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={handleImageSelected}
+            />
+            <div className="flex items-center gap-3">
+              <div className="bg-muted text-muted-foreground flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border">
+                {resolvedCategoryImage ? (
+                  <img src={resolvedCategoryImage} alt="" className="size-full object-cover" />
+                ) : (
+                  <FolderIcon className="size-6" />
+                )}
+              </div>
+              <div className="flex flex-col items-start gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadImageMutation.isPending}
+                >
+                  <ImageIcon className="size-4" />
+                  {uploadImageMutation.isPending
+                    ? "Uploading..."
+                    : selectedCategory?.image_url
+                      ? "Change photo"
+                      : "Upload photo"}
+                </Button>
+                {selectedCategory?.image_url && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRemoveImage}
+                    disabled={removeImageMutation.isPending}
+                  >
+                    <ImageOffIcon className="size-4" />
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-name">Name</Label>
               <Input id="edit-name" {...registerEdit("name")} />
