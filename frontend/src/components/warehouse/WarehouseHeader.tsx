@@ -1,4 +1,5 @@
-import { ArrowLeftIcon, EllipsisVerticalIcon } from "lucide-react";
+import { ArrowLeftIcon, EllipsisVerticalIcon, ImageIcon, ImageOffIcon } from "lucide-react";
+import { useRef } from "react";
 import { useNavigate } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -14,13 +15,22 @@ interface WarehouseHeaderProps {
   warehouse: Warehouse;
   onSetDefault?: (() => void) | undefined;
   onDelete?: (() => void) | undefined;
+  onUploadPhoto?: ((file: File) => void) | undefined;
+  onRemovePhoto?: (() => void) | undefined;
 }
 
 /** Detail-page header: back navigation, the warehouse name, and overflow
- * actions (set default / delete) tucked into a kebab menu so the title row
- * stays clean. */
-export function WarehouseHeader({ warehouse, onSetDefault, onDelete }: WarehouseHeaderProps) {
+ * actions (upload photo / set default / delete) tucked into a kebab menu so
+ * the title row stays clean. */
+export function WarehouseHeader({
+  warehouse,
+  onSetDefault,
+  onDelete,
+  onUploadPhoto,
+  onRemovePhoto,
+}: WarehouseHeaderProps) {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="flex items-center justify-between gap-2">
@@ -48,6 +58,23 @@ export function WarehouseHeader({ warehouse, onSetDefault, onDelete }: Warehouse
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {onUploadPhoto && (
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                fileInputRef.current?.click();
+              }}
+            >
+              <ImageIcon className="size-4" />
+              {warehouse.image_url ? "Change photo" : "Upload photo"}
+            </DropdownMenuItem>
+          )}
+          {warehouse.image_url && onRemovePhoto && (
+            <DropdownMenuItem onClick={onRemovePhoto}>
+              <ImageOffIcon className="size-4" />
+              Remove photo
+            </DropdownMenuItem>
+          )}
           {!warehouse.is_default && onSetDefault && (
             <DropdownMenuItem onClick={onSetDefault}>Set as default</DropdownMenuItem>
           )}
@@ -58,6 +85,17 @@ export function WarehouseHeader({ warehouse, onSetDefault, onDelete }: Warehouse
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file && onUploadPhoto) onUploadPhoto(file);
+          event.target.value = "";
+        }}
+      />
     </div>
   );
 }

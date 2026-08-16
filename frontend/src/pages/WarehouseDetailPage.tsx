@@ -1,4 +1,5 @@
-import { FolderOpenIcon } from "lucide-react";
+import { FolderOpenIcon, StoreIcon, TruckIcon, Undo2Icon, WarehouseIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
@@ -21,12 +22,23 @@ import {
 import { countProductsInCategory } from "@/features/categories/treeUtils";
 import { useCategoryTree } from "@/features/categories/hooks";
 import { useWarehouseStock, useWarehouseSummary } from "@/features/inventory/hooks";
+import { resolveProductImageUrl } from "@/features/products/api";
+import type { WarehouseType } from "@/features/warehouses/api";
 import {
+  useDeleteWarehouseImageMutation,
   useDeleteWarehouseMutation,
   useSetDefaultWarehouseMutation,
+  useUploadWarehouseImageMutation,
   useWarehouses,
 } from "@/features/warehouses/hooks";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+
+const TYPE_ICONS: Record<WarehouseType, LucideIcon> = {
+  depot: WarehouseIcon,
+  store: StoreIcon,
+  transit: TruckIcon,
+  return: Undo2Icon,
+};
 
 export function WarehouseDetailPage() {
   const { warehouseId = "" } = useParams();
@@ -37,6 +49,8 @@ export function WarehouseDetailPage() {
   const warehouse = warehouses?.find((w) => w.id === warehouseId);
   const deleteMutation = useDeleteWarehouseMutation();
   const setDefaultMutation = useSetDefaultWarehouseMutation();
+  const uploadImageMutation = useUploadWarehouseImageMutation();
+  const deleteImageMutation = useDeleteWarehouseImageMutation();
 
   const { data: stock } = useWarehouseStock(warehouseId || null);
   const { data: summary, isLoading: summaryLoading } = useWarehouseSummary(warehouseId || null);
@@ -54,6 +68,8 @@ export function WarehouseDetailPage() {
   };
 
   const rootCategories = categoryTree ?? [];
+  const imageUrl = resolveProductImageUrl(warehouse.image_url);
+  const TypeIcon = TYPE_ICONS[warehouse.warehouse_type];
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 sm:p-6">
@@ -63,7 +79,17 @@ export function WarehouseDetailPage() {
           warehouse.is_default ? undefined : () => setDefaultMutation.mutate(warehouseId)
         }
         onDelete={() => setDeleteOpen(true)}
+        onUploadPhoto={(file) => uploadImageMutation.mutate({ warehouseId, file })}
+        onRemovePhoto={() => deleteImageMutation.mutate(warehouseId)}
       />
+
+      <div className="bg-primary/5 relative flex h-40 items-center justify-center overflow-hidden rounded-2xl border">
+        {imageUrl ? (
+          <img src={imageUrl} alt={warehouse.name} className="size-full object-cover" />
+        ) : (
+          <TypeIcon className="text-primary/30 size-12" />
+        )}
+      </div>
 
       <WarehouseStats summary={summaryLoading ? undefined : summary} />
 

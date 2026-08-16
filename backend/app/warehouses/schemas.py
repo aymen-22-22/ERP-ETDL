@@ -40,6 +40,7 @@ class WarehouseRead(BaseModel):
     allow_purchases: bool
     allow_transfers: bool
     allow_negative_stock: bool
+    image_url: str | None = None
     created_at: datetime
     updated_at: datetime
 

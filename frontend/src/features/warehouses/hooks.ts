@@ -9,9 +9,11 @@ import type { Warehouse, WarehouseInput } from "./api";
 import {
   createWarehouse,
   deleteWarehouse,
+  deleteWarehouseImage,
   listWarehouses,
   setDefaultWarehouse,
   updateWarehouse,
+  uploadWarehouseImage,
 } from "./api";
 
 const QUERY_KEY = ["warehouses"] as const;
@@ -95,6 +97,33 @@ export function useSetDefaultWarehouseMutation() {
     },
     onError: (error) =>
       toast({ title: "Update failed", description: errorMessage(error), variant: "destructive" }),
+  });
+}
+
+export function useUploadWarehouseImageMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ warehouseId, file }: { warehouseId: string; file: File }) =>
+      uploadWarehouseImage(warehouseId, file),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      toast({ title: "Photo updated" });
+    },
+    onError: (error) =>
+      toast({ title: "Upload failed", description: errorMessage(error), variant: "destructive" }),
+  });
+}
+
+export function useDeleteWarehouseImageMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (warehouseId: string) => deleteWarehouseImage(warehouseId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      toast({ title: "Photo removed" });
+    },
+    onError: (error) =>
+      toast({ title: "Remove failed", description: errorMessage(error), variant: "destructive" }),
   });
 }
 

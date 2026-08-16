@@ -41,3 +41,4 @@ class Warehouse(TenantScopedAuditMixin, Base):
     allow_purchases: Mapped[bool] = mapped_column(Boolean, default=True)
     allow_transfers: Mapped[bool] = mapped_column(Boolean, default=True)
     allow_negative_stock: Mapped[bool] = mapped_column(Boolean, default=False)
+    image_url: Mapped[str | None] = mapped_column(String(500), default=None)

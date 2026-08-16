@@ -1,4 +1,6 @@
-import { apiFetch, apiFetchPaginated } from "@/services/api/client";
+import { ApiError, apiFetch, apiFetchPaginated } from "@/services/api/client";
+import { API_BASE_URL } from "@/services/api/config";
+import { useAuthStore } from "@/store/authStore";
 
 export type WarehouseType = "depot" | "store" | "transit" | "return";
 
@@ -74,4 +76,28 @@ export async function deleteWarehouse(id: string): Promise<void> {
 
 export async function setDefaultWarehouse(id: string): Promise<Warehouse> {
   return apiFetch<Warehouse>(`/v1/warehouses/${id}/set-default`, { method: "POST" });
+}
+
+/** Upload (or replace) the warehouse's photo. The new file replaces whatever
+ * image was stored before, so a warehouse always shows one picture. */
+export async function uploadWarehouseImage(warehouseId: string, file: File): Promise<Warehouse> {
+  const token = useAuthStore.getState().accessToken;
+  const form = new FormData();
+  form.append("file", file);
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const resp = await fetch(`${API_BASE_URL}/v1/warehouses/${warehouseId}/image`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+  const body = (await resp.json()) as { data?: Warehouse; error?: { code?: string } };
+  if (!resp.ok) throw new ApiError(resp.status, body.error?.code ?? "unknown_error");
+  if (!body.data) throw new ApiError(resp.status, "unknown_error");
+  return body.data;
+}
+
+/** Remove the warehouse's photo, falling back to the themed placeholder. */
+export async function deleteWarehouseImage(warehouseId: string): Promise<Warehouse> {
+  return apiFetch<Warehouse>(`/v1/warehouses/${warehouseId}/image`, { method: "DELETE" });
 }
