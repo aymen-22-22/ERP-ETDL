@@ -1,20 +1,25 @@
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/qrtvfyrp/stock.etdledger.com"
+PassengerBaseURI "/api"
+PassengerPython "/home/qrtvfyrp/virtualenv/stock.etdledger.com/3.14/bin/python"
+PassengerAppLogFile "/home/qrtvfyrp/logs/erpapp.log"
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
 RewriteEngine On
 
-# ── Backend API → Passenger WSGI ────────────────────────────────
-# /api/* requests are handled by the FastAPI app via passenger_wsgi.py.
-RewriteRule ^api/(.*)$ passenger_wsgi.py/$1 [L,QSA]
+# Hand /api straight to Passenger and stop — must precede the SPA fallback.
+RewriteCond %{REQUEST_URI} ^/api
+RewriteRule ^ - [L]
 
-# ── Frontend static assets ──────────────────────────────────────
-# Serve built JS/CSS/images directly; Passenger never sees them.
+# CI deploy extracts dist straight into the doc root.
 RewriteCond %{REQUEST_URI} \.(css|js|woff2?|ttf|eot|svg|png|jpe?g|gif|ico|webp|map)$ [OR]
 RewriteCond %{REQUEST_URI} ^/assets/
-RewriteRule ^ frontend/dist/%{REQUEST_URI} [L]
+RewriteRule ^ %{REQUEST_URI} [L]
 
-# ── Public static files ─────────────────────────────────────────
+# Real files (built assets) are served as-is.
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# ── SPA fallback ────────────────────────────────────────────────
-# Non-API, non-file requests → index.html for client-side routing.
-RewriteRule ^ frontend/dist/index.html [L]
+# Everything else is the SPA.
+RewriteRule ^ index.html [L]
