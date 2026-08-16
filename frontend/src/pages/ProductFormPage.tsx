@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeftIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeftIcon, TrashIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useParams } from "react-router";
 import { z } from "zod";
@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { CategorySelector } from "@/features/categories/CategorySelector";
+import { toast } from "@/lib/toast";
+import { uploadProductImage } from "@/features/products/api";
 import { ProductImageManager } from "@/features/products/ProductImageManager";
 import {
   useCreateProductMutation,
@@ -86,6 +88,36 @@ export function ProductFormPage() {
   type StockFields = { quantity: string; minQuantity: string };
   const [openingStock, setOpeningStock] = useState<Record<string, StockFields>>({});
 
+  // A photo picked while creating is staged and uploaded right after the
+  // product row exists (images are stored against the product id). Mirrors
+  // ProductImageManager's rules so the two paths accept the same files.
+  const PHOTO_ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const photoPreview = useMemo(
+    () => (photoFile ? URL.createObjectURL(photoFile) : null),
+    [photoFile],
+  );
+  useEffect(
+    () => () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+    },
+    [photoPreview],
+  );
+
+  const handlePhotoPick = (file: File | undefined) => {
+    if (!file) return;
+    if (!PHOTO_ACCEPTED_TYPES.includes(file.type)) {
+      toast({ title: "Unsupported file type", variant: "destructive" });
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      toast({ title: "Image exceeds the 5 MB limit", variant: "destructive" });
+      return;
+    }
+    setPhotoFile(file);
+  };
+
   const setStockField = (warehouseId: string, field: "quantity" | "minQuantity", value: string) =>
     setOpeningStock((current: Record<string, StockFields>) => ({
       ...current,
@@ -141,7 +173,24 @@ export function ProductFormPage() {
         },
       ];
     });
-    createMutation.mutate({ ...values, openingStock: entries }, goBack);
+    createMutation.mutate(
+      { ...values, openingStock: entries },
+      {
+        onSuccess: (product) => {
+          if (!photoFile) {
+            void navigate("/products");
+            return;
+          }
+          void uploadProductImage(product.id, photoFile).then(
+            () => navigate("/products"),
+            () => {
+              toast({ title: "Photo failed to upload", variant: "destructive" });
+              void navigate("/products");
+            },
+          );
+        },
+      },
+    );
   });
 
   const isPending = createMutation.isPending || updateMutation.isPending;
@@ -174,7 +223,49 @@ export function ProductFormPage() {
                 <ProductImageManager productId={productId} />
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm">Save the product first to add photos.</p>
+              <div className="flex flex-col gap-1.5">
+                <Label>Product photo (optional)</Label>
+                {photoFile ? (
+                  <div className="flex items-center gap-3">
+                    <div className="size-16 shrink-0 overflow-hidden rounded-md border">
+                      {photoPreview && (
+                        <img src={photoPreview} alt="" className="size-full object-cover" />
+                      )}
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <span className="text-muted-foreground truncate text-sm">
+                        {photoFile.name}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-fit"
+                        onClick={() => setPhotoFile(null)}
+                      >
+                        <TrashIcon />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed p-6 text-center text-sm transition-colors hover:border-foreground/30">
+                    <span className="text-muted-foreground">Choose a photo for this product</span>
+                    <span className="text-muted-foreground text-xs">
+                      JPEG, PNG, WEBP or GIF up to 5 MB
+                    </span>
+                    <input
+                      type="file"
+                      accept={PHOTO_ACCEPTED_TYPES.join(",")}
+                      className="hidden"
+                      onChange={(e) => {
+                        handlePhotoPick(e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
             )}
 
             <div className="flex flex-col gap-1.5">

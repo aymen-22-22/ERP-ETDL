@@ -63,12 +63,16 @@ export function useSellableProducts(storeId: string | null): {
         sku: item.sku || server?.sku || "",
         barcode: server?.barcode ?? null,
         categoryId: item.category_id,
-        unitPriceCents: toCents(server?.price ?? 0),
+        // The stock payload carries the catalog price and primary photo, so a
+        // product is correct even when it sorts outside the first products
+        // page (the old client-side join silently defaulted both to 0/null).
+        // The products-page lookup remains as a fallback for older backends.
+        unitPriceCents: toCents(item.price ?? server?.price ?? 0),
         available: item.available_quantity,
         minQuantity: item.min_quantity,
         isKit: false,
         isConfigurable: false,
-        imageUrl: resolveProductImageUrl(server?.image_url),
+        imageUrl: resolveProductImageUrl(item.image_url ?? server?.image_url),
       } satisfies SellableProduct;
     });
 
