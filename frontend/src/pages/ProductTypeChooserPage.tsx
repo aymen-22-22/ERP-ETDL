@@ -39,23 +39,23 @@ const TYPES = [
 
 export function ProductTypeChooserPage() {
   return (
-    <PageShell size="content">
-      <PageHeader title="New product" description="What kind of product is it?" back="/products" />
+    <PageShell size="form">
+      <PageHeader title="New product" back="/products" />
 
-      <ul className="flex list-none flex-col gap-3">
+      <ul className="flex list-none flex-col gap-2">
         {TYPES.map((type) => (
           <li key={type.to}>
             <Link
               to={type.to}
-              className="hover:bg-accent focus-visible:ring-ring/50 flex items-center gap-4 rounded-md border p-4 outline-none focus-visible:ring-2"
+              className="hover:bg-accent focus-visible:ring-ring/50 flex items-center gap-3 rounded-md border p-3 outline-none focus-visible:ring-2"
             >
-              <type.icon className="text-muted-foreground size-6 shrink-0" />
+              <type.icon className="text-muted-foreground size-5 shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="font-medium">{type.title}</p>
-                <p className="text-muted-foreground text-sm">{type.subtitle}</p>
-                <p className="text-muted-foreground mt-1 truncate text-xs">e.g. {type.examples}</p>
+                <p className="text-sm font-medium">{type.title}</p>
+                <p className="text-muted-foreground text-xs">{type.subtitle}</p>
+                <p className="text-muted-foreground mt-0.5 truncate text-xs">{type.examples}</p>
               </div>
-              <ChevronRightIcon className="text-muted-foreground size-5 shrink-0" />
+              <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
             </Link>
           </li>
         ))}
