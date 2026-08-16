@@ -302,7 +302,16 @@ export async function deleteProduct(id: string, version: number): Promise<void> 
 export function resolveProductImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   if (/^https?:\/\//.test(url)) return url;
-  return `${API_BASE_URL}${url}`;
+
+  const base = API_BASE_URL;
+  if (!base) return url;
+
+  const basePath = base.replace(/^https?:\/\/[^/]+/, "").replace(/\/$/, "");
+  if (basePath && url.startsWith(basePath + "/")) {
+    return url;
+  }
+
+  return `${base}${url}`;
 }
 
 /**
