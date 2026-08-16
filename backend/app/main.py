@@ -62,7 +62,19 @@ def create_app() -> FastAPI:
         originals on every visit. They are safe to cache forever.
         """
         response = await call_next(request)
-        if request.url.path.startswith(f"{settings.media_url_prefix}/"):
+        # Classifying the request by path is subtle behind a2wsgi, which
+        # builds scope["path"] as SCRIPT_NAME + PATH_INFO (so "/api/media/..."
+        # here, not "/media/..."). Starlette's Mount does not re-strip the
+        # path — it only extends root_path — so scope["path"] keeps the full
+        # public path, and app_root_path (when present) is the top-level base
+        # URI (SCRIPT_NAME) preserved through every Mount. Strip it to get the
+        # route path the router itself matches on.
+        scope = request.scope
+        route_path = scope["path"]
+        app_root = scope.get("app_root_path", scope.get("root_path", ""))
+        if app_root and route_path.startswith(app_root):
+            route_path = route_path[len(app_root) :] or "/"
+        if route_path.startswith(f"{settings.media_url_prefix}/"):
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         else:
             response.headers["Cache-Control"] = "no-store"
