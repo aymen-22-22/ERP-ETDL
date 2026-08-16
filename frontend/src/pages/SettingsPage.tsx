@@ -88,12 +88,12 @@ export function SettingsPage() {
     <div className="mx-auto flex max-w-4xl flex-col gap-6 p-4 sm:p-6">
       <h1 className="text-2xl font-semibold">Settings</h1>
 
-      <div className="flex gap-1 rounded-md border p-1">
+      <div className="flex min-w-0 gap-1 overflow-x-auto rounded-md border p-1">
         {visibleTabs.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-sm px-3 py-2 text-sm font-medium transition-colors ${
+            className={`flex shrink-0 items-center justify-center gap-2 rounded-sm px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors sm:flex-1 ${
               activeTab === tab ? "bg-primary text-primary-foreground" : "hover:bg-accent"
             }`}
           >
@@ -284,13 +284,13 @@ function LogsPanel() {
         <CardTitle>Logs</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex gap-1 rounded-md border p-1">
+        <div className="flex min-w-0 gap-1 overflow-x-auto rounded-md border p-1">
           {(["activity", "errors"] as const).map((viewName) => (
             <button
               key={viewName}
               type="button"
               onClick={() => setView(viewName)}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-sm px-3 py-2 text-sm font-medium transition-colors ${
+              className={`flex shrink-0 items-center justify-center gap-2 rounded-sm px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors sm:flex-1 ${
                 view === viewName ? "bg-primary text-primary-foreground" : "hover:bg-accent"
               }`}
             >
