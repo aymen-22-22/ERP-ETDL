@@ -31,7 +31,6 @@ import {
   type CreateUserInput,
 } from "@/features/platform/api";
 import {
-  getCurrentTenant,
   updateTenantName,
   uploadTenantLogo,
   deleteTenantLogo,
@@ -290,7 +289,7 @@ export function SettingsPage() {
 
 function BusinessPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { tenantName, tenantLogoUrl, setTenantBranding } = useAuthStore();
+  const { tenantName, tenantLogoUrl } = useAuthStore();
   const [name, setName] = useState(tenantName);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
