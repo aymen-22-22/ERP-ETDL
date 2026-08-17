@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, PackageOpenIcon } from "lucide-react";
+import { ArrowLeftIcon, PackageIcon, PackageOpenIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
@@ -19,6 +19,7 @@ import {
 import { useCategoryTree } from "@/features/categories/hooks";
 import { useWarehouseStock } from "@/features/inventory/hooks";
 import { useVariantScheme } from "@/features/variants/hooks";
+import { resolveProductImageUrl } from "@/features/products/api";
 import { useWarehouses } from "@/features/warehouses/hooks";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 
@@ -228,12 +229,17 @@ export function WarehouseCategoryPage() {
               description="This category has no stock at this warehouse yet."
             />
           ) : (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
               {groupedProducts.map((group) => (
                 <ProductCard
                   key={group.representative.product_id}
-                  item={group.representative}
-                  {...(group.variantCount > 1 ? { variantCount: group.variantCount } : {})}
+                  href={`/products/${group.representative.product_id}`}
+                  name={group.representative.product_name}
+                  sku={group.representative.sku}
+                  imageUrl={resolveProductImageUrl(group.representative.image_url)}
+                  stockQty={group.totalQuantity}
+                  variantCount={group.variantCount > 1 ? group.variantCount : undefined}
+                  fallbackIcon={<PackageIcon className="text-muted-foreground size-6" />}
                 />
               ))}
             </div>

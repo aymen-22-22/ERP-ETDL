@@ -18,6 +18,7 @@ import { Link, useNavigate } from "react-router";
 
 import { EmptyState } from "@/components/EmptyState";
 import { ProductImage } from "@/components/ProductImage";
+import { ProductCard } from "@/components/product/ProductCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Fab } from "@/components/ui/fab";
@@ -362,64 +363,34 @@ export function ProductsListPage() {
         {grouped.map((entry) => {
           if (entry.kind === "single") {
             const p = entry.product;
-            const imageUrl = resolveProductImageUrl(p.image_url);
             return (
-              <Link
+              <ProductCard
                 key={p.id}
-                to={`/products/${p.id}`}
-                className="bg-card hover:border-foreground/30 flex flex-col overflow-hidden rounded-md border transition-colors"
-              >
-                <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
-                  {imageUrl ? (
-                    <ProductImage src={imageUrl} alt={p.name} className="size-full object-cover" />
-                  ) : (
-                    <ImageOffIcon className="text-muted-foreground size-6" />
-                  )}
-                </div>
-                <div className="flex flex-col gap-0.5 p-2">
-                  <p className="truncate text-xs font-medium">{p.name}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-xs tabular-nums">{p.sku}</span>
-                    <span className="text-xs font-medium tabular-nums">{p.price}</span>
-                  </div>
-                </div>
-              </Link>
+                href={`/products/${p.id}`}
+                name={p.name}
+                sku={p.sku}
+                imageUrl={resolveProductImageUrl(p.image_url)}
+                price={p.price}
+                fallbackIcon={<ImageOffIcon className="text-muted-foreground size-6" />}
+              />
             );
           }
-          // Variant group card
           const r = entry.representative;
-          const imageUrl = resolveProductImageUrl(r.image_url);
           return (
-            <Link
+            <ProductCard
               key={entry.name}
-              to={`/products/${r.id}`}
-              className="bg-card hover:border-foreground/30 flex flex-col overflow-hidden rounded-md border transition-colors"
-            >
-              <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
-                {imageUrl ? (
-                  <ProductImage
-                    src={imageUrl}
-                    alt={entry.name}
-                    className="size-full object-cover"
-                  />
-                ) : (
-                  <LayersIcon className="text-muted-foreground size-6" />
-                )}
-              </div>
-              <div className="flex flex-col gap-0.5 p-2">
-                <p className="truncate text-xs font-medium">{entry.name}</p>
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-muted-foreground text-xs tabular-nums">
-                    {entry.minPrice === entry.maxPrice
-                      ? entry.minPrice
-                      : `${entry.minPrice}–${entry.maxPrice}`}
-                  </span>
-                  <Badge variant="secondary" className="shrink-0 text-xs">
-                    {entry.variantCount}
-                  </Badge>
-                </div>
-              </div>
-            </Link>
+              href={`/products/${r.id}`}
+              name={entry.name}
+              sku=""
+              imageUrl={resolveProductImageUrl(r.image_url)}
+              priceRange={
+                entry.minPrice === entry.maxPrice
+                  ? entry.minPrice
+                  : `${entry.minPrice}–${entry.maxPrice}`
+              }
+              variantCount={entry.variantCount}
+              fallbackIcon={<LayersIcon className="text-muted-foreground size-6" />}
+            />
           );
         })}
       </div>
