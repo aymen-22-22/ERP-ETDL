@@ -238,7 +238,7 @@ export function WarehouseCategoryPage() {
                   sku={group.representative.sku}
                   imageUrl={resolveProductImageUrl(group.representative.image_url)}
                   stockQty={group.totalQuantity}
-                  variantCount={group.variantCount > 1 ? group.variantCount : undefined}
+                  {...(group.variantCount > 1 ? { variantCount: group.variantCount } : {})}
                   fallbackIcon={<PackageIcon className="text-muted-foreground size-6" />}
                 />
               ))}
