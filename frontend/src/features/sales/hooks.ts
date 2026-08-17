@@ -30,6 +30,8 @@ export interface SellableProduct {
   isVariantGroup?: boolean;
   /** The individual variants when this is a variant group. */
   variantProducts?: SellableProduct[];
+  /** Per-variant attribute axes (e.g. { "Couleur": "Noir" }). */
+  attributes?: Record<string, string>;
 }
 
 export function useSaleWarehouses(): Warehouse[] {
@@ -78,7 +80,8 @@ export function useSellableProducts(storeId: string | null): {
         isConfigurable: false,
         imageUrl: resolveProductImageUrl(item.image_url ?? server?.image_url),
         productType: item.product_type,
-      } satisfies SellableProduct & { productType: string };
+        attributes: server?.attributes ?? item.attributes ?? {},
+      } satisfies SellableProduct & { productType: string; attributes: Record<string, string> };
     });
 
     // A kit with no recipe is excluded rather than shown as unsellable: it
@@ -100,7 +103,11 @@ export function useSellableProducts(storeId: string | null): {
             isConfigurable: false,
             imageUrl: null,
             productType: "kit",
-          }) satisfies SellableProduct & { productType: string },
+            attributes: {},
+          }) satisfies SellableProduct & {
+            productType: string;
+            attributes: Record<string, string>;
+          },
       );
 
     // A configurable product without a definition cannot be configured, so it
@@ -123,14 +130,21 @@ export function useSellableProducts(storeId: string | null): {
             isConfigurable: true,
             imageUrl: resolveProductImageUrl(item.image_url),
             productType: "configurable",
-          }) satisfies SellableProduct & { productType: string },
+            attributes: {},
+          }) satisfies SellableProduct & {
+            productType: string;
+            attributes: Record<string, string>;
+          },
       );
 
     const allItems = [...kitTiles, ...configurableTiles, ...stocked];
 
     // Group variant products by structural name so the POS shows one tile per
     // family instead of one per colour/SKU.
-    const variantGroups = new Map<string, (SellableProduct & { productType: string })[]>();
+    const variantGroups = new Map<
+      string,
+      (SellableProduct & { productType: string; attributes: Record<string, string> })[]
+    >();
     const nonVariants: SellableProduct[] = [];
     for (const item of allItems) {
       if (item.productType === "variant") {

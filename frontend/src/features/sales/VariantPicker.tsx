@@ -48,40 +48,19 @@ export function VariantPicker({ product, open, onOpenChange, onAdd }: VariantPic
   // group name already encodes the other axes like diameter/length/model).
   const displayAxes = scheme?.color_key ? [scheme.color_key] : (scheme?.attribute_keys ?? []);
 
-  // Resolve the matching variant from the selections
+  // Resolve the matching variant from the selections using each variant's
+  // per-product `attributes` map (e.g. { "Couleur": "Noir", "Taille": "M" }).
   const variants = product.variantProducts ?? [];
   const resolved =
     displayAxes.length > 0
       ? variants.find((v) =>
           displayAxes.every((axis) => {
             const selected = selections[axis];
-            return (
-              !selected ||
-              v.sku.toLowerCase().includes(selected.toLowerCase()) ||
-              // Fallback: check if the variant's attributes match (if available via name parsing)
-              true
-            );
+            if (!selected) return true;
+            return v.attributes?.[axis]?.toLowerCase() === selected.toLowerCase();
           }),
         )
       : variants[0];
-
-  // Better matching: use the variant's name to extract attribute values
-  // Variant names follow: "Structural Name Value1 Value2 ..."
-  // We match by checking if all selected axis values appear in the variant name
-  const matchedVariant =
-    displayAxes.length > 0
-      ? variants.find((v) => {
-          const nameLower = v.name.toLowerCase();
-          return displayAxes.every((axis) => {
-            const selected = selections[axis];
-            if (!selected) return true;
-            return nameLower.includes(selected.toLowerCase());
-          });
-        })
-      : variants[0];
-
-  // Use the best match: prefer exact attribute match, fall back to name match
-  const finalVariant = resolved ?? matchedVariant;
   const allAxesSelected = displayAxes.length > 0 && displayAxes.every((axis) => selections[axis]);
 
   return (
@@ -135,14 +114,14 @@ export function VariantPicker({ product, open, onOpenChange, onAdd }: VariantPic
             );
           })}
 
-          {finalVariant && (
+          {resolved && (
             <div className="bg-muted flex items-center justify-between rounded-md p-3 text-sm">
               <div className="min-w-0">
-                <p className="truncate font-medium">{finalVariant.name}</p>
-                <p className="text-muted-foreground text-xs">{finalVariant.sku}</p>
+                <p className="truncate font-medium">{resolved.name}</p>
+                <p className="text-muted-foreground text-xs">{resolved.sku}</p>
               </div>
               <span className="shrink-0 pl-3 font-semibold tabular-nums">
-                {finalVariant.available} in stock
+                {resolved.available} in stock
               </span>
             </div>
           )}
@@ -150,19 +129,17 @@ export function VariantPicker({ product, open, onOpenChange, onAdd }: VariantPic
           <Button
             size="lg"
             disabled={
-              (!allAxesSelected && displayAxes.length > 0) ||
-              !finalVariant ||
-              finalVariant.available <= 0
+              (!allAxesSelected && displayAxes.length > 0) || !resolved || resolved.available <= 0
             }
             onClick={() => {
-              if (finalVariant) {
-                onAdd(finalVariant);
+              if (resolved) {
+                onAdd(resolved);
                 onOpenChange(false);
                 setSelections({});
               }
             }}
           >
-            {!finalVariant || finalVariant.available <= 0 ? "Out of stock" : "Add to sale"}
+            {!resolved || resolved.available <= 0 ? "Out of stock" : "Add to sale"}
           </Button>
         </div>
       </SheetContent>
