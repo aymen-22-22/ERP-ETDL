@@ -26,9 +26,7 @@ async def get_tenant(session: AsyncSession, tenant_id: UUID) -> Tenant:
     return tenant
 
 
-async def update_tenant_name(
-    session: AsyncSession, tenant_id: UUID, name: str
-) -> Tenant:
+async def update_tenant_name(session: AsyncSession, tenant_id: UUID, name: str) -> Tenant:
     tenant = await get_tenant(session, tenant_id)
     tenant.name = name
     await session.commit()
@@ -36,9 +34,7 @@ async def update_tenant_name(
     return tenant
 
 
-async def set_tenant_logo(
-    session: AsyncSession, tenant_id: UUID, file: UploadFile
-) -> Tenant:
+async def set_tenant_logo(session: AsyncSession, tenant_id: UUID, file: UploadFile) -> Tenant:
     tenant = await get_tenant(session, tenant_id)
 
     content_type = file.content_type or ""
@@ -67,17 +63,13 @@ async def set_tenant_logo(
     original.write_bytes(body)
     write_thumbnail(original)
 
-    tenant.logo_url = (
-        f"{settings.media_url_prefix}/tenants/{tenant_id}/{filename}"
-    )
+    tenant.logo_url = f"{settings.media_url_prefix}/tenants/{tenant_id}/{filename}"
     await session.commit()
     await session.refresh(tenant)
     return tenant
 
 
-async def delete_tenant_logo(
-    session: AsyncSession, tenant_id: UUID
-) -> Tenant:
+async def delete_tenant_logo(session: AsyncSession, tenant_id: UUID) -> Tenant:
     tenant = await get_tenant(session, tenant_id)
     if not tenant.logo_url:
         return tenant
