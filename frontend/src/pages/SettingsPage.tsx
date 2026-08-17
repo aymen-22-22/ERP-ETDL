@@ -2,17 +2,20 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BuildingIcon,
+  CameraIcon,
   LayersIcon,
   PlusIcon,
   ScrollTextIcon,
   ShieldIcon,
+  TrashIcon,
   UserIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { NavLink } from "react-router";
 import { z } from "zod";
 
+import { ProductImage } from "@/components/ProductImage";
 import { TableLoader } from "@/components/TableLoader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,10 +30,17 @@ import {
   fetchPlatformUsers,
   type CreateUserInput,
 } from "@/features/platform/api";
+import {
+  getCurrentTenant,
+  updateTenantName,
+  uploadTenantLogo,
+  deleteTenantLogo,
+} from "@/features/tenants/api";
+import { resolveProductThumbUrl } from "@/features/products/api";
 import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/store/authStore";
 
-const tabs = ["Profile", "Preferences", "Logs", "Super Admin"] as const;
+const tabs = ["Business", "Profile", "Preferences", "Logs", "Super Admin"] as const;
 type Tab = (typeof tabs)[number];
 
 const userSchema = z.object({
@@ -39,9 +49,11 @@ const userSchema = z.object({
   password: z.string().min(8, "Minimum 8 characters"),
 });
 
+const MAX_LOGO_BYTES = 5 * 1024 * 1024;
+
 export function SettingsPage() {
   const { isSuperuser } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<Tab>("Profile");
+  const [activeTab, setActiveTab] = useState<Tab>("Business");
   const [sheetOpen, setSheetOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -97,6 +109,7 @@ export function SettingsPage() {
               activeTab === tab ? "bg-primary text-primary-foreground" : "hover:bg-accent"
             }`}
           >
+            {tab === "Business" && <BuildingIcon className="size-4" />}
             {tab === "Profile" && <UserIcon className="size-4" />}
             {tab === "Logs" && <ScrollTextIcon className="size-4" />}
             {tab === "Super Admin" && <ShieldIcon className="size-4" />}
@@ -104,6 +117,8 @@ export function SettingsPage() {
           </button>
         ))}
       </div>
+
+      {activeTab === "Business" && <BusinessPanel />}
 
       {activeTab === "Profile" && (
         <Card>
@@ -270,6 +285,129 @@ export function SettingsPage() {
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+function BusinessPanel() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { tenantName, tenantLogoUrl, setTenantBranding } = useAuthStore();
+  const [name, setName] = useState(tenantName);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const handleNameSave = async () => {
+    if (!name.trim() || name === tenantName) return;
+    setSaving(true);
+    try {
+      await updateTenantName(name.trim());
+      toast({ title: "Business name updated" });
+    } catch {
+      toast({ title: "Failed to update name", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_LOGO_BYTES) {
+      toast({ title: "Image exceeds 5 MB limit", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      await uploadTenantLogo(file);
+      toast({ title: "Logo uploaded" });
+    } catch {
+      toast({ title: "Upload failed", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDeleteLogo = async () => {
+    try {
+      await deleteTenantLogo();
+      toast({ title: "Logo removed" });
+    } catch {
+      toast({ title: "Failed to remove logo", variant: "destructive" });
+    }
+  };
+
+  const resolvedLogo = resolveProductThumbUrl(tenantLogoUrl);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Business</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <Label>Logo</Label>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-muted hover:bg-accent flex size-20 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors"
+            >
+              {resolvedLogo ? (
+                <ProductImage src={resolvedLogo} alt="Logo" className="size-full object-contain" />
+              ) : (
+                <span className="text-muted-foreground text-2xl font-bold">
+                  {tenantName?.charAt(0)?.toUpperCase() || "B"}
+                </span>
+              )}
+            </button>
+            <div className="flex flex-col gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <CameraIcon className="mr-1 size-4" />
+                {uploading ? "Uploading…" : "Upload logo"}
+              </Button>
+              {tenantLogoUrl && (
+                <Button variant="ghost" size="sm" onClick={() => void handleDeleteLogo()}>
+                  <TrashIcon className="mr-1 size-4" />
+                  Remove
+                </Button>
+              )}
+              <p className="text-muted-foreground text-xs">JPEG, PNG, or WebP. Max 5 MB.</p>
+            </div>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => void handleLogoUpload(e)}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="business-name">Business name</Label>
+          <div className="flex gap-2">
+            <Input
+              id="business-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your business name"
+            />
+            <Button
+              variant="outline"
+              disabled={saving || !name.trim() || name === tenantName}
+              onClick={() => void handleNameSave()}
+            >
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

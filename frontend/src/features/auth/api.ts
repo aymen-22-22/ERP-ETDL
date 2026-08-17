@@ -5,6 +5,8 @@ interface TokenResponse {
   access_token: string;
   refresh_token: string;
   tenant_id: string;
+  tenant_name: string;
+  tenant_logo_url: string | null;
   token_type: string;
   is_superuser: boolean;
 }
@@ -52,6 +54,8 @@ export async function login(input: LoginInput): Promise<void> {
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,
     isSuperuser: tokens.is_superuser,
+    tenantName: tokens.tenant_name,
+    tenantLogoUrl: tokens.tenant_logo_url,
   });
 }
 

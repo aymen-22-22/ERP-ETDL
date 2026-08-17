@@ -14,3 +14,4 @@ class Tenant(AuditMixin, Base):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    logo_url: Mapped[str | None] = mapped_column(String(500), default=None)

@@ -27,6 +27,8 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     tenant_id: UUID
+    tenant_name: str = ""
+    tenant_logo_url: str | None = None
     token_type: str = "bearer"
     is_superuser: bool = False
 

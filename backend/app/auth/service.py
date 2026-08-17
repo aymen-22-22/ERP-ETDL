@@ -75,8 +75,14 @@ async def login(session: AsyncSession, data: LoginRequest) -> TokenResponse:
         raise PermissionDeniedError("No business assigned to this account")
     tenant_id = tenants[0]
 
+    tenant = await repo.get_tenant_by_id(tenant_id)
     tokens = await _issue_tokens(
-        repo, user_id=user.id, tenant_id=tenant_id, is_superuser=user.is_superuser
+        repo,
+        user_id=user.id,
+        tenant_id=tenant_id,
+        is_superuser=user.is_superuser,
+        tenant_name=tenant.name if tenant else "",
+        tenant_logo_url=tenant.logo_url if tenant else None,
     )
     await session.commit()
     return tokens
@@ -92,9 +98,15 @@ async def refresh(session: AsyncSession, refresh_token: str) -> TokenResponse:
     user = await repo.get_user_by_id(row.user_id)
     is_superuser = user.is_superuser if user else False
 
+    tenant = await repo.get_tenant_by_id(row.tenant_id)
     await repo.delete_refresh_token(token_hash)
     tokens = await _issue_tokens(
-        repo, user_id=row.user_id, tenant_id=row.tenant_id, is_superuser=is_superuser
+        repo,
+        user_id=row.user_id,
+        tenant_id=row.tenant_id,
+        is_superuser=is_superuser,
+        tenant_name=tenant.name if tenant else "",
+        tenant_logo_url=tenant.logo_url if tenant else None,
     )
     await session.commit()
     return tokens
@@ -107,7 +119,13 @@ async def logout(session: AsyncSession, refresh_token: str) -> None:
 
 
 async def _issue_tokens(
-    repo: AuthRepository, *, user_id: UUID, tenant_id: UUID, is_superuser: bool = False
+    repo: AuthRepository,
+    *,
+    user_id: UUID,
+    tenant_id: UUID,
+    is_superuser: bool = False,
+    tenant_name: str = "",
+    tenant_logo_url: str | None = None,
 ) -> TokenResponse:
     access_token = create_access_token(user_id, tenant_id, is_superuser=is_superuser)
     refresh_token = generate_refresh_token()
@@ -121,5 +139,7 @@ async def _issue_tokens(
         access_token=access_token,
         refresh_token=refresh_token,
         tenant_id=tenant_id,
+        tenant_name=tenant_name,
+        tenant_logo_url=tenant_logo_url,
         is_superuser=is_superuser,
     )

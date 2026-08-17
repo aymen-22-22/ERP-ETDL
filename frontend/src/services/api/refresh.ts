@@ -4,10 +4,18 @@ export interface RefreshedTokens {
   accessToken: string;
   refreshToken: string;
   isSuperuser: boolean;
+  tenantName: string;
+  tenantLogoUrl: string | null;
 }
 
 interface RefreshEnvelope {
-  data: { access_token: string; refresh_token: string; is_superuser: boolean };
+  data: {
+    access_token: string;
+    refresh_token: string;
+    is_superuser: boolean;
+    tenant_name: string;
+    tenant_logo_url: string | null;
+  };
 }
 
 /**
@@ -32,6 +40,8 @@ async function doRefresh(refreshToken: string): Promise<RefreshedTokens | null> 
     accessToken: body.data.access_token,
     refreshToken: body.data.refresh_token,
     isSuperuser: body.data.is_superuser,
+    tenantName: body.data.tenant_name ?? "",
+    tenantLogoUrl: body.data.tenant_logo_url ?? null,
   };
 }
 

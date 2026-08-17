@@ -29,6 +29,9 @@ class AuthRepository:
     async def get_user_by_id(self, user_id: UUID) -> User | None:
         return await self._session.get(User, user_id)
 
+    async def get_tenant_by_id(self, tenant_id: UUID) -> Tenant | None:
+        return await self._session.get(Tenant, tenant_id)
+
     async def create_user(self, *, email: str, hashed_password: str, full_name: str) -> User:
         user = User(email=email, hashed_password=hashed_password, full_name=full_name)
         self._session.add(user)
