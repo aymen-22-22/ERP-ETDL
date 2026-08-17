@@ -372,14 +372,16 @@ export function SalesPage() {
         onAdd={addConfigured}
       />
 
-      <VariantPicker
-        product={pickingVariant!}
-        open={pickingVariant !== null}
-        onOpenChange={(open) => {
-          if (!open) setPickingVariant(null);
-        }}
-        onAdd={addVariant}
-      />
+      {pickingVariant && (
+        <VariantPicker
+          product={pickingVariant}
+          open
+          onOpenChange={(open) => {
+            if (!open) setPickingVariant(null);
+          }}
+          onAdd={addVariant}
+        />
+      )}
     </PageShell>
   );
 }
