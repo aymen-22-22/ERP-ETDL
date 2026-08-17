@@ -30,11 +30,13 @@ export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
 
   const actionLabel = product.isConfigurable
     ? "Configure"
-    : soldOut
-      ? "Out"
-      : exhausted
-        ? "In cart"
-        : "Add";
+    : product.isVariantGroup
+      ? "Select"
+      : soldOut
+        ? "Out"
+        : exhausted
+          ? "In cart"
+          : "Add";
 
   return (
     <button
@@ -69,7 +71,13 @@ export function ProductTile({ product, inCart, onAdd }: ProductTileProps) {
         <div className="min-w-0">
           <p className="line-clamp-2 text-sm leading-4 font-medium">{product.name}</p>
           <p className="text-muted-foreground truncate text-xs">
-            {product.isConfigurable ? "Configurable" : product.isKit ? "Kit" : product.sku}
+            {product.isConfigurable
+              ? "Configurable"
+              : product.isVariantGroup
+                ? `${product.variantProducts?.length ?? 0} variants`
+                : product.isKit
+                  ? "Kit"
+                  : product.sku}
           </p>
         </div>
 

@@ -6,6 +6,8 @@ export interface WarehouseStockItem {
   sku: string;
   category_id: string | null;
   price: string | null;
+  product_type: string;
+  attributes: Record<string, string>;
   image_url: string | null;
   quantity_on_hand: number;
   available_quantity: number;

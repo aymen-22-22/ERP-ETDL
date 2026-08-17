@@ -85,23 +85,43 @@ async def list_warehouse_stock(
     from sqlalchemy import select as sa_select
 
     result = await session.execute(
-        sa_select(Product.id, Product.name, Product.sku, Product.category_id, Product.price).where(
-            Product.id.in_(product_ids), Product.tenant_id == tenant_id
-        )
+        sa_select(
+            Product.id,
+            Product.name,
+            Product.sku,
+            Product.category_id,
+            Product.price,
+            Product.product_type,
+            Product.attributes,
+        ).where(Product.id.in_(product_ids), Product.tenant_id == tenant_id)
     )
     # price is shipped in the same row so the till can render and charge the
     # catalog price without a second lookup that depends on a product-list page
     # the stocked item may not fall inside. image_url is the product's primary
     # photo, resolved the same way as the products list (mount-relative URL).
-    product_map = {row.id: (row.name, row.sku, row.category_id, row.price) for row in result}
+    product_map = {
+        row.id: (row.name, row.sku, row.category_id, row.price, row.product_type, row.attributes)
+        for row in result
+    }
     image_map = await primary_image_map(session, tenant_id, product_ids)
 
     # Look the product up once per snapshot. The previous form repeated
     # `.get()` with a different default each time — including a 1-tuple that
     # was then indexed at [2], an IndexError for any snapshot whose product
     # the query didn't return (a soft-deleted product, for instance).
-    def _row(snapshot_product_id: UUID) -> tuple[str, str, UUID | None, Decimal]:
-        return product_map.get(snapshot_product_id, ("Unknown product", "", None, Decimal("0")))
+    _default: tuple[str, str, UUID | None, Decimal, str, dict[str, str]] = (
+        "Unknown product",
+        "",
+        None,
+        Decimal("0"),
+        "simple",
+        {},
+    )
+
+    def _row(
+        snapshot_product_id: UUID,
+    ) -> tuple[str, str, UUID | None, Decimal, str, dict[str, str]]:
+        return product_map.get(snapshot_product_id, _default)
 
     return [
         {
@@ -110,6 +130,8 @@ async def list_warehouse_stock(
             "sku": _row(s.product_id)[1],
             "category_id": str(_row(s.product_id)[2]) if _row(s.product_id)[2] else None,
             "price": str(_row(s.product_id)[3]),
+            "product_type": _row(s.product_id)[4],
+            "attributes": _row(s.product_id)[5] or {},
             "image_url": image_map.get(s.product_id),
             "quantity_on_hand": s.quantity_on_hand,
             "available_quantity": s.available_quantity,

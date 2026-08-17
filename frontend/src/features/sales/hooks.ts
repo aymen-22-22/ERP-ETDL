@@ -26,6 +26,10 @@ export interface SellableProduct {
   /** A configurable product is picked through the wizard, not added as-is. */
   isConfigurable: boolean;
   imageUrl: string | null;
+  /** True when this tile represents a group of variant products. */
+  isVariantGroup?: boolean;
+  /** The individual variants when this is a variant group. */
+  variantProducts?: SellableProduct[];
 }
 
 export function useSaleWarehouses(): Warehouse[] {
@@ -73,7 +77,8 @@ export function useSellableProducts(storeId: string | null): {
         isKit: false,
         isConfigurable: false,
         imageUrl: resolveProductImageUrl(item.image_url ?? server?.image_url),
-      } satisfies SellableProduct;
+        productType: item.product_type,
+      } satisfies SellableProduct & { productType: string };
     });
 
     // A kit with no recipe is excluded rather than shown as unsellable: it
@@ -94,7 +99,8 @@ export function useSellableProducts(storeId: string | null): {
             isKit: true,
             isConfigurable: false,
             imageUrl: null,
-          }) satisfies SellableProduct,
+            productType: "kit",
+          }) satisfies SellableProduct & { productType: string },
       );
 
     // A configurable product without a definition cannot be configured, so it
@@ -116,10 +122,46 @@ export function useSellableProducts(storeId: string | null): {
             isKit: false,
             isConfigurable: true,
             imageUrl: resolveProductImageUrl(item.image_url),
-          }) satisfies SellableProduct,
+            productType: "configurable",
+          }) satisfies SellableProduct & { productType: string },
       );
 
-    return [...kitTiles, ...configurableTiles, ...stocked];
+    const allItems = [...kitTiles, ...configurableTiles, ...stocked];
+
+    // Group variant products by structural name so the POS shows one tile per
+    // family instead of one per colour/SKU.
+    const variantGroups = new Map<string, (SellableProduct & { productType: string })[]>();
+    const nonVariants: SellableProduct[] = [];
+    for (const item of allItems) {
+      if (item.productType === "variant") {
+        const list = variantGroups.get(item.name);
+        if (list) list.push(item);
+        else variantGroups.set(item.name, [item]);
+      } else {
+        nonVariants.push(item);
+      }
+    }
+    const groupTiles: SellableProduct[] = [...variantGroups.values()].map((variants) => {
+      const repr = variants.find((v) => v.imageUrl) ?? variants[0]!;
+      const totalAvailable = variants.reduce((sum, v) => sum + v.available, 0);
+      return {
+        productId: repr.productId,
+        name: repr.name,
+        sku: repr.sku,
+        barcode: null,
+        categoryId: repr.categoryId,
+        unitPriceCents: repr.unitPriceCents,
+        available: totalAvailable,
+        minQuantity: null,
+        isKit: false,
+        isConfigurable: false,
+        imageUrl: repr.imageUrl,
+        isVariantGroup: true,
+        variantProducts: variants.map(({ productType: _, ...rest }) => rest),
+      };
+    });
+
+    return [...nonVariants, ...groupTiles];
   }, [stock, productsPage, kits, configurable]);
 
   return {

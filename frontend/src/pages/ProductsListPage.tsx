@@ -308,28 +308,115 @@ export function ProductsListPage() {
         </p>
       );
     }
+
+    // Group variant products by structural name so one card is shown per
+    // family instead of one per colour/SKU.  Simple, kit, and configurable
+    // products render as standalone cards (unchanged behaviour).
+    interface CardItem {
+      kind: "single";
+      product: Product;
+    }
+    interface CardGroup {
+      kind: "group";
+      name: string;
+      products: Product[];
+      representative: Product;
+      variantCount: number;
+      minPrice: string;
+      maxPrice: string;
+    }
+    type CardEntry = CardItem | CardGroup;
+
+    const variantGroups = new Map<string, Product[]>();
+    const singles: CardEntry[] = [];
+    for (const p of products) {
+      if (p.product_type === "variant") {
+        const list = variantGroups.get(p.name);
+        if (list) list.push(p);
+        else variantGroups.set(p.name, [p]);
+      } else {
+        singles.push({ kind: "single", product: p });
+      }
+    }
+    const grouped: CardEntry[] = [
+      ...singles,
+      ...[...variantGroups.values()].map((group) => {
+        const prices = group.map((p) => parseFloat(p.price));
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        const repr = group.find((p) => p.image_url) ?? group[0]!;
+        return {
+          kind: "group" as const,
+          name: repr.name,
+          products: group,
+          representative: repr,
+          variantCount: group.length,
+          minPrice: min.toFixed(2),
+          maxPrice: max.toFixed(2),
+        };
+      }),
+    ];
+
     return (
       <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
-        {products.map((p) => {
-          const imageUrl = resolveProductImageUrl(p.image_url);
+        {grouped.map((entry) => {
+          if (entry.kind === "single") {
+            const p = entry.product;
+            const imageUrl = resolveProductImageUrl(p.image_url);
+            return (
+              <Link
+                key={p.id}
+                to={`/products/${p.id}`}
+                className="bg-card hover:border-foreground/30 flex flex-col overflow-hidden rounded-md border transition-colors"
+              >
+                <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
+                  {imageUrl ? (
+                    <ProductImage src={imageUrl} alt={p.name} className="size-full object-cover" />
+                  ) : (
+                    <ImageOffIcon className="text-muted-foreground size-6" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-0.5 p-2">
+                  <p className="truncate text-xs font-medium">{p.name}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-xs tabular-nums">{p.sku}</span>
+                    <span className="text-xs font-medium tabular-nums">{p.price}</span>
+                  </div>
+                </div>
+              </Link>
+            );
+          }
+          // Variant group card
+          const r = entry.representative;
+          const imageUrl = resolveProductImageUrl(r.image_url);
           return (
             <Link
-              key={p.id}
-              to={`/products/${p.id}`}
+              key={entry.name}
+              to={`/products/${r.id}`}
               className="bg-card hover:border-foreground/30 flex flex-col overflow-hidden rounded-md border transition-colors"
             >
               <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
                 {imageUrl ? (
-                  <ProductImage src={imageUrl} alt={p.name} className="size-full object-cover" />
+                  <ProductImage
+                    src={imageUrl}
+                    alt={entry.name}
+                    className="size-full object-cover"
+                  />
                 ) : (
-                  <ImageOffIcon className="text-muted-foreground size-6" />
+                  <LayersIcon className="text-muted-foreground size-6" />
                 )}
               </div>
               <div className="flex flex-col gap-0.5 p-2">
-                <p className="truncate text-xs font-medium">{p.name}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-xs tabular-nums">{p.sku}</span>
-                  <span className="text-xs font-medium tabular-nums">{p.price}</span>
+                <p className="truncate text-xs font-medium">{entry.name}</p>
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-muted-foreground text-xs tabular-nums">
+                    {entry.minPrice === entry.maxPrice
+                      ? entry.minPrice
+                      : `${entry.minPrice}–${entry.maxPrice}`}
+                  </span>
+                  <Badge variant="secondary" className="shrink-0 text-xs">
+                    {entry.variantCount}
+                  </Badge>
                 </div>
               </div>
             </Link>

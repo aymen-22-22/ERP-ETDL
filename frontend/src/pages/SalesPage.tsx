@@ -15,8 +15,14 @@ import { useCategoryTree } from "@/features/categories/hooks";
 import { ConfigurableWizard } from "@/features/configurable/ConfigurableWizard";
 import { CartPanel } from "@/features/sales/CartPanel";
 import { computeTotals, useCartStore, type CartLineDraft } from "@/features/sales/cartStore";
-import { collectCategoryIds, useSaleWarehouses, useSellableProducts } from "@/features/sales/hooks";
+import {
+  collectCategoryIds,
+  useSaleWarehouses,
+  useSellableProducts,
+  type SellableProduct,
+} from "@/features/sales/hooks";
 import { ProductTile } from "@/features/sales/ProductTile";
+import { VariantPicker } from "@/features/sales/VariantPicker";
 import { submitSale } from "@/features/sales/submitSale";
 import { formatMoney } from "@/lib/money";
 import { toast } from "@/lib/toast";
@@ -53,6 +59,8 @@ export function SalesPage() {
     name: string;
     sku: string;
   } | null>(null);
+  // The variant group being picked, or null when no picker is open.
+  const [pickingVariant, setPickingVariant] = useState<SellableProduct | null>(null);
 
   const inCartByProduct = useMemo(
     () => new Map(lines.map((l) => [l.productId, l.quantity])),
@@ -96,6 +104,11 @@ export function SalesPage() {
   const add = (productId: string) => {
     const product = products?.find((p) => p.productId === productId);
     if (!product) return;
+    // A variant group opens the picker to choose a specific colour/SKU.
+    if (product.isVariantGroup) {
+      setPickingVariant(product);
+      return;
+    }
     // A configurable product has no single price to ring — route through the
     // wizard, which resolves price and components for the chosen options.
     if (product.isConfigurable) {
@@ -111,6 +124,15 @@ export function SalesPage() {
   };
 
   const addConfigured = (draft: CartLineDraft) => addItem(draft);
+
+  const addVariant = (variant: SellableProduct) => {
+    addItem({
+      productId: variant.productId,
+      name: variant.name,
+      sku: variant.sku,
+      unitPriceCents: variant.unitPriceCents,
+    });
+  };
 
   /** A barcode scanner types the code then sends Enter — treat an exact
    *  barcode/SKU match as "add this now" so scanning never needs a tap. */
@@ -348,6 +370,15 @@ export function SalesPage() {
           if (!open) setConfiguring(null);
         }}
         onAdd={addConfigured}
+      />
+
+      <VariantPicker
+        product={pickingVariant!}
+        open={pickingVariant !== null}
+        onOpenChange={(open) => {
+          if (!open) setPickingVariant(null);
+        }}
+        onAdd={addVariant}
       />
     </PageShell>
   );
