@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeftIcon, TrashIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useParams } from "react-router";
 import { z } from "zod";
@@ -82,6 +82,23 @@ export function ProductFormPage() {
   const watchedWarehouseId = watch("defaultWarehouseId");
   const watchedPrice = watch("price");
   const watchedCostPrice = watch("costPrice");
+  const watchedName = watch("name");
+
+  // When the name changes in edit mode, clear the SKU so the backend
+  // auto-generates a new one from the new name.
+  const prevNameRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!isEdit || !product) return;
+    // Skip the first render (populated by reset()).
+    if (prevNameRef.current === undefined) {
+      prevNameRef.current = product.name;
+      return;
+    }
+    if (watchedName !== prevNameRef.current) {
+      prevNameRef.current = watchedName;
+      setValue("sku", "", { shouldValidate: true });
+    }
+  }, [isEdit, product, watchedName, setValue]);
 
   // Opening stock is create-only and a dynamic per-warehouse grid, which
   // react-hook-form handles awkwardly; plain state is clearer here.

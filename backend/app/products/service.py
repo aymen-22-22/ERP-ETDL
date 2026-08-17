@@ -203,12 +203,35 @@ async def update_product(
     )
     repo = ProductRepository(session)
     current = await get_product(session, tenant_id, product_id)
+    payload = data.model_dump(mode="json", exclude_unset=True)
+
+    # Auto-regenerate SKU when the name changes but no explicit SKU is given.
+    if "name" in payload and "sku" not in payload:
+        new_sku = name_to_sku(payload["name"])
+        # Ensure uniqueness within the tenant — append -1, -2, … on collision.
+        base_sku = new_sku
+        counter = 1
+        while True:
+            exists = await session.scalar(
+                select(Product.id).where(
+                    Product.tenant_id == tenant_id,
+                    Product.sku == new_sku,
+                    Product.id != product_id,
+                    Product.deleted_at.is_(None),
+                )
+            )
+            if exists is None:
+                break
+            new_sku = f"{base_sku}-{counter}"
+            counter += 1
+        payload["sku"] = new_sku
+
     mutation = _envelope(
         entity_type="product",
         entity_id=product_id,
         operation=ChangeOperation.UPDATE,
         base_version=current.version,
-        payload=data.model_dump(mode="json", exclude_unset=True),
+        payload=payload,
     )
     product, _ = await repo.apply_mutation(tenant_id, mutation)
     await session.commit()
@@ -287,6 +310,40 @@ def _sku_prefix_from(name: str) -> str:
     # Strip accents so the SKU stays ASCII — "Décoration" -> "D", not "DÉ".
     ascii_initials = unicodedata.normalize("NFKD", initials).encode("ascii", "ignore").decode()
     return (ascii_initials or "PRD")[:4]
+
+
+_ALPHA_ABBREV_LEN = 3
+
+
+def name_to_sku(name: str) -> str:
+    """Derive a SKU from a product name.
+
+    Each word becomes a dash-separated segment: purely alphabetic words are
+    abbreviated to their first 3 uppercase ASCII characters (``motif`` →
+    ``MOT``), while words that contain digits are kept whole (``k19`` →
+    ``K19``).  Non-alphanumeric characters and accents are stripped.
+
+    Examples::
+
+        "motif cristal k19"      → "MOT-CRI-K19"
+        "motif simple k19 26"    → "MOT-SIM-K19-26"
+        "Porte Chaussure"        → "POR-CHA"
+        "Triangle 28mm Fix"      → "TRI-28MM-FIX"
+    """
+    segments: list[str] = []
+    for word in name.split():
+        # Strip accents so the SKU stays ASCII — "Décoration" → "Decoration".
+        normalized = unicodedata.normalize("NFKD", word)
+        ascii_word = normalized.encode("ascii", "ignore").decode()
+        cleaned = re.sub(r"[^A-Za-z0-9]", "", ascii_word)
+        if not cleaned:
+            continue
+        upper = cleaned.upper()
+        if upper.isalpha():
+            segments.append(upper[:_ALPHA_ABBREV_LEN])
+        else:
+            segments.append(upper)
+    return "-".join(segments) or "PRD"
 
 
 async def generate_sku(

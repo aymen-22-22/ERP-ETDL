@@ -7,7 +7,7 @@ French, so accents and punctuation are the norm, not the exception.
 
 import pytest
 
-from app.products.service import _sku_prefix_from
+from app.products.service import _sku_prefix_from, name_to_sku
 
 
 @pytest.mark.parametrize(
@@ -45,3 +45,48 @@ def test_prefix_is_always_ascii_and_non_empty() -> None:
         assert prefix
         assert prefix.isascii()
         assert prefix.isupper()
+
+
+# ---------------------------------------------------------------------------
+# name_to_sku — word-by-word SKU from product name
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        # The brief examples.
+        ("motif cristal k19", "MOT-CRI-K19"),
+        ("motif cristal k19 25", "MOT-CRI-K19-25"),
+        ("motif simple k19 26", "MOT-SIM-K19-26"),
+        # Pure alphabetic words → first 3 chars.
+        ("Porte Chaussure", "POR-CHA"),
+        ("Triangle Fix", "TRI-FIX"),
+        # Digit-containing words kept whole.
+        ("Tube 28mm", "TUB-28MM"),
+        ("2.1 Triangle Extensible", "21-TRI-EXT"),
+        # Accents are stripped so the SKU stays ASCII.
+        ("Décoration Lumineuse", "DEC-LUM"),
+        ("Porte Clé USB", "POR-CLE-USB"),
+        # Punctuation and slashes are stripped.
+        ("Trois / Cinq lampes", "TRO-CIN-LAM"),
+        # Single word.
+        ("Veilleuses", "VEI"),
+        # Empty / digits-only fallback.
+        ("", "PRD"),
+        ("123", "123"),
+    ],
+)
+def test_name_to_sku(name: str, expected: str) -> None:
+    assert name_to_sku(name) == expected
+
+
+def test_name_to_sku_is_always_uppercase() -> None:
+    assert name_to_sku("motif cristal k19") == name_to_sku("Motif Cristal K19").upper()
+
+
+def test_name_to_sku_is_always_ascii() -> None:
+    for name in ["Décoration", "Porte Clé", "Trois / Cinq lampes"]:
+        sku = name_to_sku(name)
+        assert sku.isascii()
+        assert "-" not in sku or all(seg.isascii() for seg in sku.split("-"))

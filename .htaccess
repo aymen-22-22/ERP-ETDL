@@ -14,7 +14,7 @@ RewriteRule ^ - [L]
 # CI deploy extracts dist straight into the doc root.
 RewriteCond %{REQUEST_URI} \.(css|js|woff2?|ttf|eot|svg|png|jpe?g|gif|ico|webp|map)$ [OR]
 RewriteCond %{REQUEST_URI} ^/assets/
-RewriteRule ^ %{REQUEST_URI} [L]
+RewriteRule ^ - [L]
 
 # Real files (built assets) are served as-is.
 RewriteCond %{REQUEST_FILENAME} -f [OR]
