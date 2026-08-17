@@ -30,11 +30,7 @@ import {
   fetchPlatformUsers,
   type CreateUserInput,
 } from "@/features/platform/api";
-import {
-  updateTenantName,
-  uploadTenantLogo,
-  deleteTenantLogo,
-} from "@/features/tenants/api";
+import { updateTenantName, uploadTenantLogo, deleteTenantLogo } from "@/features/tenants/api";
 import { resolveProductThumbUrl } from "@/features/products/api";
 import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/store/authStore";
