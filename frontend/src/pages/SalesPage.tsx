@@ -66,10 +66,21 @@ export function SalesPage() {
     () => new Map(lines.map((l) => [l.productId, l.quantity])),
     [lines],
   );
-  const availableByProduct = useMemo(
-    () => new Map((products ?? []).map((p) => [p.productId, p.available])),
-    [products],
-  );
+  const availableByProduct = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of products ?? []) {
+      map.set(p.productId, p.available);
+      // Variant group tiles hide individual variants — their product IDs
+      // won't appear in the top-level array, so the stepper would fall back
+      // to line.quantity and disable "+".  Flatten them here.
+      if (p.isVariantGroup) {
+        for (const v of p.variantProducts ?? []) {
+          map.set(v.productId, v.available);
+        }
+      }
+    }
+    return map;
+  }, [products]);
 
   // Selecting a parent category includes everything beneath it.
   const activeCategoryIds = useMemo(() => {

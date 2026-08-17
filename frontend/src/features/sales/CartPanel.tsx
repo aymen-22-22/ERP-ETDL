@@ -110,6 +110,7 @@ export function CartPanel({
                   size="icon"
                   className="size-9"
                   aria-label={`Decrease ${line.name}`}
+                  disabled={line.quantity <= 1}
                   onClick={() => onSetQuantity(line.key, line.quantity - 1)}
                 >
                   <MinusIcon />
