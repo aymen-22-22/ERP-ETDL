@@ -1,8 +1,20 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2Icon, HistoryIcon, ShoppingCartIcon, StoreIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  CheckCircle2Icon,
+  ChevronRightIcon,
+  FolderIcon,
+  HistoryIcon,
+  HomeIcon,
+  LayoutGridIcon,
+  PackageOpenIcon,
+  ShoppingCartIcon,
+  StoreIcon,
+} from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
+import { CategoryCard } from "@/components/category/CategoryCard";
+import { CategoryGrid } from "@/components/category/CategoryGrid";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/patterns/PageHeader";
 import { PageShell } from "@/components/patterns/PageShell";
@@ -12,6 +24,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCategoryTree } from "@/features/categories/hooks";
+import { findCategoryNode, collectDescendantIds } from "@/features/categories/treeUtils";
 import { ConfigurableWizard } from "@/features/configurable/ConfigurableWizard";
 import { CartPanel } from "@/features/sales/CartPanel";
 import { computeTotals, useCartStore, type CartLineDraft } from "@/features/sales/cartStore";
@@ -62,6 +75,10 @@ export function SalesPage() {
   // The variant group being picked, or null when no picker is open.
   const [pickingVariant, setPickingVariant] = useState<SellableProduct | null>(null);
 
+  // Category drill-down view
+  const [salesView, setSalesView] = useState<"flat" | "category">("flat");
+  const [categoryPath, setCategoryPath] = useState<string[]>([]);
+
   const inCartByProduct = useMemo(
     () => new Map(lines.map((l) => [l.productId, l.quantity])),
     [lines],
@@ -94,6 +111,61 @@ export function SalesPage() {
     }
     return new Set([categoryId]);
   }, [categoryId, categoryTree]);
+
+  // --- Category view derived values ---
+  const currentCategoryNode = useMemo(() => {
+    if (categoryPath.length === 0) return null;
+    return findCategoryNode(categoryPath[categoryPath.length - 1] ?? null, categoryTree ?? []);
+  }, [categoryPath, categoryTree]);
+
+  const childCategories = currentCategoryNode?.children ?? categoryTree ?? [];
+
+  const categoryViewProducts = useMemo(() => {
+    if (salesView !== "category") return undefined;
+    if (!products) return undefined;
+    const needle = search.trim().toLowerCase();
+    let filtered = products;
+    if (categoryPath.length > 0 && currentCategoryNode) {
+      const ids = new Set(collectDescendantIds(currentCategoryNode));
+      filtered = products.filter((p) => p.categoryId && ids.has(p.categoryId));
+    }
+    if (needle) {
+      filtered = filtered.filter(
+        (p) =>
+          p.name.toLowerCase().includes(needle) ||
+          p.sku.toLowerCase().includes(needle) ||
+          (p.barcode?.toLowerCase().includes(needle) ?? false),
+      );
+    }
+    return filtered;
+  }, [salesView, products, categoryPath, currentCategoryNode, search]);
+
+  const countInCategory = useCallback(
+    (categoryId: string) => {
+      if (!products || !categoryTree) return 0;
+      const node = findCategoryNode(categoryId, categoryTree);
+      if (!node) return 0;
+      const ids = new Set(collectDescendantIds(node));
+      const seen = new Set<string>();
+      return products.filter((p) => {
+        if (!p.categoryId || !ids.has(p.categoryId)) return false;
+        if (p.isVariantGroup) {
+          if (seen.has(p.name)) return false;
+          seen.add(p.name);
+        }
+        return true;
+      }).length;
+    },
+    [products, categoryTree],
+  );
+
+  const navigateIntoCategory = useCallback((id: string) => {
+    setCategoryPath((prev) => [...prev, id]);
+  }, []);
+
+  const navigateToRoot = useCallback(() => {
+    setCategoryPath([]);
+  }, []);
 
   const visible = useMemo(() => {
     if (!products) return undefined;
@@ -291,7 +363,32 @@ export function SalesPage() {
             onKeyDown={onSearchKeyDown}
           />
 
-          {categoryTree && categoryTree.length > 0 && (
+          {/* View toggle */}
+          <div className="bg-muted flex items-center gap-0.5 rounded-md p-0.5">
+            <Button
+              variant={salesView === "flat" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setSalesView("flat");
+                setCategoryPath([]);
+              }}
+            >
+              <LayoutGridIcon className="mr-1 size-4" /> All
+            </Button>
+            <Button
+              variant={salesView === "category" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setSalesView("category");
+                setCategoryPath([]);
+              }}
+            >
+              <FolderIcon className="mr-1 size-4" /> Categories
+            </Button>
+          </div>
+
+          {/* Category filter chips — flat view only */}
+          {salesView === "flat" && categoryTree && categoryTree.length > 0 && (
             <div className="flex w-full gap-2 overflow-x-auto pb-1">
               <CategoryChip
                 label="All"
@@ -309,6 +406,7 @@ export function SalesPage() {
             </div>
           )}
 
+          {/* Loading skeleton — both views */}
           {isLoading && (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
               {Array.from({ length: 8 }, (_, i) => (
@@ -317,7 +415,8 @@ export function SalesPage() {
             </div>
           )}
 
-          {!isLoading && visible?.length === 0 && (
+          {/* Flat view */}
+          {salesView === "flat" && !isLoading && visible?.length === 0 && (
             <EmptyState
               icon={ShoppingCartIcon}
               title="Nothing to sell here"
@@ -329,7 +428,7 @@ export function SalesPage() {
             />
           )}
 
-          {!isLoading && visible && visible.length > 0 && (
+          {salesView === "flat" && !isLoading && visible && visible.length > 0 && (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
               {visible.map((product) => (
                 <ProductTile
@@ -340,6 +439,67 @@ export function SalesPage() {
                 />
               ))}
             </div>
+          )}
+
+          {/* Category view */}
+          {salesView === "category" && !isLoading && (
+            <>
+              {/* Breadcrumb */}
+              {categoryPath.length > 0 && (
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <Button variant="ghost" size="sm" className="h-7 px-2" onClick={navigateToRoot}>
+                    <HomeIcon className="mr-1 size-3.5" /> All
+                  </Button>
+                  {categoryPath.map((catId) => {
+                    const node = findCategoryNode(catId, categoryTree ?? []);
+                    return node ? (
+                      <span key={catId} className="flex items-center gap-1">
+                        <ChevronRightIcon className="size-3" />
+                        <span>{node.name}</span>
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              )}
+
+              {/* Subcategory cards */}
+              {childCategories.length > 0 && (
+                <CategoryGrid>
+                  {childCategories.map((child) => (
+                    <CategoryCard
+                      key={child.id}
+                      category={child}
+                      productCount={countInCategory(child.id)}
+                      imageUrl={child.image_url ?? null}
+                      onClick={() => navigateIntoCategory(child.id)}
+                    />
+                  ))}
+                </CategoryGrid>
+              )}
+
+              {/* Products at this level */}
+              {categoryViewProducts && categoryViewProducts.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
+                  {categoryViewProducts.map((product) => (
+                    <ProductTile
+                      key={product.productId}
+                      product={product}
+                      inCart={inCartByProduct.get(product.productId) ?? 0}
+                      onAdd={() => add(product.productId)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Empty state for current level */}
+              {childCategories.length === 0 && (!categoryViewProducts || categoryViewProducts.length === 0) && (
+                <EmptyState
+                  icon={PackageOpenIcon}
+                  title="No products here"
+                  description="This category has no products yet."
+                />
+              )}
+            </>
           )}
         </div>
 
