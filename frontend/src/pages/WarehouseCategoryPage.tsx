@@ -125,9 +125,15 @@ export function WarehouseCategoryPage() {
       .filter((key) => key !== activeScheme.color_key)
       .map((key) => ({
         key,
-        values: activeScheme.allowed_values[key] ?? [],
+        values: stock
+          ? [
+              ...new Set(
+                stock.map((item) => item.attributes?.[key]).filter((v): v is string => !!v),
+              ),
+            ]
+          : (activeScheme.allowed_values[key] ?? []),
       }));
-  }, [activeScheme]);
+  }, [activeScheme, stock]);
 
   const toggleFilter = (axis: string, value: string) => {
     setActiveFilters((prev) => {
