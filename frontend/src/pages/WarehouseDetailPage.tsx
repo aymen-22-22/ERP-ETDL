@@ -1,6 +1,6 @@
 import { FolderOpenIcon, StoreIcon, TruckIcon, Undo2Icon, WarehouseIcon } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
 import { CardGridSkeleton } from "@/components/CardGridSkeleton";
@@ -12,6 +12,7 @@ import { ProductImage } from "@/components/ProductImage";
 import { WarehouseHeader } from "@/components/warehouse/WarehouseHeader";
 import { WarehouseStats } from "@/components/warehouse/WarehouseStats";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -72,6 +73,13 @@ export function WarehouseDetailPage() {
   const imageUrl = resolveProductImageUrl(warehouse.image_url);
   const TypeIcon = TYPE_ICONS[warehouse.warehouse_type];
 
+  const [categorySearch, setCategorySearch] = useState("");
+  const filteredCategories = useMemo(() => {
+    if (!categorySearch.trim()) return rootCategories;
+    const needle = categorySearch.trim().toLowerCase();
+    return rootCategories.filter((c) => c.name.toLowerCase().includes(needle));
+  }, [rootCategories, categorySearch]);
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 sm:p-6">
       <WarehouseHeader
@@ -121,19 +129,32 @@ export function WarehouseDetailPage() {
               description="Add categories under Catalog to start organizing stock here."
             />
           ) : (
-            <CategoryGrid>
-              {rootCategories.map((category) => (
-                <CategoryCard
-                  key={category.id}
-                  category={category}
-                  productCount={countProductsInCategory(category.id, categoryTree, stock)}
-                  imageUrl={category.image_url ?? null}
-                  onClick={() =>
-                    void navigate(`/warehouses/${warehouseId}/categories/${category.id}`)
-                  }
-                />
-              ))}
-            </CategoryGrid>
+            <>
+              <Input
+                placeholder="Search categories..."
+                value={categorySearch}
+                onChange={(e) => setCategorySearch(e.target.value)}
+                className="w-full"
+              />
+              <CategoryGrid>
+                {filteredCategories.map((category) => (
+                  <CategoryCard
+                    key={category.id}
+                    category={category}
+                    productCount={countProductsInCategory(category.id, categoryTree, stock)}
+                    imageUrl={category.image_url ?? null}
+                    onClick={() =>
+                      void navigate(`/warehouses/${warehouseId}/categories/${category.id}`)
+                    }
+                  />
+                ))}
+              </CategoryGrid>
+              {filteredCategories.length === 0 && categorySearch.trim() && (
+                <p className="text-muted-foreground py-4 text-center text-sm">
+                  No categories match "{categorySearch.trim()}".
+                </p>
+              )}
+            </>
           ))}
       </section>
 

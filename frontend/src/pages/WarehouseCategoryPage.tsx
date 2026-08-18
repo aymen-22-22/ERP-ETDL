@@ -168,29 +168,36 @@ export function WarehouseCategoryPage() {
 
       {(treeLoading || stockLoading) && <CardGridSkeleton count={4} />}
 
+      {!treeLoading && stock !== undefined && (
+        <Input
+          placeholder="Search categories or products..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full"
+        />
+      )}
+
       {!treeLoading && stock !== undefined && hasChildren && (
         <CategoryGrid>
-          {children.map((child) => (
-            <CategoryCard
-              key={child.id}
-              category={child}
-              productCount={countProductsInCategory(child.id, tree, stock)}
-              imageUrl={child.image_url ?? null}
-              onClick={() => void navigate(`/warehouses/${warehouseId}/categories/${child.id}`)}
-            />
-          ))}
+          {children
+            .filter((child) => {
+              if (!search.trim()) return true;
+              return child.name.toLowerCase().includes(search.trim().toLowerCase());
+            })
+            .map((child) => (
+              <CategoryCard
+                key={child.id}
+                category={child}
+                productCount={countProductsInCategory(child.id, tree, stock)}
+                imageUrl={child.image_url ?? null}
+                onClick={() => void navigate(`/warehouses/${warehouseId}/categories/${child.id}`)}
+              />
+            ))}
         </CategoryGrid>
       )}
 
       {!treeLoading && !stockLoading && stock !== undefined && !hasChildren && (
         <>
-          <Input
-            placeholder="Search products..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full"
-          />
-
           {filterAxes.length > 0 && (
             <div className="flex flex-col gap-2">
               {filterAxes.map((axis) => (
