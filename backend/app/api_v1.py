@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.agents.router import router as agents_router
 from app.auth.router import router as auth_router
 from app.inventory.router import router as inventory_router
 from app.monitoring.router import logs_router, notifications_router
@@ -13,6 +14,7 @@ from app.users.router import router as users_router
 from app.warehouses.router import router as warehouses_router
 
 api_v1_router = APIRouter(prefix="/v1")
+api_v1_router.include_router(agents_router)
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(platform_router)
 api_v1_router.include_router(products_router)

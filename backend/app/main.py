@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app import models as _models  # noqa: F401  — populates Base.metadata with every model
+from app.agents.supervisor import get_supervisor
 from app.api_v1 import api_v1_router
 from app.shared.core.config import get_settings
 from app.shared.core.exceptions import register_exception_handlers
@@ -19,8 +20,13 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     configure_logging()
-    yield
-    await engine.dispose()
+    supervisor = get_supervisor()
+    await supervisor.start()
+    try:
+        yield
+    finally:
+        await supervisor.stop()
+        await engine.dispose()
 
 
 def create_app() -> FastAPI:
