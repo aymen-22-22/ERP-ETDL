@@ -8,7 +8,7 @@ from app.agents.celery_app import celery_app
 from app.agents.models import AgentRole, AgentTaskStatus, TaskType
 from app.agents.repository import AgentRepository
 from app.agents.schemas import AgentTaskCreate, AgentTaskRead
-from app.shared.database.session import get_session
+from app.shared.database.session import get_db
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -36,7 +36,7 @@ async def list_task_types() -> dict[str, list[dict[str, object]]]:
 @router.post("/tasks", response_model=dict, status_code=status.HTTP_202_ACCEPTED)
 async def create_task(
     data: AgentTaskCreate,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_db),
 ) -> dict:
     task_payload = {
         "role": data.role.value,
