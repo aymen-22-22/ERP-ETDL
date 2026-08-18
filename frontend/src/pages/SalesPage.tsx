@@ -492,13 +492,14 @@ export function SalesPage() {
               )}
 
               {/* Empty state for current level */}
-              {childCategories.length === 0 && (!categoryViewProducts || categoryViewProducts.length === 0) && (
-                <EmptyState
-                  icon={PackageOpenIcon}
-                  title="No products here"
-                  description="This category has no products yet."
-                />
-              )}
+              {childCategories.length === 0 &&
+                (!categoryViewProducts || categoryViewProducts.length === 0) && (
+                  <EmptyState
+                    icon={PackageOpenIcon}
+                    title="No products here"
+                    description="This category has no products yet."
+                  />
+                )}
             </>
           )}
         </div>
