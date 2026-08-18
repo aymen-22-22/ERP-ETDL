@@ -1,6 +1,6 @@
 import { FolderOpenIcon, StoreIcon, TruckIcon, Undo2Icon, WarehouseIcon } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
 import { CardGridSkeleton } from "@/components/CardGridSkeleton";
@@ -58,6 +58,8 @@ export function WarehouseDetailPage() {
   const { data: summary, isLoading: summaryLoading } = useWarehouseSummary(warehouseId || null);
   const { data: categoryTree, isLoading: treeLoading } = useCategoryTree();
 
+  const [categorySearch, setCategorySearch] = useState("");
+
   if (warehousesLoading) return <PageLoader />;
   if (!warehouse) return <NotFoundPage />;
 
@@ -73,12 +75,11 @@ export function WarehouseDetailPage() {
   const imageUrl = resolveProductImageUrl(warehouse.image_url);
   const TypeIcon = TYPE_ICONS[warehouse.warehouse_type];
 
-  const [categorySearch, setCategorySearch] = useState("");
-  const filteredCategories = useMemo(() => {
-    if (!categorySearch.trim()) return rootCategories;
-    const needle = categorySearch.trim().toLowerCase();
-    return rootCategories.filter((c) => c.name.toLowerCase().includes(needle));
-  }, [rootCategories, categorySearch]);
+  const filteredCategories = categorySearch.trim()
+    ? rootCategories.filter((c) =>
+        c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()),
+      )
+    : rootCategories;
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 sm:p-6">
